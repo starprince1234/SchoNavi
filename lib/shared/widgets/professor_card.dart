@@ -9,10 +9,16 @@ class ProfessorCard extends StatelessWidget {
     super.key,
     required this.recommendation,
     required this.onTap,
+    this.isFavorite = false,
+    this.onFavoritePressed,
+    this.onOpenHomepagePressed,
   });
 
   final Recommendation recommendation;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoritePressed;
+  final VoidCallback? onOpenHomepagePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +34,7 @@ class ProfessorCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -40,6 +47,16 @@ class ProfessorCard extends StatelessWidget {
                     ),
                   ),
                   MatchLevelChip(level: r.matchLevel),
+                  if (onFavoritePressed != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: isFavorite ? '取消收藏' : '收藏导师',
+                      icon: Icon(
+                        isFavorite ? Icons.bookmark : Icons.bookmark_border,
+                      ),
+                      onPressed: onFavoritePressed,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 4),
@@ -56,6 +73,17 @@ class ProfessorCard extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (onOpenHomepagePressed != null) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: onOpenHomepagePressed,
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('访问主页'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
