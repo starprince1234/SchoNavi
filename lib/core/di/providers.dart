@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
@@ -6,6 +7,10 @@ import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../config/app_config.dart';
+import '../launcher/link_launcher.dart';
+import '../launcher/url_launcher_link_launcher.dart';
+import '../storage/local_store.dart';
+import '../storage/shared_preferences_local_store.dart';
 
 final mockDbProvider = Provider<MockDb>((ref) => MockDb());
 
@@ -31,3 +36,22 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
 });
+
+/// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
+/// 未 override 直接读取会抛错，提醒接线缺失。
+final sharedPreferencesProvider = Provider<SharedPreferences>(
+  (ref) => throw UnimplementedError(
+    'sharedPreferencesProvider must be overridden in main() with '
+    'SharedPreferences.getInstance()',
+  ),
+);
+
+/// 全应用本地持久化入口。收藏/历史/登录态/首启标记均经此存取。
+final localStoreProvider = Provider<LocalStore>(
+  (ref) => SharedPreferencesLocalStore(ref.watch(sharedPreferencesProvider)),
+);
+
+/// 外链打开（教师主页等）。feature 层只依赖 [LinkLauncher] 接口，便于注入假实现。
+final linkLauncherProvider = Provider<LinkLauncher>(
+  (ref) => const UrlLauncherLinkLauncher(),
+);
