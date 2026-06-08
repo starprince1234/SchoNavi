@@ -1,9 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/local/local_favorite_repository.dart';
+import '../../data/local/local_history_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
 import '../../data/mock/mock_recommendation_repository.dart';
+import '../../domain/entities/favorite_item.dart';
+import '../../domain/entities/search_history_item.dart';
+import '../../domain/repositories/favorite_repository.dart';
+import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../config/app_config.dart';
@@ -55,3 +61,33 @@ final localStoreProvider = Provider<LocalStore>(
 final linkLauncherProvider = Provider<LinkLauncher>(
   (ref) => const UrlLauncherLinkLauncher(),
 );
+
+final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
+  final repo = LocalFavoriteRepository(ref.watch(localStoreProvider));
+  ref.onDispose(repo.dispose);
+  return repo;
+});
+
+final favoritesProvider = StreamProvider<List<FavoriteItem>>((ref) {
+  return ref.watch(favoriteRepositoryProvider).watch();
+});
+
+final favoriteStatusProvider = StreamProvider.family<bool, String>((
+  ref,
+  professorId,
+) {
+  return ref
+      .watch(favoriteRepositoryProvider)
+      .watch()
+      .map((items) => items.any((item) => item.professorId == professorId));
+});
+
+final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
+  final repo = LocalHistoryRepository(ref.watch(localStoreProvider));
+  ref.onDispose(repo.dispose);
+  return repo;
+});
+
+final searchHistoryProvider = StreamProvider<List<SearchHistoryItem>>((ref) {
+  return ref.watch(historyRepositoryProvider).watch();
+});
