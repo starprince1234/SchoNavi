@@ -38,6 +38,10 @@ def _source_db_paths() -> list[Path]:
     return [legacy_path] if legacy_path.exists() else []
 
 
+def _connect_readonly(path: Path) -> sqlite3.Connection:
+    return sqlite3.connect(f"file:{path.resolve().as_posix()}?mode=ro", uri=True)
+
+
 def _text(value: Any) -> str | None:
     if value is None:
         return None
@@ -126,7 +130,7 @@ def import_source_db(source_path: Path) -> dict[str, int | str]:
         raise FileNotFoundError(f"Source DB not found: {source_path}")
 
     source_name = source_path.name
-    con = sqlite3.connect(source_path)
+    con = _connect_readonly(source_path)
     con.row_factory = sqlite3.Row
     try:
         org_units = (
