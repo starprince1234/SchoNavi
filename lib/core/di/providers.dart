@@ -3,11 +3,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
+import '../../data/mock/mock_chat_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
 import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/search_history_item.dart';
+import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
@@ -38,6 +40,16 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   switch (cfg.dataSource) {
     case DataSource.mock:
       return MockProfessorRepository(ref.watch(mockDbProvider));
+    case DataSource.http:
+      throw UnimplementedError('HTTP data source not wired until V1.0');
+  }
+});
+
+final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  switch (cfg.dataSource) {
+    case DataSource.mock:
+      return MockChatRepository(ref.watch(mockDbProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
