@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/chat/pages/chat_page.dart';
 import '../../features/favorite/pages/favorite_page.dart';
 import '../../features/history/pages/history_page.dart';
 import '../../features/home/pages/home_page.dart';
@@ -45,6 +46,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/professor/:id',
         builder: (_, state) =>
             ProfessorPage(professorId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (_, state) => ChatPage(
+          sessionId: state.uri.queryParameters['sid'] ?? '',
+          professorId: state.uri.queryParameters['pid'],
+        ),
       ),
     ],
   );
