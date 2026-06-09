@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
@@ -21,6 +22,17 @@ class ProfessorPage extends ConsumerWidget {
     final async = ref.watch(professorProvider(professorId));
     return Scaffold(
       appBar: AppBar(title: const Text('导师详情')),
+      floatingActionButton: async.maybeWhen(
+        data: (p) => FloatingActionButton.extended(
+          onPressed: () => context.push(
+            '/chat?sid=${Uri.encodeComponent('s_prof_${p.id}')}'
+            '&pid=${Uri.encodeComponent(p.id)}',
+          ),
+          icon: const Icon(Icons.chat_bubble_outline),
+          label: const Text('继续追问'),
+        ),
+        orElse: () => null,
+      ),
       body: async.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(

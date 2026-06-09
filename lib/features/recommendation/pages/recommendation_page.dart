@@ -33,6 +33,18 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
     final async = ref.watch(recommendationProvider(widget.prompt));
     return Scaffold(
       appBar: AppBar(title: const Text('推荐结果')),
+      floatingActionButton: async.maybeWhen(
+        data: (result) => result.recommendations.isEmpty
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: () => context.push(
+                  '/chat?sid=${Uri.encodeComponent(result.sessionId)}',
+                ),
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('继续追问'),
+              ),
+        orElse: () => null,
+      ),
       body: async.when(
         loading: () => const LoadingView(label: '正在为你匹配导师…'),
         error: (e, _) => ErrorView(
@@ -53,23 +65,21 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
             children: [
               QueryUnderstandingCard(understanding: result.queryUnderstanding),
               const SizedBox(height: 8),
-              ...result.recommendations.map(
-                (r) {
-                  final isFavorite = ref
-                      .watch(favoriteStatusProvider(r.professorId))
-                      .maybeWhen(data: (value) => value, orElse: () => false);
-                  return ProfessorCard(
-                    recommendation: r,
-                    isFavorite: isFavorite,
-                    onTap: () => context.push('/professor/${r.professorId}'),
-                    onFavoritePressed: () => ref
-                        .read(favoriteRepositoryProvider)
-                        .toggle(FavoriteItem.fromRecommendation(r)),
-                    onOpenHomepagePressed: () =>
-                        _openHomepage(context, r.homepageUrl),
-                  );
-                },
-              ),
+              ...result.recommendations.map((r) {
+                final isFavorite = ref
+                    .watch(favoriteStatusProvider(r.professorId))
+                    .maybeWhen(data: (value) => value, orElse: () => false);
+                return ProfessorCard(
+                  recommendation: r,
+                  isFavorite: isFavorite,
+                  onTap: () => context.push('/professor/${r.professorId}'),
+                  onFavoritePressed: () => ref
+                      .read(favoriteRepositoryProvider)
+                      .toggle(FavoriteItem.fromRecommendation(r)),
+                  onOpenHomepagePressed: () =>
+                      _openHomepage(context, r.homepageUrl),
+                );
+              }),
             ],
           );
         },
