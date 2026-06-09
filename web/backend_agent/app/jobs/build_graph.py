@@ -158,7 +158,15 @@ def save_graph_edges(G: nx.Graph[str]):
         session.commit()
 
 
-if __name__ == "__main__":
+def build_graph() -> dict[str, int]:
+    """Build and persist the knowledge graph."""
     graph = build_knowledge_graph()
-    logger.info("Graph: %s nodes, %s edges", graph.number_of_nodes(), graph.number_of_edges())
     save_graph_edges(graph)
+    node_count = graph.number_of_nodes()
+    edge_count = graph.number_of_edges()
+    logger.info("Graph: %s nodes, %s edges", node_count, edge_count)
+    return {"nodes": node_count, "edges": edge_count}
+
+
+if __name__ == "__main__":
+    build_graph()
