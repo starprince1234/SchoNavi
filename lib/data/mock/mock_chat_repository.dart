@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_result.dart';
 import '../../domain/entities/recommendation.dart';
@@ -6,9 +8,15 @@ import 'mock_db.dart';
 
 /// 按消息关键词意图返回合理假回答；「相似/换方向/只看某地」附带推荐卡片。
 class MockChatRepository implements ChatRepository {
-  MockChatRepository(this._db);
+  MockChatRepository(
+    this._db, {
+    this.streamChunkDelay = const Duration(milliseconds: 28),
+  });
 
   final MockDb _db;
+
+  /// 每片之间的间隔，制造逐字流式观感；测试可传 Duration.zero 提速。
+  final Duration streamChunkDelay;
 
   static const List<String> _locations = [
     '北京',
@@ -151,6 +159,35 @@ class MockChatRepository implements ChatRepository {
         relatedRecommendations: const [],
       ),
     );
+  }
+
+  @override
+  Stream<String> streamReply({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) async* {
+    final res = await sendMessage(
+      sessionId: sessionId,
+      message: message,
+      professorId: professorId,
+    );
+    final answer = switch (res) {
+      Success(:final data) => data.answer,
+      Failure(:final error) => error.message,
+    };
+
+    for (final chunk in _sliceForStream(answer)) {
+      await Future<void>.delayed(streamChunkDelay);
+      yield chunk;
+    }
+  }
+
+  /// 把整段答案按固定字符数切片，离线兜底的逐字流式（不含推荐卡片）。
+  Iterable<String> _sliceForStream(String text, {int size = 4}) sync* {
+    for (var i = 0; i < text.length; i += size) {
+      yield text.substring(i, math.min(i + size, text.length));
+    }
   }
 
   bool _contains(String text, List<String> keywords) =>

@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
-import '../../../core/result/result.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../domain/entities/chat_message.dart';
 
 /// 单屏对话状态。messages 含问候 / 用户 / 助手消息；isResponding 控制输入禁用。
@@ -40,14 +42,29 @@ class ChatState {
 /// 每页一个 Notifier。对话同一时刻仅一个屏幕，故用全局 Notifier + 显式 start 注入会话。
 class ChatNotifier extends Notifier<ChatState> {
   int _seq = 0;
+  StreamSubscription<String>? _sub;
+  Completer<void>? _turn;
+  String? _activeAssistantId;
 
   @override
-  ChatState build() => const ChatState.initial();
+  ChatState build() {
+    ref.onDispose(() {
+      final sub = _sub;
+      if (sub != null) unawaited(sub.cancel());
+    });
+    return const ChatState.initial();
+  }
 
   void start({required String sessionId, String? professorId}) {
     if (state.sessionId == sessionId && state.professorId == professorId) {
       return;
     }
+    final sub = _sub;
+    _sub = null;
+    _activeAssistantId = null;
+    if (sub != null) unawaited(sub.cancel());
+    _completeTurn();
+
     _seq = 0;
     state = ChatState(
       sessionId: sessionId,
@@ -113,36 +130,110 @@ class ChatNotifier extends Notifier<ChatState> {
       isResponding: true,
     );
 
-    final result = await ref
-        .read(chatRepositoryProvider)
-        .sendMessage(
-          sessionId: state.sessionId!,
-          message: content,
-          professorId: state.professorId,
+    final assistantId = placeholder.id;
+    final buffer = StringBuffer();
+    final turn = Completer<void>();
+    _turn = turn;
+    _activeAssistantId = assistantId;
+
+    try {
+      _sub =
+          ref
+              .read(chatRepositoryProvider)
+              .streamReply(
+                sessionId: state.sessionId!,
+                message: content,
+                professorId: state.professorId,
+              )
+              .listen(
+                (delta) {
+                  buffer.write(delta);
+                  _setAssistant(
+                    assistantId,
+                    buffer.toString(),
+                    ChatMessageStatus.streaming,
+                  );
+                },
+                onError: (Object error) {
+                  final message = error is AppException
+                      ? error.message
+                      : const UnknownException().message;
+                  _setAssistant(assistantId, message, ChatMessageStatus.error);
+                  _sub = null;
+                  _activeAssistantId = null;
+                  state = state.copyWith(isResponding: false);
+                  _completeTurn();
+                },
+                onDone: () {
+                  _setAssistant(
+                    assistantId,
+                    buffer.toString(),
+                    ChatMessageStatus.done,
+                  );
+                  _sub = null;
+                  _activeAssistantId = null;
+                  state = state.copyWith(isResponding: false);
+                  _completeTurn();
+                },
+                cancelOnError: true,
+              );
+    } catch (error) {
+      final message = error is AppException
+          ? error.message
+          : const UnknownException().message;
+      _setAssistant(assistantId, message, ChatMessageStatus.error);
+      _sub = null;
+      _activeAssistantId = null;
+      state = state.copyWith(isResponding: false);
+      _completeTurn();
+    }
+
+    await turn.future;
+  }
+
+  Future<void> stop() async {
+    if (!state.isResponding) return;
+
+    final assistantId = _activeAssistantId;
+    final sub = _sub;
+    _sub = null;
+    _activeAssistantId = null;
+
+    if (assistantId != null) {
+      final i = state.messages.indexWhere((m) => m.id == assistantId);
+      if (i != -1) {
+        _setAssistant(
+          assistantId,
+          state.messages[i].content,
+          ChatMessageStatus.done,
         );
+      }
+    }
 
-    final resolved = switch (result) {
-      Success(:final data) => ChatMessage(
-        id: placeholder.id,
-        role: ChatRole.assistant,
-        content: data.answer,
-        createdAt: placeholder.createdAt,
-        relatedRecommendations: data.relatedRecommendations,
-        status: ChatMessageStatus.done,
-      ),
-      Failure(:final error) => ChatMessage(
-        id: placeholder.id,
-        role: ChatRole.assistant,
-        content: error.message,
-        createdAt: placeholder.createdAt,
-        relatedRecommendations: const [],
-        status: ChatMessageStatus.error,
-      ),
-    };
+    state = state.copyWith(isResponding: false);
+    _completeTurn();
+    if (sub != null) await sub.cancel();
+  }
 
-    final updated = [...state.messages];
-    updated[updated.length - 1] = resolved;
-    state = state.copyWith(messages: updated, isResponding: false);
+  void _setAssistant(String id, String content, ChatMessageStatus status) {
+    final messages = [...state.messages];
+    final i = messages.indexWhere((m) => m.id == id);
+    if (i == -1) return;
+    messages[i] = ChatMessage(
+      id: id,
+      role: ChatRole.assistant,
+      content: content,
+      createdAt: messages[i].createdAt,
+      relatedRecommendations: const [],
+      status: status,
+    );
+    state = state.copyWith(messages: messages);
+  }
+
+  void _completeTurn() {
+    final turn = _turn;
+    _turn = null;
+    if (turn != null && !turn.isCompleted) turn.complete();
   }
 
   String _nextId() => 'm_${_seq++}';

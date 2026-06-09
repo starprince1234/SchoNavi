@@ -55,4 +55,15 @@ void main() {
     expect(data.relatedRecommendations, isEmpty);
     expect(data.answer, contains('补充'));
   });
+
+  test('streamReply 逐段 emit 且可拼回完整答案', () async {
+    final repo = MockChatRepository(MockDb(), streamChunkDelay: Duration.zero);
+
+    final chunks = await repo
+        .streamReply(sessionId: 's_1', message: '为什么推荐他', professorId: 'p_001')
+        .toList();
+
+    expect(chunks.length, greaterThan(1));
+    expect(chunks.join(), contains('依据'));
+  });
 }

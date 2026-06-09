@@ -84,8 +84,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
           _InputBar(
             controller: _controller,
-            enabled: !state.isResponding,
+            isResponding: state.isResponding,
             onSubmit: _send,
+            onStop: () => ref.read(chatProvider.notifier).stop(),
           ),
         ],
       ),
@@ -128,13 +129,15 @@ class _QuickQuestions extends StatelessWidget {
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
-    required this.enabled,
+    required this.isResponding,
     required this.onSubmit,
+    required this.onStop,
   });
 
   final TextEditingController controller;
-  final bool enabled;
+  final bool isResponding;
   final void Function(String) onSubmit;
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -147,11 +150,11 @@ class _InputBar extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
-                enabled: enabled,
+                enabled: !isResponding,
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
-                onSubmitted: enabled ? onSubmit : null,
+                onSubmitted: isResponding ? null : onSubmit,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: '输入你的追问…',
@@ -160,11 +163,18 @@ class _InputBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            IconButton.filled(
-              tooltip: '发送',
-              onPressed: enabled ? () => onSubmit(controller.text) : null,
-              icon: const Icon(Icons.send),
-            ),
+            if (isResponding)
+              IconButton.filled(
+                tooltip: '停止生成',
+                onPressed: onStop,
+                icon: const Icon(Icons.stop),
+              )
+            else
+              IconButton.filled(
+                tooltip: '发送',
+                onPressed: () => onSubmit(controller.text),
+                icon: const Icon(Icons.send),
+              ),
           ],
         ),
       ),
