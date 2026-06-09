@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/ai/ai_chat_repository.dart';
+import '../../data/ai/ai_outreach_email_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
+import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_chat_repository.dart';
 import '../../data/mock/mock_db.dart';
+import '../../data/mock/mock_outreach_email_repository.dart';
 import '../../data/mock/mock_professor_repository.dart';
 import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/entities/favorite_item.dart';
@@ -16,7 +19,9 @@ import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
+import '../../domain/repositories/outreach_email_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
+import '../../domain/repositories/profile_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
@@ -83,6 +88,24 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
         llm: ref.watch(llmClientProvider),
         db: ref.watch(mockDbProvider),
       );
+    case DataSource.http:
+      throw UnimplementedError('HTTP data source not wired until V1.0');
+  }
+});
+
+final profileRepositoryProvider = Provider<ProfileRepository>(
+  (ref) => LocalProfileRepository(ref.watch(localStoreProvider)),
+);
+
+final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
+  ref,
+) {
+  final cfg = ref.watch(appConfigProvider);
+  switch (cfg.dataSource) {
+    case DataSource.mock:
+      return MockOutreachEmailRepository();
+    case DataSource.ai:
+      return AiOutreachEmailRepository(ref.watch(llmClientProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }

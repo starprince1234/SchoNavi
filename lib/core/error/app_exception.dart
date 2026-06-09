@@ -44,6 +44,11 @@ class UnauthorizedException extends AppException {
   const UnauthorizedException() : super('请先登录');
 }
 
+class MissingLlmConfigurationException extends AppException {
+  const MissingLlmConfigurationException()
+    : super('未配置 LLM_API_KEY，无法生成套磁邮件');
+}
+
 class ForbiddenException extends AppException {
   const ForbiddenException() : super('暂无权限');
 }
