@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/ai/ai_chat_repository.dart';
+import '../../data/ai/ai_comparison_repository.dart';
 import '../../data/ai/ai_outreach_email_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/professor_candidate_source.dart';
@@ -10,6 +11,7 @@ import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_chat_repository.dart';
+import '../../data/mock/mock_comparison_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_outreach_email_repository.dart';
 import '../../data/mock/mock_professor_repository.dart';
@@ -17,6 +19,7 @@ import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../../domain/repositories/comparison_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/outreach_email_repository.dart';
@@ -88,6 +91,17 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
         llm: ref.watch(llmClientProvider),
         db: ref.watch(mockDbProvider),
       );
+    case DataSource.http:
+      throw UnimplementedError('HTTP data source not wired until V1.0');
+  }
+});
+
+final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
+  switch (ref.watch(appConfigProvider).dataSource) {
+    case DataSource.mock:
+      return MockComparisonRepository();
+    case DataSource.ai:
+      return AiComparisonRepository(ref.watch(llmClientProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/chat/pages/chat_page.dart';
+import '../../features/compare/pages/compare_page.dart';
 import '../../features/email/pages/email_page.dart';
 import '../../features/favorite/pages/favorite_page.dart';
 import '../../features/history/pages/history_page.dart';
@@ -59,6 +60,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/email',
         builder: (_, state) =>
             EmailPage(professorId: state.uri.queryParameters['pid'] ?? ''),
+      ),
+      GoRoute(
+        path: '/compare',
+        builder: (_, state) => ComparePage(
+          ids: (state.uri.queryParameters['ids'] ?? '')
+              .split(',')
+              .map((id) => id.trim())
+              .where((id) => id.isNotEmpty)
+              .toList(),
+        ),
       ),
     ],
   );
