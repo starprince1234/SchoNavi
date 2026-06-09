@@ -39,7 +39,10 @@ def _source_db_paths() -> list[Path]:
 
 
 def _connect_readonly(path: Path) -> sqlite3.Connection:
-    return sqlite3.connect(f"file:{path.resolve().as_posix()}?mode=ro", uri=True)
+    try:
+        return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro&immutable=1", uri=True)
+    except sqlite3.OperationalError as exc:
+        raise sqlite3.OperationalError(f"unable to open source DB {path}: {exc}") from exc
 
 
 def _text(value: Any) -> str | None:
