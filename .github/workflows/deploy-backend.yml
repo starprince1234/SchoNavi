@@ -1,0 +1,104 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/backend/**"
+      - "web/backend_agent/**"
+      - "scripts/**"
+      - "docker-compose.prod.yml"
+      - ".gitattributes"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/schonavi-backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v3
+
+      - name: Load deployment secrets from Doppler
+        id: doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          {
+            echo "SERVER_HOST=$(doppler secrets get SERVER_HOST --project schonavi --config prd --raw)"
+            echo "SERVER_USER=$(doppler secrets get SERVER_USER --project schonavi --config prd --raw)"
+            echo "SERVER_PASSWORD=$(doppler secrets get SERVER_PASSWORD --project schonavi --config prd --raw)"
+            echo "SERVER_SSH_PORT=$(doppler secrets get SERVER_SSH_PORT --project schonavi --config prd --raw)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Package backend agent source
+        run: |
+          tar \
+            --exclude='web/backend_agent/.env*' \
+            --exclude='web/backend_agent/.venv' \
+            --exclude='web/backend_agent/.pytest_cache' \
+            --exclude='web/backend_agent/.pytest_tmp' \
+            --exclude='web/backend_agent/.omo' \
+            --exclude='web/backend_agent/.opencode' \
+            --exclude='web/backend_agent/data' \
+            --exclude='web/backend_agent/logs' \
+            -czf backend_agent_src.tar.gz -C web backend_agent
+
+      - name: Upload compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.doppler.outputs.SERVER_HOST }}
+          username: ${{ steps.doppler.outputs.SERVER_USER }}
+          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
+          source: "docker-compose.prod.yml,scripts/deploy_backend_agent.sh,backend_agent_src.tar.gz"
+          target: "/opt/schonavi"
+          overwrite: true
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ steps.doppler.outputs.SERVER_HOST }}
+          username: ${{ steps.doppler.outputs.SERVER_USER }}
+          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
+          script: |
+            set -e
+            export DOPPLER_TOKEN='${{ secrets.DOPPLER_TOKEN }}'
+            cd /opt/schonavi
+            chmod +x scripts/deploy_backend_agent.sh
+            doppler run --project schonavi --config prd -- ./scripts/deploy_backend_agent.sh
+            export BACKEND_IMAGE=${{ env.IMAGE_NAME }}:latest
+            echo '${{ github.token }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml pull
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml up -d
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml exec -T backend sh -lc 'if [ "${SKIP_AGENT_REBUILD:-false}" != "true" ] && ls "$BACKEND_AGENT_PATH"/raw_data/*.db >/dev/null 2>&1; then cd "$BACKEND_AGENT_PATH" && python -m app.jobs.rebuild_all; else echo "skip agent rebuild"; fi'

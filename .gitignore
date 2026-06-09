@@ -51,3 +51,17 @@ app.*.map.json
 .env.*
 !.env.example
 !.env.*.example
+.serena/
+
+# Web runtime artifacts
+web/backend_agent/.env.cloud
+web/backend_agent/.venv/
+web/backend_agent/.pytest_cache/
+web/backend_agent/.pytest_tmp/
+web/backend_agent/.omo/
+web/backend_agent/.opencode/
+web/backend_agent/logs/
+web/backend_agent/data/
+web/backend_agent/raw_data/*
+!web/backend_agent/raw_data/
+!web/backend_agent/raw_data/*.db

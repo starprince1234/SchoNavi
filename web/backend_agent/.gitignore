@@ -1,0 +1,18 @@
+__pycache__/
+data/app.db
+data/chroma/
+.env
+*.db
+!raw_data/
+!raw_data/*.db
+logs/
+.github/
+.omo/
+.opencode/
+
+# Doppler & Env Security
+.doppler.yaml
+.env
+.env.*
+!.env.example
+!.env.*.example
