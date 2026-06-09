@@ -23,6 +23,12 @@ class _FakeLlm implements LlmClient {
     lastJsonMode = jsonMode;
     return _result;
   }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) => throw UnimplementedError();
 }
 
 class _FixedCandidates implements ProfessorCandidateSource {

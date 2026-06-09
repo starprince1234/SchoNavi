@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../error/app_exception.dart';
@@ -61,6 +63,70 @@ class DeepSeekLlmClient implements LlmClient {
       return Failure(_mapDioError(e));
     } catch (_) {
       return const Failure(UnknownException());
+    }
+  }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) async* {
+    final Response<ResponseBody> response;
+    try {
+      response = await dio.post<ResponseBody>(
+        '$baseUrl/chat/completions',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Content-Type': Headers.jsonContentType,
+          },
+          responseType: ResponseType.stream,
+        ),
+        data: {
+          'model': model,
+          'messages': messages.map((m) => m.toJson()).toList(),
+          'temperature': temperature,
+          'stream': true,
+        },
+      );
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    }
+
+    final body = response.data;
+    if (body == null) throw const ServerException();
+
+    final lines = body.stream
+        .cast<List<int>>()
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
+
+    try {
+      await for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty || !trimmed.startsWith('data:')) continue;
+
+        final payload = trimmed.substring(5).trim();
+        if (payload == '[DONE]') return;
+
+        String? delta;
+        try {
+          final json = jsonDecode(payload) as Map<String, dynamic>;
+          final choices = json['choices'] as List?;
+          if (choices != null && choices.isNotEmpty && choices.first is Map) {
+            final deltaMap = (choices.first as Map)['delta'];
+            if (deltaMap is Map) delta = deltaMap['content'] as String?;
+          }
+        } catch (_) {
+          delta = null;
+        }
+
+        if (delta != null && delta.isNotEmpty) yield delta;
+      }
+    } on DioException catch (e) {
+      throw _mapDioError(e);
+    } catch (_) {
+      throw const UnknownException();
     }
   }
 

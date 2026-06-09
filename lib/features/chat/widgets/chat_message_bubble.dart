@@ -19,7 +19,11 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.status == ChatMessageStatus.sending) {
+    final isThinking =
+        message.status == ChatMessageStatus.sending ||
+        (message.status == ChatMessageStatus.streaming &&
+            message.content.isEmpty);
+    if (isThinking) {
       return const Align(
         alignment: Alignment.centerLeft,
         child: Padding(
@@ -43,6 +47,7 @@ class ChatMessageBubble extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isUser = message.role == ChatRole.user;
     final isError = message.status == ChatMessageStatus.error;
+    final isStreaming = message.status == ChatMessageStatus.streaming;
     final bubbleColor = isUser
         ? scheme.primaryContainer
         : isError
@@ -50,9 +55,30 @@ class ChatMessageBubble extends StatelessWidget {
         : scheme.secondaryContainer;
     final maxWidth = math.min(360.0, MediaQuery.sizeOf(context).width * 0.78);
 
-    final Widget content = (isUser || isError)
+    final Widget body = (isUser || isError)
         ? Text(message.content)
         : GptMarkdown(message.content);
+    final Widget content = isStreaming
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              body,
+              const SizedBox(height: 6),
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 6),
+                  Text('生成中…', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ],
+          )
+        : body;
 
     return Column(
       crossAxisAlignment: isUser

@@ -125,4 +125,32 @@ void main() {
     await tester.tap(find.byType(ProfessorCard));
     expect(tapped, 'p_001');
   });
+
+  testWidgets('流式中（有文本）显示 Markdown 与生成中指示', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '正在生成的**部分**',
+        status: ChatMessageStatus.streaming,
+      ),
+    );
+
+    expect(find.byType(GptMarkdown), findsOneWidget);
+    expect(find.text('生成中…'), findsOneWidget);
+  });
+
+  testWidgets('流式中（空文本）显示正在思考', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '',
+        status: ChatMessageStatus.streaming,
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('正在思考…'), findsOneWidget);
+  });
 }

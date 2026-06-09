@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../core/ai/llm_client.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_result.dart';
@@ -46,6 +48,82 @@ class AiChatRepository implements ChatRepository {
       ),
     );
   }
+
+  @override
+  Stream<String> streamReply({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) {
+    final buffer = StringBuffer();
+    StreamSubscription<String>? sub;
+    List<LlmMessage>? activeHistory;
+    var failed = false;
+    var persisted = false;
+
+    void persistIfNeeded() {
+      final history = activeHistory;
+      if (history != null && !persisted && !failed && buffer.isNotEmpty) {
+        history.add(LlmMessage('assistant', buffer.toString()));
+        persisted = true;
+      }
+    }
+
+    late final StreamController<String> controller;
+    controller = StreamController<String>(
+      onListen: () {
+        final history = _history.putIfAbsent(sessionId, () => []);
+        activeHistory = history;
+        final isRegenerate =
+            history.length >= 2 &&
+            history[history.length - 2].role == 'user' &&
+            history[history.length - 2].content == message &&
+            history.last.role == 'assistant';
+
+        if (isRegenerate) {
+          history.removeLast();
+        } else {
+          history.add(LlmMessage('user', message));
+        }
+
+        try {
+          sub = llm
+              .stream(
+                messages: [
+                  LlmMessage('system', _systemPrompt(professorId)),
+                  ...history,
+                ],
+              )
+              .listen(
+                (delta) {
+                  buffer.write(delta);
+                  controller.add(delta);
+                },
+                onError: (Object error, StackTrace stackTrace) {
+                  failed = true;
+                  controller.addError(error, stackTrace);
+                  unawaited(controller.close());
+                },
+                onDone: () {
+                  persistIfNeeded();
+                  unawaited(controller.close());
+                },
+                cancelOnError: true,
+              );
+        } catch (error, stackTrace) {
+          failed = true;
+          controller.addError(error, stackTrace);
+          unawaited(controller.close());
+        }
+      },
+      onCancel: () async {
+        persistIfNeeded();
+        await sub?.cancel();
+      },
+    );
+
+    return controller.stream;
+      }
 
   String _systemPrompt(String? professorId) {
     const base = '''

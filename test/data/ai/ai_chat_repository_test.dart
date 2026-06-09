@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
@@ -21,6 +23,12 @@ class _RecordingLlm implements LlmClient {
     calls.add(messages);
     return Success(reply);
   }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) => throw UnimplementedError();
 }
 
 class _FailLlm implements LlmClient {
@@ -31,6 +39,36 @@ class _FailLlm implements LlmClient {
     double temperature = 0.7,
   }) async {
     return const Failure(ServerException());
+  }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) => throw UnimplementedError();
+}
+
+class _QueueLlm implements LlmClient {
+  _QueueLlm(this.queue);
+
+  final List<Stream<String>> queue;
+  int _call = 0;
+  final List<List<LlmMessage>> calls = [];
+
+  @override
+  Future<Result<String>> complete({
+    required List<LlmMessage> messages,
+    bool jsonMode = false,
+    double temperature = 0.7,
+  }) async => throw UnimplementedError();
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) {
+    calls.add(messages);
+    return queue[_call++];
   }
 }
 
@@ -93,5 +131,83 @@ void main() {
     final res = await repo.sendMessage(sessionId: 's1', message: 'x');
 
     expect((res as Failure).error, isA<ServerException>());
+  });
+
+  group('streamReply', () {
+    test('passes through deltas', () async {
+      final repo = AiChatRepository(
+        llm: _QueueLlm([Stream.fromIterable(const ['你', '好'])]),
+        db: MockDb(),
+      );
+
+      final out = await repo.streamReply(sessionId: 's1', message: '在吗').toList();
+
+      expect(out, ['你', '好']);
+    });
+
+    test('adds completed answer to history for next turn', () async {
+      final llm = _QueueLlm([
+        Stream.fromIterable(const ['你', '好']),
+        Stream.fromIterable(const ['再见']),
+      ]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      await repo.streamReply(sessionId: 's1', message: '问题一').toList();
+      await repo.streamReply(sessionId: 's1', message: '问题二').toList();
+
+      final contents = llm.calls.last.map((m) => m.content).toList();
+      expect(contents, containsAll(['问题一', '你好', '问题二']));
+    });
+
+    test('professorId injects professor context into system prompt', () async {
+      final llm = _QueueLlm([Stream.fromIterable(const ['ok'])]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      await repo
+          .streamReply(sessionId: 's1', message: '为什么', professorId: 'p_001')
+          .toList();
+
+      final system = llm.calls.last.first;
+      expect(system.role, 'system');
+      expect(system.content, contains('张三'));
+    });
+
+    test('stream error passes through and partial answer is discarded', () async {
+      final llm = _QueueLlm([
+        Stream<String>.error(const ServerException()),
+        Stream.fromIterable(const ['好的']),
+      ]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      await expectLater(
+        repo.streamReply(sessionId: 's1', message: '问题一'),
+        emitsError(isA<ServerException>()),
+      );
+      await repo.streamReply(sessionId: 's1', message: '问题二').toList();
+
+      expect(llm.calls.last.where((m) => m.role == 'assistant'), isEmpty);
+    });
+
+    test('cancel keeps visible partial answer in history', () async {
+      final controller = StreamController<String>();
+      addTearDown(controller.close);
+      final llm = _QueueLlm([
+        controller.stream,
+        Stream.fromIterable(const ['继续']),
+      ]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      final got = <String>[];
+      final sub = repo.streamReply(sessionId: 's1', message: '问题一').listen(got.add);
+      controller.add('部分');
+      controller.add('答案');
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+
+      await repo.streamReply(sessionId: 's1', message: '问题二').toList();
+      final contents = llm.calls.last.map((m) => m.content).toList();
+      expect(got, ['部分', '答案']);
+      expect(contents, containsAllInOrder(['问题一', '部分答案', '问题二']));
+    });
   });
 }
