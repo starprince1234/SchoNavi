@@ -53,12 +53,26 @@ jobs:
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: |
-          {
-            echo "SERVER_HOST=$(doppler secrets get SERVER_HOST --project schonavi --config prd --raw)"
-            echo "SERVER_USER=$(doppler secrets get SERVER_USER --project schonavi --config prd --raw)"
-            echo "SERVER_PASSWORD=$(doppler secrets get SERVER_PASSWORD --project schonavi --config prd --raw)"
-            echo "SERVER_SSH_PORT=$(doppler secrets get SERVER_SSH_PORT --project schonavi --config prd --raw)"
-          } >> "$GITHUB_OUTPUT"
+          get_secret() {
+            doppler secrets get "$1" --project schonavi --config prd --plain --raw
+          }
+
+          write_output() {
+            local name="$1"
+            local value="$2"
+            local delimiter="EOF_${name}_$(date +%s%N)"
+
+            {
+              echo "$name<<$delimiter"
+              echo "$value"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          write_output "SERVER_HOST" "$(get_secret SERVER_HOST)"
+          write_output "SERVER_USER" "$(get_secret SERVER_USER)"
+          write_output "SERVER_PASSWORD" "$(get_secret SERVER_PASSWORD)"
+          write_output "SERVER_SSH_PORT" "$(get_secret SERVER_SSH_PORT)"
 
       - name: Package backend agent source
         run: |
