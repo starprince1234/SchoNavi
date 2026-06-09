@@ -92,6 +92,24 @@ class _Detail extends ConsumerWidget {
             label: const Text('生成套磁邮件'),
           ),
         ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                context.push('/match?pid=${Uri.encodeComponent(p.id)}'),
+            icon: const Icon(Icons.insights_outlined),
+            label: const Text('匹配分析'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'AI 内容仅供准备参考，请自行核对事实。',
+            style: textTheme.bodySmall,
+          ),
+        ),
         const Divider(height: 28),
         Text('研究方向', style: textTheme.titleMedium),
         const SizedBox(height: 6),
