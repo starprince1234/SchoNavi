@@ -3,7 +3,19 @@ set -euo pipefail
 
 APP_ROOT="${APP_ROOT:-/opt/schonavi}"
 AGENT_ROOT="${BACKEND_AGENT_PATH:-$APP_ROOT/backend_agent}"
-mkdir -p "$AGENT_ROOT/data" "$AGENT_ROOT/raw_data"
+BACKEND_ROOT="${BACKEND_ROOT:-$APP_ROOT/web/backend}"
+mkdir -p "$AGENT_ROOT/data" "$AGENT_ROOT/raw_data" "$BACKEND_ROOT"
+
+if [ -f "$APP_ROOT/backend_src.tar.gz" ]; then
+  tmp_dir="$(mktemp -d)"
+  tar -xzf "$APP_ROOT/backend_src.tar.gz" -C "$tmp_dir"
+  rsync -a --delete \
+    --exclude ".env*" \
+    --exclude ".pytest_cache/" \
+    --exclude "__pycache__/" \
+    "$tmp_dir/backend/" "$BACKEND_ROOT/"
+  rm -rf "$tmp_dir"
+fi
 
 if [ -f "$APP_ROOT/backend_agent_src.tar.gz" ]; then
   tmp_dir="$(mktemp -d)"

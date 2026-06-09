@@ -14,36 +14,18 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/schonavi-backend
+  BACKEND_IMAGE: schonavi-backend:local
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: web/backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Install Doppler CLI
         uses: dopplerhq/cli-action@v3
@@ -74,6 +56,14 @@ jobs:
           write_output "SERVER_PASSWORD" "$(get_secret SERVER_PASSWORD)"
           write_output "SERVER_SSH_PORT" "$(get_secret SERVER_SSH_PORT)"
 
+      - name: Package backend source
+        run: |
+          tar \
+            --exclude='web/backend/.env*' \
+            --exclude='web/backend/.pytest_cache' \
+            --exclude='web/backend/__pycache__' \
+            -czf backend_src.tar.gz -C web backend
+
       - name: Package backend agent source
         run: |
           tar \
@@ -94,7 +84,7 @@ jobs:
           username: ${{ steps.doppler.outputs.SERVER_USER }}
           password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
           port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
-          source: "docker-compose.prod.yml,scripts/deploy_backend_agent.sh,backend_agent_src.tar.gz"
+          source: "docker-compose.prod.yml,scripts/deploy_backend_agent.sh,backend_src.tar.gz,backend_agent_src.tar.gz"
           target: "/opt/schonavi"
           overwrite: true
 
@@ -111,8 +101,7 @@ jobs:
             cd /opt/schonavi
             chmod +x scripts/deploy_backend_agent.sh
             doppler run --project schonavi --config prd -- ./scripts/deploy_backend_agent.sh
-            export BACKEND_IMAGE=${{ env.IMAGE_NAME }}:latest
-            echo '${{ github.token }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml pull
-            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml up -d
+            export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml build backend
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml up -d --no-build
             doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml exec -T backend sh -lc 'if [ "${SKIP_AGENT_REBUILD:-false}" != "true" ] && ls "$BACKEND_AGENT_PATH"/raw_data/*.db >/dev/null 2>&1; then cd "$BACKEND_AGENT_PATH" && python -m app.jobs.rebuild_all; else echo "skip agent rebuild"; fi'
