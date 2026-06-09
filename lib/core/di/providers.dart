@@ -1,6 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/ai/ai_chat_repository.dart';
+import '../../data/ai/ai_recommendation_repository.dart';
+import '../../data/ai/professor_candidate_source.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/mock/mock_chat_repository.dart';
@@ -14,6 +18,8 @@ import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
+import '../ai/deepseek_llm_client.dart';
+import '../ai/llm_client.dart';
 import '../config/app_config.dart';
 import '../launcher/link_launcher.dart';
 import '../launcher/url_launcher_link_launcher.dart';
@@ -22,6 +28,22 @@ import '../storage/shared_preferences_local_store.dart';
 
 final mockDbProvider = Provider<MockDb>((ref) => MockDb());
 
+final dioProvider = Provider<Dio>((ref) => Dio());
+
+final llmClientProvider = Provider<LlmClient>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  return DeepSeekLlmClient(
+    dio: ref.watch(dioProvider),
+    apiKey: cfg.llm.apiKey,
+    baseUrl: cfg.llm.baseUrl,
+    model: cfg.llm.model,
+  );
+});
+
+final professorCandidateSourceProvider = Provider<ProfessorCandidateSource>(
+  (ref) => MockDbCandidateSource(ref.watch(mockDbProvider)),
+);
+
 final recommendationRepositoryProvider = Provider<RecommendationRepository>((
   ref,
 ) {
@@ -29,6 +51,11 @@ final recommendationRepositoryProvider = Provider<RecommendationRepository>((
   switch (cfg.dataSource) {
     case DataSource.mock:
       return MockRecommendationRepository(ref.watch(mockDbProvider));
+    case DataSource.ai:
+      return AiRecommendationRepository(
+        llm: ref.watch(llmClientProvider),
+        candidates: ref.watch(professorCandidateSourceProvider),
+      );
     case DataSource.http:
       // V1.0：返回 HttpRecommendationRepository(ref.watch(dioClientProvider))
       throw UnimplementedError('HTTP data source not wired until V1.0');
@@ -39,6 +66,7 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
     case DataSource.mock:
+    case DataSource.ai:
       return MockProfessorRepository(ref.watch(mockDbProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
@@ -50,6 +78,11 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   switch (cfg.dataSource) {
     case DataSource.mock:
       return MockChatRepository(ref.watch(mockDbProvider));
+    case DataSource.ai:
+      return AiChatRepository(
+        llm: ref.watch(llmClientProvider),
+        db: ref.watch(mockDbProvider),
+      );
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
