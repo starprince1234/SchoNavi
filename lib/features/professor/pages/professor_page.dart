@@ -82,6 +82,16 @@ class _Detail extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         Text('${p.university} / ${p.college}', style: textTheme.bodyMedium),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () =>
+                context.push('/email?pid=${Uri.encodeComponent(p.id)}'),
+            icon: const Icon(Icons.mail_outline),
+            label: const Text('生成套磁邮件'),
+          ),
+        ),
         const Divider(height: 28),
         Text('研究方向', style: textTheme.titleMedium),
         const SizedBox(height: 6),
