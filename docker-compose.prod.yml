@@ -31,6 +31,7 @@ services:
       - RERANK_TOP_N=${RERANK_TOP_N}
     volumes:
       - ${BACKEND_AGENT_HOST_PATH}:${BACKEND_AGENT_PATH}:ro
+      - ${BACKEND_AGENT_HOST_PATH}/data:${BACKEND_AGENT_PATH}/data:rw
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 30s
