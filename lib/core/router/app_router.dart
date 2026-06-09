@@ -7,6 +7,7 @@ import '../../features/email/pages/email_page.dart';
 import '../../features/favorite/pages/favorite_page.dart';
 import '../../features/history/pages/history_page.dart';
 import '../../features/home/pages/home_page.dart';
+import '../../features/match/pages/match_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
 import '../../shared/widgets/scaffold_with_bottom_nav.dart';
@@ -70,6 +71,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               .where((id) => id.isNotEmpty)
               .toList(),
         ),
+      ),
+      GoRoute(
+        path: '/match',
+        builder: (_, state) =>
+            MatchPage(professorId: state.uri.queryParameters['pid'] ?? ''),
       ),
     ],
   );
