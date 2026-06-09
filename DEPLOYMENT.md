@@ -2,7 +2,7 @@
 
 ## Backend
 
-The backend image is built from `web/backend` and pushed to GHCR by `.github/workflows/deploy-backend.yml`.
+The backend source is uploaded by `.github/workflows/deploy-backend.yml` and the Docker image is built on the server. This avoids pulling the application image from GHCR during production deploys.
 
 The workflow uploads backend agent source on each deploy, but runtime data stays outside Git:
 
@@ -20,6 +20,16 @@ doppler run --project schonavi --config prd -- docker compose -f docker-compose.
 ```
 
 Do not create `.env` files.
+
+Production builds default to a Docker Hub mirror for the Python base image and a domestic pip index:
+
+```text
+PYTHON_BASE_IMAGE=m.daocloud.io/docker.io/library/python:3.12-slim
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+```
+
+Override these values in Doppler `prd` only if the mirror becomes unavailable.
 
 Raw SQLite source files are not committed. Put or sync them into:
 
