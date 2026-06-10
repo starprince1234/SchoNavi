@@ -95,6 +95,7 @@ jobs:
           username: ${{ steps.doppler.outputs.SERVER_USER }}
           password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
           port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
+          command_timeout: 60m
           script: |
             set -e
             export DOPPLER_TOKEN='${{ secrets.DOPPLER_TOKEN }}'
