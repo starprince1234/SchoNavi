@@ -4,7 +4,7 @@ set -euo pipefail
 APP_ROOT="${APP_ROOT:-/opt/schonavi}"
 AGENT_ROOT="${BACKEND_AGENT_PATH:-$APP_ROOT/backend_agent}"
 BACKEND_ROOT="${BACKEND_ROOT:-$APP_ROOT/web/backend}"
-mkdir -p "$AGENT_ROOT/data" "$AGENT_ROOT/raw_data" "$BACKEND_ROOT"
+mkdir -p "$AGENT_ROOT/data" "$AGENT_ROOT/raw_data" "$BACKEND_ROOT" "$APP_ROOT/cache/chroma"
 
 if [ -f "$APP_ROOT/backend_src.tar.gz" ]; then
   tmp_dir="$(mktemp -d)"
