@@ -6,7 +6,7 @@ import 'package:scho_navi/app.dart';
 import 'package:scho_navi/core/di/providers.dart';
 
 Future<Widget> _wrap() async {
-  SharedPreferences.setMockInitialValues(<String, Object>{});
+  SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],

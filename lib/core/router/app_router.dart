@@ -8,15 +8,25 @@ import '../../features/favorite/pages/favorite_page.dart';
 import '../../features/history/pages/history_page.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/match/pages/match_page.dart';
+import '../../features/onboarding/pages/onboarding_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../shared/widgets/scaffold_with_bottom_nav.dart';
+import '../di/providers.dart';
 import '../motion/page_transition.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/home',
+    redirect: (context, state) {
+      final seen =
+          ref.read(localStoreProvider).getBool(OnboardingPage.seenKey) ?? false;
+      final atOnboarding = state.matchedLocation == '/onboarding';
+      if (!seen && !atOnboarding) return '/onboarding';
+      if (seen && atOnboarding) return '/home';
+      return null;
+    },
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (_, _, navigationShell) =>
@@ -96,6 +106,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+      GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),
     ],
   );
 });
