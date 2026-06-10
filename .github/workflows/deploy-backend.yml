@@ -11,6 +11,15 @@ on:
       - ".gitattributes"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
+    inputs:
+      upload_raw_data:
+        description: "Upload raw_data/*.db to the server"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: read
@@ -25,7 +34,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: true
+          fetch-depth: 0
+          lfs: false
 
       - name: Install Doppler CLI
         uses: dopplerhq/cli-action@v3
@@ -56,6 +66,21 @@ jobs:
           write_output "SERVER_PASSWORD" "$(get_secret SERVER_PASSWORD)"
           write_output "SERVER_SSH_PORT" "$(get_secret SERVER_SSH_PORT)"
 
+      - name: Detect raw data changes
+        id: raw_data
+        run: |
+          changed="false"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            changed="${{ github.event.inputs.upload_raw_data || 'false' }}"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- web/backend_agent/raw_data | grep -q .; then
+              changed="true"
+            fi
+          fi
+
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
       - name: Package backend source
         run: |
           tar \
@@ -74,8 +99,16 @@ jobs:
             --exclude='web/backend_agent/.omo' \
             --exclude='web/backend_agent/.opencode' \
             --exclude='web/backend_agent/data' \
+            --exclude='web/backend_agent/raw_data' \
             --exclude='web/backend_agent/logs' \
             -czf backend_agent_src.tar.gz -C web backend_agent
+
+      - name: Package raw data
+        if: steps.raw_data.outputs.changed == 'true'
+        run: |
+          git lfs install
+          git lfs pull --include="web/backend_agent/raw_data/**"
+          tar -cf backend_agent_raw_data.tar -C web/backend_agent raw_data
 
       - name: Upload compose file
         uses: appleboy/scp-action@v0.1.7
@@ -85,6 +118,18 @@ jobs:
           password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
           port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
           source: "docker-compose.prod.yml,scripts/deploy_backend_agent.sh,backend_src.tar.gz,backend_agent_src.tar.gz"
+          target: "/opt/schonavi"
+          overwrite: true
+
+      - name: Upload raw data
+        if: steps.raw_data.outputs.changed == 'true'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.doppler.outputs.SERVER_HOST }}
+          username: ${{ steps.doppler.outputs.SERVER_USER }}
+          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
+          source: "backend_agent_raw_data.tar"
           target: "/opt/schonavi"
           overwrite: true
 

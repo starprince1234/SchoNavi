@@ -34,6 +34,14 @@ if [ -f "$APP_ROOT/backend_agent_src.tar.gz" ]; then
   rm -rf "$tmp_dir"
 fi
 
+if [ -f "$APP_ROOT/backend_agent_raw_data.tar" ]; then
+  tmp_dir="$(mktemp -d)"
+  tar -xf "$APP_ROOT/backend_agent_raw_data.tar" -C "$tmp_dir"
+  rsync -a --delete "$tmp_dir/raw_data/" "$AGENT_ROOT/raw_data/"
+  rm -rf "$tmp_dir"
+  rm -f "$APP_ROOT/backend_agent_raw_data.tar"
+fi
+
 if [ -n "${RAW_DATA_SYNC_COMMAND:-}" ]; then
   cd "$AGENT_ROOT"
   bash -lc "$RAW_DATA_SYNC_COMMAND"
