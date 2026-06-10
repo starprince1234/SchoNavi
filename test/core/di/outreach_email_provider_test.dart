@@ -14,7 +14,7 @@ Future<ProviderContainer> _container({String apiKey = ''}) async {
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       if (apiKey.isNotEmpty)
-        appConfigProvider.overrideWithValue(AppConfig.resolve(apiKey: apiKey)),
+        initialAppConfigProvider.overrideWithValue(AppConfig.resolve(apiKey: apiKey)),
     ],
   );
 }

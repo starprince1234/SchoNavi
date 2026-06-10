@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/ai/llm_trace.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/launcher/link_launcher.dart';
@@ -80,6 +82,7 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
                       _openHomepage(context, r.homepageUrl),
                 );
               }),
+              const _AiTracePanel(),
             ],
           );
         },
@@ -110,5 +113,63 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
           const SnackBar(content: Text('主页可能已失效，可通过学校官网确认')),
         );
     }
+  }
+}
+
+/// 仅演示模式（showAiTrace）且已有最近调用快照时显示，体现"AI 透明化"。
+/// 视觉沿用 Bento 主题：Card(16 圆角 + 描边) + ExpansionTile，珊瑚 leading。
+class _AiTracePanel extends ConsumerWidget {
+  const _AiTracePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showTrace = ref.watch(
+      appConfigProvider.select((c) => c.featureFlags.showAiTrace),
+    );
+    final trace = ref.watch(aiTraceProvider);
+    if (!showTrace || trace == null) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Card(
+        child: ExpansionTile(
+          leading: Icon(Icons.science_outlined, color: scheme.secondary),
+          title: Text('查看 AI 详情', style: textTheme.titleMedium),
+          subtitle: Text(
+            '本次大模型调用快照（演示模式）',
+            style: textTheme.bodySmall,
+          ),
+          shape: const Border(),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '模型：${trace.model}（${trace.elapsedMs} ms）',
+                style: textTheme.labelLarge,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('实际 prompt', style: textTheme.labelLarge),
+            ),
+            for (final m in trace.messages)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: SelectableText('[${m.role}] ${m.content}'),
+              ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text('原始返回', style: textTheme.labelLarge),
+            ),
+            SelectableText(trace.rawResponse),
+          ],
+        ),
+      ),
+    );
   }
 }

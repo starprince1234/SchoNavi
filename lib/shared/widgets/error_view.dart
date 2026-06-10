@@ -8,6 +8,7 @@ class ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -15,15 +16,19 @@ class ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.error,
+              Icons.sentiment_dissatisfied_outlined,
+              size: 52,
+              color: theme.colorScheme.error,
             ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge,
+            ),
             if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
+              const SizedBox(height: 18),
+              FilledButton(onPressed: onRetry, child: const Text('重试')),
             ],
           ],
         ),

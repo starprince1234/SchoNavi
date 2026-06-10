@@ -19,7 +19,7 @@ void main() {
   test('dataSource=ai 接 AiComparisonRepository', () {
     final container = ProviderContainer(
       overrides: [
-        appConfigProvider.overrideWithValue(
+        initialAppConfigProvider.overrideWithValue(
           AppConfig.resolve(apiKey: 'sk-test'),
         ),
       ],

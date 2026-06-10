@@ -7,7 +7,7 @@ import 'package:scho_navi/core/router/app_router.dart';
 
 void main() {
   testWidgets('app router 把 /chat 解析为 ChatPage', (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],

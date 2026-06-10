@@ -10,7 +10,7 @@ void main() {
   test('dataSource=ai wires AI repositories and DeepSeekLlmClient', () {
     final container = ProviderContainer(
       overrides: [
-        appConfigProvider.overrideWithValue(
+        initialAppConfigProvider.overrideWithValue(
           AppConfig.resolve(apiKey: 'sk-test'),
         ),
       ],

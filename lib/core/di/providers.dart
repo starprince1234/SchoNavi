@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/ai/ai_chat_repository.dart';
 import '../../data/ai/ai_comparison_repository.dart';
+import '../../data/ai/ai_match_analysis_repository.dart';
 import '../../data/ai/ai_outreach_email_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/professor_candidate_source.dart';
@@ -12,6 +13,7 @@ import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_chat_repository.dart';
 import '../../data/mock/mock_comparison_repository.dart';
+import '../../data/mock/mock_match_analysis_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_outreach_email_repository.dart';
 import '../../data/mock/mock_professor_repository.dart';
@@ -22,12 +24,14 @@ import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/comparison_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
+import '../../domain/repositories/match_analysis_repository.dart';
 import '../../domain/repositories/outreach_email_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
+import '../ai/llm_trace.dart';
 import '../config/app_config.dart';
 import '../launcher/link_launcher.dart';
 import '../launcher/url_launcher_link_launcher.dart';
@@ -40,11 +44,17 @@ final dioProvider = Provider<Dio>((ref) => Dio());
 
 final llmClientProvider = Provider<LlmClient>((ref) {
   final cfg = ref.watch(appConfigProvider);
-  return DeepSeekLlmClient(
+  final base = DeepSeekLlmClient(
     dio: ref.watch(dioProvider),
     apiKey: cfg.llm.apiKey,
     baseUrl: cfg.llm.baseUrl,
     model: cfg.llm.model,
+  );
+  if (!cfg.featureFlags.showAiTrace) return base;
+  return TracingLlmClient(
+    delegate: base,
+    model: cfg.llm.model,
+    onTrace: (trace) => ref.read(aiTraceProvider.notifier).record(trace),
   );
 });
 
@@ -102,6 +112,19 @@ final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
       return MockComparisonRepository();
     case DataSource.ai:
       return AiComparisonRepository(ref.watch(llmClientProvider));
+    case DataSource.http:
+      throw UnimplementedError('HTTP data source not wired until V1.0');
+  }
+});
+
+final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
+  ref,
+) {
+  switch (ref.watch(appConfigProvider).dataSource) {
+    case DataSource.mock:
+      return MockMatchAnalysisRepository();
+    case DataSource.ai:
+      return AiMatchAnalysisRepository(ref.watch(llmClientProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }

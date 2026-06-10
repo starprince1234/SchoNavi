@@ -23,7 +23,7 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
-        appConfigProvider.overrideWithValue(
+        initialAppConfigProvider.overrideWithValue(
           AppConfig.resolve(apiKey: _apiKey, baseUrl: _baseUrl, model: _model),
         ),
       ],

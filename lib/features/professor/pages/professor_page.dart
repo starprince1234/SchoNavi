@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../domain/entities/favorite_item.dart';
 import '../../../domain/entities/professor.dart';
@@ -66,17 +67,26 @@ class _Detail extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Text(
-                '${p.name}  ${p.title}',
-                style: textTheme.headlineSmall,
+              child: Hero(
+                tag: 'prof-name-${p.id}',
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Text(
+                    '${p.name}  ${p.title}',
+                    style: textTheme.headlineSmall,
+                  ),
+                ),
               ),
             ),
             IconButton(
               tooltip: isFavorite ? '取消收藏' : '收藏导师',
               icon: Icon(isFavorite ? Icons.bookmark : Icons.bookmark_border),
-              onPressed: () => ref
-                  .read(favoriteRepositoryProvider)
-                  .toggle(FavoriteItem.fromProfessor(p)),
+              onPressed: () {
+                Haptics.light();
+                ref
+                    .read(favoriteRepositoryProvider)
+                    .toggle(FavoriteItem.fromProfessor(p));
+              },
             ),
           ],
         ),
@@ -92,25 +102,26 @@ class _Detail extends ConsumerWidget {
             label: const Text('生成套磁邮件'),
           ),
         ),
-        const Divider(height: 28),
-        Text('研究方向', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
-        FieldChips(fields: p.researchFields),
-        const SizedBox(height: 16),
-        Text('简介', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(orNa(p.bio)),
-        const SizedBox(height: 16),
-        Text('数据来源', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(orNa(p.sourceUrl)),
-        const SizedBox(height: 6),
-        Text('更新时间：${orNa(p.updatedAt)}'),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () =>
+                context.push('/match?pid=${Uri.encodeComponent(p.id)}'),
+            icon: const Icon(Icons.insights_outlined),
+            label: const Text('匹配分析'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('AI 内容仅供准备参考，请自行核对事实。', style: textTheme.bodySmall),
+        ),
+        const Divider(height: 20),
         Text('主页', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Text(orNa(p.homepageUrl)),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -119,6 +130,20 @@ class _Detail extends ConsumerWidget {
             label: const Text('访问主页'),
           ),
         ),
+        const SizedBox(height: 12),
+        Text('研究方向', style: textTheme.titleMedium),
+        const SizedBox(height: 4),
+        FieldChips(fields: p.researchFields),
+        const SizedBox(height: 12),
+        Text('简介', style: textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(orNa(p.bio)),
+        const SizedBox(height: 12),
+        Text('数据来源', style: textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text(orNa(p.sourceUrl)),
+        const SizedBox(height: 4),
+        Text('更新时间：${orNa(p.updatedAt)}'),
       ],
     );
   }
