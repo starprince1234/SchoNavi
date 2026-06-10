@@ -54,6 +54,7 @@ jobs:
             local value="$2"
             local delimiter="EOF_${name}_$(date +%s%N)"
 
+            echo "::add-mask::$value"
             {
               echo "$name<<$delimiter"
               echo "$value"
@@ -113,28 +114,42 @@ jobs:
           git lfs pull --include="web/backend_agent/raw_data/**"
           tar -cf backend_agent_raw_data.tar -C web/backend_agent raw_data
 
-      - name: Upload compose file
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ steps.doppler.outputs.SERVER_HOST }}
-          username: ${{ steps.doppler.outputs.SERVER_USER }}
-          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
-          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
-          source: "docker-compose.prod.yml,scripts/deploy_backend_agent.sh,backend_src.tar.gz,backend_agent_src.tar.gz"
-          target: "/opt/schonavi"
-          overwrite: true
+      - name: Upload deployment files
+        env:
+          SSHPASS: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sshpass
+          sshpass -e ssh \
+            -p "${{ steps.doppler.outputs.SERVER_SSH_PORT }}" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "${{ steps.doppler.outputs.SERVER_USER }}@${{ steps.doppler.outputs.SERVER_HOST }}" \
+            "mkdir -p /opt/schonavi/scripts"
+          sshpass -e scp \
+            -P "${{ steps.doppler.outputs.SERVER_SSH_PORT }}" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            docker-compose.prod.yml backend_src.tar.gz backend_agent_src.tar.gz \
+            "${{ steps.doppler.outputs.SERVER_USER }}@${{ steps.doppler.outputs.SERVER_HOST }}:/opt/schonavi/"
+          sshpass -e scp \
+            -P "${{ steps.doppler.outputs.SERVER_SSH_PORT }}" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            scripts/deploy_backend_agent.sh \
+            "${{ steps.doppler.outputs.SERVER_USER }}@${{ steps.doppler.outputs.SERVER_HOST }}:/opt/schonavi/scripts/deploy_backend_agent.sh"
 
       - name: Upload raw data
         if: steps.raw_data.outputs.changed == 'true'
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ steps.doppler.outputs.SERVER_HOST }}
-          username: ${{ steps.doppler.outputs.SERVER_USER }}
-          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
-          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
-          source: "backend_agent_raw_data.tar"
-          target: "/opt/schonavi"
-          overwrite: true
+        env:
+          SSHPASS: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+        run: |
+          sshpass -e scp \
+            -P "${{ steps.doppler.outputs.SERVER_SSH_PORT }}" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            backend_agent_raw_data.tar \
+            "${{ steps.doppler.outputs.SERVER_USER }}@${{ steps.doppler.outputs.SERVER_HOST }}:/opt/schonavi/"
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
