@@ -10,6 +10,7 @@ import '../../features/home/pages/home_page.dart';
 import '../../features/match/pages/match_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
+import '../../features/settings/pages/settings_page.dart';
 import '../../shared/widgets/scaffold_with_bottom_nav.dart';
 import '../motion/page_transition.dart';
 
@@ -94,6 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           child: MatchPage(professorId: state.uri.queryParameters['pid'] ?? ''),
         ),
       ),
+      GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
     ],
   );
 });
