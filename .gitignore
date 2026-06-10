@@ -46,3 +46,6 @@ app.*.map.json
 .vscode/
 
 data-fixture/
+
+# Superpowers brainstorming visual companion (local mockups)
+.superpowers/
