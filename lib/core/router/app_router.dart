@@ -11,6 +11,7 @@ import '../../features/match/pages/match_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
 import '../../shared/widgets/scaffold_with_bottom_nav.dart';
+import '../motion/page_transition.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -42,40 +43,56 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/recommendation',
-        builder: (_, state) =>
-            RecommendationPage(prompt: state.uri.queryParameters['q'] ?? ''),
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: RecommendationPage(
+            prompt: state.uri.queryParameters['q'] ?? '',
+          ),
+        ),
       ),
       GoRoute(
         path: '/professor/:id',
-        builder: (_, state) =>
-            ProfessorPage(professorId: state.pathParameters['id']!),
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: ProfessorPage(professorId: state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/chat',
-        builder: (_, state) => ChatPage(
-          sessionId: state.uri.queryParameters['sid'] ?? '',
-          professorId: state.uri.queryParameters['pid'],
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: ChatPage(
+            sessionId: state.uri.queryParameters['sid'] ?? '',
+            professorId: state.uri.queryParameters['pid'],
+          ),
         ),
       ),
       GoRoute(
         path: '/email',
-        builder: (_, state) =>
-            EmailPage(professorId: state.uri.queryParameters['pid'] ?? ''),
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: EmailPage(professorId: state.uri.queryParameters['pid'] ?? ''),
+        ),
       ),
       GoRoute(
         path: '/compare',
-        builder: (_, state) => ComparePage(
-          ids: (state.uri.queryParameters['ids'] ?? '')
-              .split(',')
-              .map((id) => id.trim())
-              .where((id) => id.isNotEmpty)
-              .toList(),
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: ComparePage(
+            ids: (state.uri.queryParameters['ids'] ?? '')
+                .split(',')
+                .map((id) => id.trim())
+                .where((id) => id.isNotEmpty)
+                .toList(),
+          ),
         ),
       ),
       GoRoute(
         path: '/match',
-        builder: (_, state) =>
-            MatchPage(professorId: state.uri.queryParameters['pid'] ?? ''),
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: MatchPage(professorId: state.uri.queryParameters['pid'] ?? ''),
+        ),
       ),
     ],
   );

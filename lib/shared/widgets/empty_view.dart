@@ -14,6 +14,7 @@ class EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -21,14 +22,18 @@ class EmptyView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.search_off,
-              size: 48,
-              color: Theme.of(context).colorScheme.outline,
+              Icons.travel_explore_outlined,
+              size: 52,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 14),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge,
+            ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
