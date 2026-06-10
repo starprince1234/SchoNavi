@@ -123,4 +123,35 @@ void main() {
 
     expect(matchRepo.calls, 2);
   });
+
+  testWidgets('有维度时显示雷达与综合分，点轴看解读', (tester) async {
+    final profileRepo = _FakeProfileRepo(const UserProfile(name: '李四'));
+    final matchRepo = _FakeMatchRepo(
+      const MatchAnalysis(
+        professorId: 'p_001',
+        summary: '方向较契合。',
+        strengths: ['研究方向一致'],
+        gaps: ['缺少论文'],
+        suggestions: ['补读综述'],
+        dimensions: [
+          MatchDimension(label: '方向契合', score: 90, comment: '高度重合的方向'),
+          MatchDimension(label: '方法匹配', score: 70, comment: 'm'),
+          MatchDimension(label: '地域', score: 80, comment: 'r'),
+          MatchDimension(label: '学历目标', score: 60, comment: 'd'),
+          MatchDimension(label: '产出活跃', score: 50, comment: 'o'),
+        ],
+      ),
+    );
+    await tester.pumpWidget(_wrap(profileRepo, matchRepo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('开始匹配分析'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('综合契合度（信息性）'), findsOneWidget);
+    await tester.tap(find.text('方向契合'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('高度重合的方向'), findsOneWidget);
+  });
 }

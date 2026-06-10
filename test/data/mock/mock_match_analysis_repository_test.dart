@@ -44,4 +44,21 @@ void main() {
     expect(analysis.gaps.join(), contains('补充'));
     expect(analysis.summary, isNotEmpty);
   });
+
+  test('生成固定 5 维，分数 0-100', () async {
+    final result = await MockMatchAnalysisRepository().analyze(
+      professor: _professor,
+      profile: const UserProfile(name: '李四', researchInterests: ['医学影像']),
+    );
+    final dims = (result as Success<MatchAnalysis>).data.dimensions;
+
+    expect(
+      dims.map((d) => d.label).toList(),
+      ['方向契合', '方法匹配', '地域', '学历目标', '产出活跃'],
+    );
+    for (final d in dims) {
+      expect(d.score, inInclusiveRange(0, 100));
+      expect(d.comment, isNotEmpty);
+    }
+  });
 }

@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/ui/app_bottom_sheet.dart';
 import '../../../domain/entities/match_analysis.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../features/email/widgets/profile_sheet.dart';
 import '../../../features/professor/providers/professor_provider.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/radar_chart.dart';
+import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/stat_tile.dart';
 import '../providers/match_provider.dart';
 
 class MatchPage extends ConsumerStatefulWidget {
@@ -129,22 +133,82 @@ class _AnalysisView extends StatelessWidget {
   final MatchAnalysis analysis;
   final VoidCallback onRegenerate;
 
+  int? get _overall {
+    final dims = analysis.dimensions;
+    if (dims.isEmpty) return null;
+    final sum = dims.fold<int>(0, (total, dimension) => total + dimension.score);
+    return (sum / dims.length).round();
+  }
+
+  void _showDimension(BuildContext context, MatchDimension dimension) {
+    showAppBottomSheet<void>(
+      context: context,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  dimension.label,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                Text(
+                  '${dimension.score}',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              dimension.comment,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final overall = _overall;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          color: Theme.of(context).colorScheme.tertiaryContainer,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           margin: EdgeInsets.zero,
           child: const Padding(
             padding: EdgeInsets.all(12),
             child: Text('本分析仅供参考，不预测录取概率，请结合实际情况判断。'),
           ),
         ),
-        const SizedBox(height: 16),
-        Text('总体匹配', style: textTheme.titleMedium),
+        if (analysis.dimensions.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          if (overall != null)
+            Center(child: StatTile(value: overall, label: '综合契合度（信息性）')),
+          const SizedBox(height: 8),
+          Center(
+            child: RadarChart(
+              dimensions: analysis.dimensions,
+              onAxisTap: (index) =>
+                  _showDimension(context, analysis.dimensions[index]),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              '点任一维度查看 AI 解读',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+        const SizedBox(height: 18),
+        const SectionHeader('总体匹配'),
         const SizedBox(height: 6),
         Text(analysis.summary),
         const SizedBox(height: 18),

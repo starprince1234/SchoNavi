@@ -121,4 +121,45 @@ void main() {
 
     expect((result as Failure<MatchAnalysis>).error, isA<NetworkException>());
   });
+
+  test('解析 dimensions：补齐为固定 5 轴并 clamp 分数', () async {
+    final json = jsonEncode({
+      'summary': '较契合。',
+      'strengths': ['x'],
+      'gaps': ['y'],
+      'suggestions': ['z'],
+      'dimensions': [
+        {'label': '方向契合', 'score': 120, 'comment': '重合度高'},
+        {'label': '地域', 'score': -5, 'comment': '需确认'},
+      ],
+    });
+    final repo = AiMatchAnalysisRepository(_FakeLlm(Success(json)));
+
+    final analysis =
+        (await repo.analyze(
+              professor: _professor,
+              profile: const UserProfile(),
+            )
+            as Success<MatchAnalysis>)
+            .data;
+
+    final byLabel = {for (final d in analysis.dimensions) d.label: d};
+    expect(analysis.dimensions, hasLength(5));
+    expect(byLabel['方向契合']!.score, 100);
+    expect(byLabel['地域']!.score, 0);
+    expect(byLabel['方法匹配']!.comment, '信息不足');
+  });
+
+  test('无 dimensions 字段仍成功（退化为空）', () async {
+    final repo = AiMatchAnalysisRepository(_FakeLlm(Success(_validJson())));
+    final analysis =
+        (await repo.analyze(
+              professor: _professor,
+              profile: const UserProfile(),
+            )
+            as Success<MatchAnalysis>)
+            .data;
+    expect(analysis.dimensions, isEmpty);
+    expect(analysis.summary, isNotEmpty);
+  });
 }

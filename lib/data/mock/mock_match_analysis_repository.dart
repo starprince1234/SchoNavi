@@ -45,6 +45,41 @@ class MockMatchAnalysisRepository implements MatchAnalysisRepository {
       '整理可发送给导师的材料清单，包括简历、成绩单和项目说明。',
     ];
 
+    final hasOverlap = overlap.isNotEmpty;
+    final dimensions = <MatchDimension>[
+      MatchDimension(
+        label: '方向契合',
+        score: hasOverlap ? 88 : 62,
+        comment: hasOverlap
+            ? '你的兴趣与 ${overlap.join('、')} 直接重合。'
+            : '与 $fields 有一定关联，建议进一步对照。',
+      ),
+      MatchDimension(
+        label: '方法匹配',
+        score: profile.major != null ? 74 : 60,
+        comment: profile.major != null
+            ? '你的 ${profile.major} 背景可支撑相关方法。'
+            : '方法匹配度需结合你的具体技能判断。',
+      ),
+      const MatchDimension(
+        label: '地域',
+        score: 70,
+        comment: '地域偏好需结合你的意向城市确认。',
+      ),
+      MatchDimension(
+        label: '学历目标',
+        score: profile.degreeStage != null ? 72 : 58,
+        comment: profile.degreeStage != null
+            ? '你的目标阶段（${profile.degreeStage}）可与导师招生匹配。'
+            : '建议补充目标阶段（硕/博）以评估。',
+      ),
+      const MatchDimension(
+        label: '产出活跃',
+        score: 68,
+        comment: '导师近年产出与名额请以官网/回复为准。',
+      ),
+    ];
+
     return Success(
       MatchAnalysis(
         professorId: professor.id,
@@ -52,6 +87,7 @@ class MockMatchAnalysisRepository implements MatchAnalysisRepository {
         strengths: strengths,
         gaps: gaps,
         suggestions: suggestions,
+        dimensions: dimensions,
       ),
     );
   }
