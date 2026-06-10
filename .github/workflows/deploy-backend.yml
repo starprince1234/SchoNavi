@@ -84,24 +84,27 @@ jobs:
       - name: Package backend source
         run: |
           tar \
-            --exclude='web/backend/.env*' \
-            --exclude='web/backend/.pytest_cache' \
-            --exclude='web/backend/__pycache__' \
+            --exclude='backend/.env*' \
+            --exclude='backend/.pytest_cache' \
+            --exclude='backend/__pycache__' \
             -czf backend_src.tar.gz -C web backend
+          du -h backend_src.tar.gz
 
       - name: Package backend agent source
         run: |
           tar \
-            --exclude='web/backend_agent/.env*' \
-            --exclude='web/backend_agent/.venv' \
-            --exclude='web/backend_agent/.pytest_cache' \
-            --exclude='web/backend_agent/.pytest_tmp' \
-            --exclude='web/backend_agent/.omo' \
-            --exclude='web/backend_agent/.opencode' \
-            --exclude='web/backend_agent/data' \
-            --exclude='web/backend_agent/raw_data' \
-            --exclude='web/backend_agent/logs' \
+            --exclude='backend_agent/.env*' \
+            --exclude='backend_agent/.venv' \
+            --exclude='backend_agent/.pytest_cache' \
+            --exclude='backend_agent/.pytest_tmp' \
+            --exclude='backend_agent/.omo' \
+            --exclude='backend_agent/.opencode' \
+            --exclude='backend_agent/data' \
+            --exclude='backend_agent/raw_data' \
+            --exclude='backend_agent/logs' \
             -czf backend_agent_src.tar.gz -C web backend_agent
+          du -h backend_agent_src.tar.gz
+          tar -tzf backend_agent_src.tar.gz | grep '^backend_agent/raw_data/' && exit 1 || true
 
       - name: Package raw data
         if: steps.raw_data.outputs.changed == 'true'
