@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
 
@@ -9,9 +9,13 @@ Widget _wrap() {
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomePage()),
       GoRoute(path: '/recommendation', builder: (_, _) => const Placeholder()),
+      GoRoute(path: '/profile/wizard', builder: (_, _) => const Text('wizard')),
+      GoRoute(path: '/profile', builder: (_, _) => const Text('profile')),
     ],
   );
-  return ProviderScope(child: MaterialApp.router(routerConfig: router));
+  return ProviderScope(
+    child: MaterialApp.router(routerConfig: router),
+  );
 }
 
 void main() {
@@ -41,5 +45,12 @@ void main() {
       find.widgetWithText(TextField, '我想找计算机视觉方向的导师，最好在北京。'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('profile icon navigates to /profile', (tester) async {
+    await tester.pumpWidget(_wrap());
+    await tester.tap(find.byTooltip('我的档案'));
+    await tester.pumpAndSettle();
+    expect(find.text('profile'), findsOneWidget);
   });
 }

@@ -11,14 +11,24 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/features/recommendation/pages/recommendation_page.dart';
+
+class _FakeProfileRepo implements ProfileRepository {
+  @override
+  UserProfile load() => const UserProfile();
+  @override
+  Future<void> save(UserProfile p) async {}
+}
 
 class _FakeRecRepo implements RecommendationRepository {
   @override
   Future<Result<RecommendationResult>> getRecommendations({
     required String prompt,
+    UserProfile? profile,
     String? sessionId,
   }) async => const Success(
     RecommendationResult(
@@ -63,6 +73,7 @@ Future<Widget> _wrap() async {
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
+      profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
       initialAppConfigProvider.overrideWithValue(
         const AppConfig(
           dataSource: DataSource.ai,
