@@ -21,15 +21,15 @@ class AppTheme {
       onSecondary: Colors.white,
       tertiary: AppColors.match,
       onTertiary: Colors.white,
-      surface: isDark ? const Color(0xFF1F1D18) : AppColors.surface,
+      surface: isDark ? const Color(0xFF1C1C1E) : AppColors.surface,
       onSurface: isDark ? AppColors.paper : AppColors.ink,
       surfaceContainerLowest: isDark
-          ? const Color(0xFF151310)
+          ? const Color(0xFF121212)
           : AppColors.surface,
-      surfaceContainerLow: isDark ? const Color(0xFF1A1814) : AppColors.paper,
-      surfaceContainer: isDark ? const Color(0xFF24221C) : AppColors.panel,
+      surfaceContainerLow: isDark ? const Color(0xFF1E1E1E) : AppColors.paper,
+      surfaceContainer: isDark ? const Color(0xFF2C2C2E) : AppColors.panel,
       surfaceContainerHighest: isDark
-          ? const Color(0xFF2C2922)
+          ? const Color(0xFF3A3A3C)
           : AppColors.panel,
       outline: isDark ? const Color(0xFF3A352C) : AppColors.line,
       onSurfaceVariant: isDark ? const Color(0xFFBDB5A5) : AppColors.inkSoft,
@@ -119,8 +119,18 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: 'SourceHanSans',
       colorScheme: scheme,
+      splashFactory: InkSparkle.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
       scaffoldBackgroundColor: isDark
-          ? const Color(0xFF151310)
+          ? const Color(0xFF121212)
           : AppColors.paper,
       textTheme: textTheme,
       cardTheme: CardThemeData(
@@ -179,7 +189,7 @@ class AppTheme {
         ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark ? const Color(0xFF151310) : AppColors.paper,
+        backgroundColor: isDark ? const Color(0xFF121212) : AppColors.paper,
         foregroundColor: scheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,

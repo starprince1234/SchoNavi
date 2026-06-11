@@ -14,7 +14,11 @@ class SchoNaviApp extends ConsumerWidget {
       title: 'SchoNavi',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.light,
       routerConfig: router,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        physics: const BouncingScrollPhysics(),
+      ),
     );
   }
 }
