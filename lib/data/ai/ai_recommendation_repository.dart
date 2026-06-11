@@ -8,6 +8,7 @@ import '../../domain/entities/professor.dart';
 import '../../domain/entities/query_understanding.dart';
 import '../../domain/entities/recommendation.dart';
 import '../../domain/entities/recommendation_result.dart';
+import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import 'professor_candidate_source.dart';
 
@@ -23,13 +24,20 @@ class AiRecommendationRepository implements RecommendationRepository {
   @override
   Future<Result<RecommendationResult>> getRecommendations({
     required String prompt,
+    UserProfile? profile,
     String? sessionId,
   }) async {
     final pool = candidates.candidatesFor(prompt);
+    final profileSection = _encodeProfile(profile);
     final res = await llm.complete(
       messages: [
         const LlmMessage('system', _systemPrompt),
-        LlmMessage('user', '【用户需求】$prompt\n【候选导师】${_encode(pool)}'),
+        LlmMessage(
+          'user',
+          '【用户需求】$prompt\n'
+              '${profileSection == null ? '' : '【学生档案】$profileSection\n'}'
+              '【候选导师】${_encode(pool)}',
+        ),
       ],
       jsonMode: true,
       temperature: 0.3,
@@ -63,6 +71,31 @@ class AiRecommendationRepository implements RecommendationRepository {
           if (p.bio != null) 'bio': p.bio,
         },
     ]);
+  }
+
+  /// 把档案压成紧凑 JSON；空档案返回 null（不注入）。
+  String? _encodeProfile(UserProfile? p) {
+    if (p == null || p.isEmpty) return null;
+    return jsonEncode({
+      if (p.gender != null) 'gender': p.gender!.name,
+      if (p.degreeStage != null) 'degreeStage': p.degreeStage,
+      if (p.targetDegree != null) 'targetDegree': p.targetDegree,
+      if (p.school != null) 'school': p.school,
+      if (p.major != null) 'major': p.major,
+      if (p.score != null && !p.score!.isEmpty)
+        'score': {
+          if (p.score!.gpa != null) 'gpa': p.score!.gpa,
+          if (p.score!.scale != null) 'scale': p.score!.scale,
+          if (p.score!.rank != null) 'rank': p.score!.rank,
+        },
+      if (p.researchInterests.isNotEmpty)
+        'researchInterests': p.researchInterests,
+      if (p.competitions.isNotEmpty)
+        'competitions': [for (final c in p.competitions) c.toJson()],
+      if (p.research.isNotEmpty)
+        'research': [for (final r in p.research) r.toJson()],
+      if (p.highlights != null) 'highlights': p.highlights,
+    });
   }
 
   RecommendationResult _parse(
@@ -153,7 +186,8 @@ class AiRecommendationRepository implements RecommendationRepository {
 5. matchLevel 取值 high、medium、low 之一。
 6. queryUnderstanding：抽取研究兴趣/地区/学校/阶段；degreeStage 取“硕士”“博士”或 null；uncertainties 写未明确处。地区可据学校常识推断。
 7. followUpQuestions：1-3 个细化推荐的中文追问。
-8. 候选中无相关导师时 recommendations 用空数组。
+8. 若提供【学生档案】，请结合其研究兴趣/成绩/竞赛/科研背景调整排序，并在 reason 中适当引用学生背景与导师的契合点；但仍只引用候选导师事实、不得编造。
+9. 候选中无相关导师时 recommendations 用空数组。
 输出格式：
 {"queryUnderstanding":{"researchInterests":["医学影像"],"preferredLocations":["上海"],"preferredUniversities":[],"degreeStage":"硕士","uncertainties":["未明确偏理论或应用"]},"recommendations":[{"professorId":"p_001","matchLevel":"high","reason":"……","limitations":["……"]}],"followUpQuestions":["……"]}
 ''';
