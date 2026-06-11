@@ -11,6 +11,8 @@ import '../../features/match/pages/match_page.dart';
 import '../../features/onboarding/pages/onboarding_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
+import '../../features/profile/pages/privacy_agreement_page.dart';
+import '../../features/profile/pages/profile_intro_page.dart';
 import '../../features/profile/pages/profile_page.dart';
 import '../../features/profile/pages/profile_wizard_page.dart';
 import '../../features/settings/pages/settings_page.dart';
@@ -50,6 +52,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/history', builder: (_, _) => const HistoryPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                pageBuilder: (_, state) => sharedAxisPage(
+                  state: state,
+                  child: const ProfilePage(),
+                ),
+              ),
             ],
           ),
         ],
@@ -108,6 +121,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+      GoRoute(
+        path: '/profile/privacy',
+        pageBuilder: (_, state) =>
+            sharedAxisPage(state: state, child: const PrivacyAgreementPage()),
+      ),
+      GoRoute(
+        path: '/profile/intro',
+        pageBuilder: (_, state) =>
+            sharedAxisPage(state: state, child: const ProfileIntroPage()),
+      ),
       GoRoute(
         path: '/profile',
         pageBuilder: (_, state) =>

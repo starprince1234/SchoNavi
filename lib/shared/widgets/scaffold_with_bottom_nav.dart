@@ -13,7 +13,7 @@ class ScaffoldWithBottomNav extends StatefulWidget {
 }
 
 class _ScaffoldWithBottomNavState extends State<ScaffoldWithBottomNav> {
-  final Map<int, bool> _scaling = {0: false, 1: false, 2: false};
+  final Map<int, bool> _scaling = {0: false, 1: false, 2: false, 3: false};
 
   void _onTabSelected(int index) {
     Haptics.selection();
@@ -73,6 +73,19 @@ class _ScaffoldWithBottomNavState extends State<ScaffoldWithBottomNav> {
               child: const Icon(Icons.history),
             ),
             label: '历史',
+          ),
+          NavigationDestination(
+            icon: AnimatedScale(
+              scale: _scaling[3]! ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: const Icon(Icons.person_outline),
+            ),
+            selectedIcon: AnimatedScale(
+              scale: _scaling[3]! ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: const Icon(Icons.person),
+            ),
+            label: '我的',
           ),
         ],
       ),
