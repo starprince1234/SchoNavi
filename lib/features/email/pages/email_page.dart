@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../features/professor/providers/professor_provider.dart';
@@ -13,8 +15,8 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_action_tile.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../providers/email_provider.dart';
-import '../widgets/profile_sheet.dart';
 
 class EmailPage extends ConsumerStatefulWidget {
   const EmailPage({super.key, required this.professorId});
@@ -46,12 +48,10 @@ class _EmailPageState extends ConsumerState<EmailPage> {
   }
 
   Future<void> _generate(Professor professor) async {
-    var profile = ref.read(profileRepositoryProvider).load();
+    final profile = ref.read(profileProvider);
     if (profile.isEmpty) {
-      final edited = await showProfileSheet(context, profile);
-      if (edited == null) return;
-      await ref.read(profileRepositoryProvider).save(edited);
-      profile = edited;
+      context.push('/profile');
+      return;
     }
     await ref
         .read(emailProvider.notifier)
@@ -59,14 +59,7 @@ class _EmailPageState extends ConsumerState<EmailPage> {
   }
 
   Future<void> _saveBackground() async {
-    final current = ref.read(profileRepositoryProvider).load();
-    final edited = await showProfileSheet(context, current);
-    if (edited == null) return;
-    await ref.read(profileRepositoryProvider).save(edited);
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('已保存个人背景')));
+    context.push('/profile');
   }
 
   Future<void> _copy() async {
@@ -195,13 +188,21 @@ class _DraftForm extends StatefulWidget {
 
 class _DraftFormState extends State<_DraftForm> {
   bool _copied = false;
+  Timer? _copyTimer;
 
   void _handleCopy() {
     widget.onCopy();
     setState(() => _copied = true);
-    Future.delayed(const Duration(seconds: 2), () {
+    _copyTimer?.cancel();
+    _copyTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
     });
+  }
+
+  @override
+  void dispose() {
+    _copyTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -266,7 +267,7 @@ class _DraftFormState extends State<_DraftForm> {
             children: [
               BentoTile(
                 onTap: _handleCopy,
-                height: 80,
+                height: 88,
                 color: scheme.surfaceContainerLowest,
                 child: Center(
                   child: Column(

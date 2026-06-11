@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../profile/providers/profile_provider.dart';
+import '../../profile/widgets/profile_prompt_sheet.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
+  static const String promptDismissedKey = 'profile_prompt_dismissed';
   static const int _maxLen = 1000;
   static const List<String> _examples = [
     '我想找计算机视觉方向的导师，最好在北京。',
@@ -61,7 +66,7 @@ class _HomePageState extends State<HomePage> {
 
   bool get _canSubmit => _controller.text.trim().isNotEmpty;
 
-  void _submit() {
+  Future<void> _submit() async {
     final prompt = _controller.text.trim();
     if (prompt.isEmpty) return;
     if (prompt.length < 6) {
@@ -71,6 +76,20 @@ class _HomePageState extends State<HomePage> {
         const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')),
       );
     }
+
+    final store = ref.read(localStoreProvider);
+    final dismissed = store.getBool(promptDismissedKey) ?? false;
+    if (ref.read(profileProvider).isEmpty && !dismissed) {
+      final go = await showProfilePromptSheet(context);
+      if (!mounted) return;
+      if (go == true) {
+        context.push('/profile/wizard');
+        return; // 去完善，稍后再来推荐
+      }
+      await store.setBool(promptDismissedKey, true);
+      if (!mounted) return;
+    }
+
     context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
   }
 
@@ -98,6 +117,11 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text('SchoNavi', style: textTheme.displaySmall),
         actions: [
+          IconButton(
+            tooltip: '我的档案',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => context.push('/profile'),
+          ),
           IconButton(
             tooltip: '设置',
             icon: const Icon(Icons.settings_outlined),

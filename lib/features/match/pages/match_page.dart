@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/app_bottom_sheet.dart';
 import '../../../domain/entities/match_analysis.dart';
 import '../../../domain/entities/professor.dart';
-import '../../../features/email/widgets/profile_sheet.dart';
 import '../../../features/professor/providers/professor_provider.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
@@ -16,6 +15,7 @@ import '../../../shared/widgets/stat_tile.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../providers/match_provider.dart';
 
 class MatchPage extends ConsumerStatefulWidget {
@@ -38,12 +38,10 @@ class _MatchPageState extends ConsumerState<MatchPage> {
   }
 
   Future<void> _analyze(Professor professor) async {
-    var profile = ref.read(profileRepositoryProvider).load();
+    final profile = ref.read(profileProvider);
     if (profile.isEmpty) {
-      final edited = await showProfileSheet(context, profile);
-      if (edited == null) return;
-      await ref.read(profileRepositoryProvider).save(edited);
-      profile = edited;
+      context.push('/profile');
+      return;
     }
     await ref
         .read(matchProvider.notifier)

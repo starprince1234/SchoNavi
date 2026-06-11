@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
@@ -22,6 +23,22 @@ class SettingsPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SectionHeader('个人'),
+          ),
+          ListTile(
+            key: const Key('settings-profile-entry'),
+            leading: const Icon(Icons.person_outline),
+            title: const Text('我的背景档案'),
+            subtitle: const Text('用于让推荐结合你的成绩 / 竞赛 / 科研'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Haptics.light();
+              context.push('/profile');
+            },
+          ),
+          const Divider(),
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: SectionHeader('数据源'),
@@ -74,6 +91,11 @@ class SettingsPage extends ConsumerWidget {
               Haptics.light();
               _confirmClear(context, ref);
             },
+          ),
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('数据如何使用'),
+            subtitle: Text('资料仅保存在本机；AI 模式下会随请求发送给大模型用于解析与推荐。'),
           ),
           const Divider(),
           const Padding(

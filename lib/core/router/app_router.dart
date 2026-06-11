@@ -11,6 +11,8 @@ import '../../features/match/pages/match_page.dart';
 import '../../features/onboarding/pages/onboarding_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
+import '../../features/profile/pages/profile_page.dart';
+import '../../features/profile/pages/profile_wizard_page.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../shared/widgets/scaffold_with_bottom_nav.dart';
 import '../di/providers.dart';
@@ -106,6 +108,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (_, state) =>
+            sharedAxisPage(state: state, child: const ProfilePage()),
+      ),
+      GoRoute(
+        path: '/profile/wizard',
+        pageBuilder: (_, state) =>
+            sharedAxisPage(state: state, child: const ProfileWizardPage()),
+      ),
       GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingPage()),
     ],
   );
