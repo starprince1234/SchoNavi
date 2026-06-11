@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../features/professor/providers/professor_provider.dart';
@@ -50,7 +51,13 @@ class _EmailPageState extends ConsumerState<EmailPage> {
   Future<void> _generate(Professor professor) async {
     final profile = ref.read(profileProvider);
     if (profile.isEmpty) {
-      context.push('/profile');
+      final store = ref.read(localStoreProvider);
+      final agreed = store.getBool('privacy_agreed') ?? false;
+      if (!agreed) {
+        context.push('/profile/privacy');
+      } else {
+        context.push('/profile/intro');
+      }
       return;
     }
     await ref

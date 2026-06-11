@@ -47,7 +47,7 @@ class _ProfileWizardPageState extends ConsumerState<ProfileWizardPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              '资料仅保存在本机；AI 模式下会随请求发送给大模型用于解析与推荐。',
+              '你的资料将随请求发送给大模型，用于解析与个性化推荐、套磁和匹配分析。',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
