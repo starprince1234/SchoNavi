@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/di/providers.dart';
 import '../../../core/ui/app_bottom_sheet.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../shared/widgets/animated_entrance.dart';
@@ -19,6 +20,19 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
+
+    if (profile.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        final store = ref.read(localStoreProvider);
+        final agreed = store.getBool('privacy_agreed') ?? false;
+        if (!agreed) {
+          context.push('/profile/privacy');
+        } else {
+          context.push('/profile/intro');
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的档案')),
@@ -70,6 +84,43 @@ class ProfilePage extends ConsumerWidget {
               onTap: () => _editAchievements(context, ref, profile),
             ),
           ),
+          const SizedBox(height: 24),
+          AnimatedEntrance(
+            index: 5,
+            child: Column(
+              children: [
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _FooterLink(
+                      label: '隐私协议',
+                      onTap: () => context.push('/profile/privacy'),
+                    ),
+                    Text(
+                      ' · ',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    _FooterLink(
+                      label: '数据如何使用',
+                      onTap: () => _showDataUsage(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'SchoNavi v1.0.0',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -118,4 +169,65 @@ class ProfilePage extends ConsumerWidget {
     );
     await ref.read(profileProvider.notifier).save(draft);
   }
+}
+
+class _FooterLink extends StatelessWidget {
+  const _FooterLink({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                decoration: TextDecoration.underline,
+                decorationColor: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.open_in_new,
+              size: 12,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showDataUsage(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('数据如何使用'),
+      content: const Text(
+        '你的个人档案仅保存在本机，用于：\n\n'
+        '• 个性化导师推荐\n'
+        '• 生成 outreach 邮件\n'
+        '• 匹配度分析\n\n'
+        'AI 模式下，档案信息会随请求发送给大模型用于解析。'
+        '你随时可以在「我的档案」中修改或删除数据。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('知道了'),
+        ),
+      ],
+    ),
+  );
 }
