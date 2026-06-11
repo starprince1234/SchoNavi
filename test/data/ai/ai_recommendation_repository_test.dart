@@ -6,13 +6,16 @@ import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/ai/ai_recommendation_repository.dart';
 import 'package:scho_navi/data/ai/professor_candidate_source.dart';
+import 'package:scho_navi/domain/entities/competition.dart';
 import 'package:scho_navi/domain/entities/professor.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
 
 class _FakeLlm implements LlmClient {
   _FakeLlm(this._result);
 
   final Result<String> _result;
   bool? lastJsonMode;
+  String? lastUserContent;
 
   @override
   Future<Result<String>> complete({
@@ -21,6 +24,7 @@ class _FakeLlm implements LlmClient {
     double temperature = 0.7,
   }) async {
     lastJsonMode = jsonMode;
+    lastUserContent = messages.last.content;
     return _result;
   }
 
@@ -159,5 +163,31 @@ void main() {
     final res = await repo.getRecommendations(prompt: 'x');
 
     expect((res as Failure).error, isA<NetworkException>());
+  });
+
+  test('传入档案时 user 消息包含【学生档案】段', () async {
+    final fake = _FakeLlm(const Success('{"recommendations":[]}'));
+    final repo = AiRecommendationRepository(llm: fake, candidates: candidates);
+
+    await repo.getRecommendations(
+      prompt: '医学影像',
+      profile: const UserProfile(
+        targetDegree: '申请硕士',
+        researchInterests: ['医学影像'],
+        competitions: [Competition(name: 'ACM 区域赛', award: '银牌')],
+      ),
+    );
+
+    expect(fake.lastUserContent, contains('【学生档案】'));
+    expect(fake.lastUserContent, contains('ACM 区域赛'));
+  });
+
+  test('空档案不追加【学生档案】段（行为不变）', () async {
+    final fake = _FakeLlm(const Success('{"recommendations":[]}'));
+    final repo = AiRecommendationRepository(llm: fake, candidates: candidates);
+
+    await repo.getRecommendations(prompt: '医学影像', profile: const UserProfile());
+
+    expect(fake.lastUserContent, isNot(contains('【学生档案】')));
   });
 }

@@ -6,6 +6,7 @@ import '../../data/ai/ai_chat_repository.dart';
 import '../../data/ai/ai_comparison_repository.dart';
 import '../../data/ai/ai_match_analysis_repository.dart';
 import '../../data/ai/ai_outreach_email_repository.dart';
+import '../../data/ai/ai_profile_extraction_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/local/local_favorite_repository.dart';
@@ -28,6 +29,7 @@ import '../../domain/repositories/match_analysis_repository.dart';
 import '../../domain/repositories/outreach_email_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
+import '../../domain/repositories/profile_extraction_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
@@ -147,6 +149,22 @@ final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
 });
+
+/// 成果抽取属"分析类"——恒为 AI（mock 模式也用 AI，无假分析实现）；
+/// 真实后端（V1.0）到位后 http 分支切 HttpProfileExtractionRepository。
+final profileExtractionRepositoryProvider = Provider<ProfileExtractionRepository>(
+  (ref) {
+    final cfg = ref.watch(appConfigProvider);
+    return switch (cfg.dataSource) {
+      DataSource.mock || DataSource.ai => AiProfileExtractionRepository(
+        ref.watch(llmClientProvider),
+      ),
+      DataSource.http => throw UnimplementedError(
+        'HTTP data source not wired until V1.0',
+      ),
+    };
+  },
+);
 
 /// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
 /// 未 override 直接读取会抛错，提醒接线缺失。

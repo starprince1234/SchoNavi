@@ -129,25 +129,37 @@ void main() {
     expect(clipboardText, '主题\n\n正文');
   });
 
-  testWidgets('保存背景：打开 sheet 录入并存到本地', (tester) async {
+  testWidgets('保存背景：导航到 /profile', (tester) async {
     final profileRepo = _FakeProfileRepo(const UserProfile(name: '李四'));
     final emailRepo = _FakeEmailRepo(
       const EmailDraft(subject: '主题', body: '正文'),
     );
-    await tester.pumpWidget(_wrap(profileRepo, emailRepo));
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const EmailPage(professorId: 'p_001'),
+        ),
+        GoRoute(path: '/profile', builder: (_, _) => const Text('profile-marker')),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          professorRepositoryProvider.overrideWithValue(_FakeProfessorRepo()),
+          profileRepositoryProvider.overrideWithValue(profileRepo),
+          outreachEmailRepositoryProvider.overrideWithValue(emailRepo),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('生成套磁邮件'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('保存背景'));
     await tester.pumpAndSettle();
-    expect(find.text('完善个人背景'), findsOneWidget);
 
-    await tester.enterText(find.byKey(const Key('profile-name')), '王五');
-    await tester.tap(find.text('保存'));
-    await tester.pumpAndSettle();
-
-    expect(profileRepo.saves, greaterThanOrEqualTo(1));
-    expect(profileRepo.load().name, '王五');
+    expect(find.text('profile-marker'), findsOneWidget);
   });
 }

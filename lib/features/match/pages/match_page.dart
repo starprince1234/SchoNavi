@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/ui/app_bottom_sheet.dart';
 import '../../../domain/entities/match_analysis.dart';
 import '../../../domain/entities/professor.dart';
-import '../../../features/email/widgets/profile_sheet.dart';
 import '../../../features/professor/providers/professor_provider.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/radar_chart.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/stat_tile.dart';
+import '../../../core/haptics/haptics.dart';
+import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/bento_tile.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../providers/match_provider.dart';
 
 class MatchPage extends ConsumerStatefulWidget {
@@ -35,12 +39,16 @@ class _MatchPageState extends ConsumerState<MatchPage> {
   }
 
   Future<void> _analyze(Professor professor) async {
-    var profile = ref.read(profileRepositoryProvider).load();
+    final profile = ref.read(profileProvider);
     if (profile.isEmpty) {
-      final edited = await showProfileSheet(context, profile);
-      if (edited == null) return;
-      await ref.read(profileRepositoryProvider).save(edited);
-      profile = edited;
+      final store = ref.read(localStoreProvider);
+      final agreed = store.getBool('privacy_agreed') ?? false;
+      if (!agreed) {
+        context.push('/profile/privacy');
+      } else {
+        context.push('/profile/intro');
+      }
+      return;
     }
     await ref
         .read(matchProvider.notifier)
@@ -179,53 +187,85 @@ class _AnalysisView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          margin: EdgeInsets.zero,
-          child: const Padding(
-            padding: EdgeInsets.all(12),
-            child: Text('本分析仅供参考，不预测录取概率，请结合实际情况判断。'),
+        AnimatedEntrance(
+          index: 0,
+          child: BentoTile(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            padding: const EdgeInsets.all(12),
+            child: const Text('本分析仅供参考，不预测录取概率，请结合实际情况判断。'),
           ),
         ),
         if (analysis.dimensions.isNotEmpty) ...[
           const SizedBox(height: 16),
-          if (overall != null)
-            Center(child: StatTile(value: overall, label: '综合契合度（信息性）')),
-          const SizedBox(height: 8),
-          Center(
-            child: RadarChart(
-              dimensions: analysis.dimensions,
-              onAxisTap: (index) =>
-                  _showDimension(context, analysis.dimensions[index]),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              '点任一维度查看 AI 解读',
-              style: Theme.of(context).textTheme.bodySmall,
+          AnimatedEntrance(
+            index: 1,
+            child: BentoTile(
+              color: Theme.of(context).colorScheme.surfaceContainerLowest,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  if (overall != null)
+                    StatTile(value: overall, label: '综合契合度（信息性）'),
+                  const SizedBox(height: 8),
+                  RadarChart(
+                    dimensions: analysis.dimensions,
+                    onAxisTap: (index) {
+                      Haptics.selection();
+                      _showDimension(context, analysis.dimensions[index]);
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '点任一维度查看 AI 解读',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
         const SizedBox(height: 18),
-        const SectionHeader('总体匹配'),
-        const SizedBox(height: 6),
-        Text(analysis.summary),
+        AnimatedEntrance(
+          index: 2,
+          child: BentoTile(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader('总体匹配'),
+                const SizedBox(height: 6),
+                Text(analysis.summary),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 18),
-        _Section(
-          icon: Icons.check_circle_outline,
-          title: '匹配点',
-          items: analysis.strengths,
+        AnimatedEntrance(
+          index: 3,
+          child: _Section(
+            icon: Icons.check_circle_outline,
+            title: '匹配点',
+            items: analysis.strengths,
+          ),
         ),
-        _Section(
-          icon: Icons.report_problem_outlined,
-          title: '差距与短板',
-          items: analysis.gaps,
+        const SizedBox(height: 18),
+        AnimatedEntrance(
+          index: 4,
+          child: _Section(
+            icon: Icons.report_problem_outlined,
+            title: '差距与短板',
+            items: analysis.gaps,
+          ),
         ),
-        _Section(
-          icon: Icons.lightbulb_outline,
-          title: '准备建议',
-          items: analysis.suggestions,
+        const SizedBox(height: 18),
+        AnimatedEntrance(
+          index: 5,
+          child: _Section(
+            icon: Icons.lightbulb_outline,
+            title: '准备建议',
+            items: analysis.suggestions,
+          ),
         ),
         const SizedBox(height: 4),
         Align(
@@ -255,8 +295,10 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+    final scheme = Theme.of(context).colorScheme;
+    return BentoTile(
+      color: scheme.surfaceContainerLowest,
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

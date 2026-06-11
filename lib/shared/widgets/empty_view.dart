@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/haptics/haptics.dart';
+
 class EmptyView extends StatelessWidget {
   const EmptyView({
     super.key,
@@ -34,7 +36,13 @@ class EmptyView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 18),
-              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+              OutlinedButton(
+                onPressed: () {
+                  Haptics.light();
+                  onAction!();
+                },
+                child: Text(actionLabel!),
+              ),
             ],
           ],
         ),

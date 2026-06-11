@@ -5,8 +5,8 @@ class AppColors {
   AppColors._();
 
   static const ink = Color(0xFF1A1814);
-  static const paper = Color(0xFFFBF8F1);
-  static const panel = Color(0xFFF3EFE4);
+  static const paper = Color(0xFFFAFAF8);
+  static const panel = Color(0xFFF5F4F0);
   static const surface = Color(0xFFFFFFFF);
   static const coral = Color(0xFFFF5A3D);
   static const coralSoft = Color(0xFFFBEDE9);

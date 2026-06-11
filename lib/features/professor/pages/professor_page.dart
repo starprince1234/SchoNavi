@@ -11,6 +11,10 @@ import '../../../domain/entities/professor.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/bento_action_tile.dart';
+import '../../../shared/widgets/bento_grid.dart';
+import '../../../shared/widgets/bento_tile.dart';
 import '../providers/professor_provider.dart';
 
 class ProfessorPage extends ConsumerWidget {
@@ -55,95 +59,155 @@ class _Detail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = professor;
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     final isFavorite = ref
         .watch(favoriteStatusProvider(p.id))
         .maybeWhen(data: (value) => value, orElse: () => false);
     String orNa(String? v) => (v == null || v.isEmpty) ? '暂无信息' : v;
 
+    Widget section(int index, {required String title, required Widget child}) {
+      return AnimatedEntrance(
+        index: index,
+        child: BentoTile(
+          color: scheme.surfaceContainerLowest,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: textTheme.titleMedium),
+              const SizedBox(height: 8),
+              child,
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Hero(
-                tag: 'prof-name-${p.id}',
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Text(
-                    '${p.name}  ${p.title}',
-                    style: textTheme.headlineSmall,
-                  ),
+        AnimatedEntrance(
+          index: 0,
+          child: BentoTile(
+            color: scheme.surfaceContainerLowest,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Hero(
+                        tag: 'prof-name-${p.id}',
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: Text(
+                            '${p.name}  ${p.title}',
+                            style: textTheme.headlineSmall,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _FavoriteButton(
+                      isFavorite: isFavorite,
+                      onPressed: () {
+                        Haptics.light();
+                        ref
+                            .read(favoriteRepositoryProvider)
+                            .toggle(FavoriteItem.fromProfessor(p));
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${p.university} / ${p.college}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        AnimatedEntrance(
+          index: 1,
+          child: BentoGrid(
+            crossAxisCount: 2,
+            spacing: 12,
+            animateEntrance: false,
+            children: [
+              BentoActionTile(
+                icon: Icons.mail_outline,
+                label: '生成套磁邮件',
+                onTap: () =>
+                    context.push('/email?pid=${Uri.encodeComponent(p.id)}'),
+              ),
+              BentoActionTile(
+                icon: Icons.insights_outlined,
+                label: '匹配分析',
+                onTap: () =>
+                    context.push('/match?pid=${Uri.encodeComponent(p.id)}'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        AnimatedEntrance(
+          index: 2,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'AI 内容仅供准备参考，请自行核对事实。',
+              style: textTheme.bodySmall,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        section(
+          3,
+          title: '主页',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(orNa(p.homepageUrl)),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _openHomepage(context, ref, p.homepageUrl),
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('访问主页'),
                 ),
               ),
-            ),
-            IconButton(
-              tooltip: isFavorite ? '取消收藏' : '收藏导师',
-              icon: Icon(isFavorite ? Icons.bookmark : Icons.bookmark_border),
-              onPressed: () {
-                Haptics.light();
-                ref
-                    .read(favoriteRepositoryProvider)
-                    .toggle(FavoriteItem.fromProfessor(p));
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text('${p.university} / ${p.college}', style: textTheme.bodyMedium),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () =>
-                context.push('/email?pid=${Uri.encodeComponent(p.id)}'),
-            icon: const Icon(Icons.mail_outline),
-            label: const Text('生成套磁邮件'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () =>
-                context.push('/match?pid=${Uri.encodeComponent(p.id)}'),
-            icon: const Icon(Icons.insights_outlined),
-            label: const Text('匹配分析'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text('AI 内容仅供准备参考，请自行核对事实。', style: textTheme.bodySmall),
-        ),
-        const Divider(height: 20),
-        Text('主页', style: textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(orNa(p.homepageUrl)),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => _openHomepage(context, ref, p.homepageUrl),
-            icon: const Icon(Icons.open_in_new),
-            label: const Text('访问主页'),
+            ],
           ),
         ),
         const SizedBox(height: 12),
-        Text('研究方向', style: textTheme.titleMedium),
-        const SizedBox(height: 4),
-        FieldChips(fields: p.researchFields),
+        section(
+          4,
+          title: '研究方向',
+          child: FieldChips(fields: p.researchFields),
+        ),
         const SizedBox(height: 12),
-        Text('简介', style: textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(orNa(p.bio)),
+        section(
+          5,
+          title: '简介',
+          child: Text(orNa(p.bio)),
+        ),
         const SizedBox(height: 12),
-        Text('数据来源', style: textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(orNa(p.sourceUrl)),
-        const SizedBox(height: 4),
-        Text('更新时间：${orNa(p.updatedAt)}'),
+        section(
+          6,
+          title: '数据来源',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(orNa(p.sourceUrl)),
+              const SizedBox(height: 4),
+              Text('更新时间：${orNa(p.updatedAt)}'),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -165,5 +229,42 @@ class _Detail extends ConsumerWidget {
           const SnackBar(content: Text('主页可能已失效，可通过学校官网确认')),
         );
     }
+  }
+}
+
+class _FavoriteButton extends StatefulWidget {
+  const _FavoriteButton({
+    required this.isFavorite,
+    required this.onPressed,
+  });
+
+  final bool isFavorite;
+  final VoidCallback onPressed;
+
+  @override
+  State<_FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends State<_FavoriteButton> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => setState(() => _down = true),
+      onPointerUp: (_) => setState(() => _down = false),
+      onPointerCancel: (_) => setState(() => _down = false),
+      child: AnimatedScale(
+        scale: _down ? 0.85 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        child: IconButton(
+          tooltip: widget.isFavorite ? '取消收藏' : '收藏导师',
+          icon: Icon(
+            widget.isFavorite ? Icons.bookmark : Icons.bookmark_border,
+          ),
+          onPressed: widget.onPressed,
+        ),
+      ),
+    );
   }
 }

@@ -7,6 +7,8 @@ import '../../../domain/entities/comparison_report.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/bento_tile.dart';
 import '../providers/compare_provider.dart';
 
 class ComparePage extends ConsumerStatefulWidget {
@@ -62,67 +64,98 @@ class _ReportView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final id in report.professorIds)
-              Expanded(
-                child: InkWell(
-                  key: Key('compare-header-$id'),
-                  onTap: () => context.push('/professor/$id'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          byId[id]?.name ?? id,
-                          style: textTheme.titleSmall,
+        AnimatedEntrance(
+          index: 0,
+          child: BentoTile(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final id in report.professorIds)
+                  Expanded(
+                    child: InkWell(
+                      key: Key('compare-header-$id'),
+                      onTap: () => context.push('/professor/$id'),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 8,
                         ),
-                        Text(
-                          byId[id]?.university ?? '',
-                          style: textTheme.bodySmall,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              byId[id]?.name ?? id,
+                              style: textTheme.titleSmall,
+                            ),
+                            Text(
+                              byId[id]?.university ?? '',
+                              style: textTheme.bodySmall,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
-        const Divider(height: 24),
-        for (final row in report.rows) ...[
-          Text(row.dimension, style: textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final id in report.professorIds)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 4,
-                    ),
-                    child: Text(row.cells[id] ?? '-'),
+        const SizedBox(height: 12),
+        for (var i = 0; i < report.rows.length; i++) ...[
+          AnimatedEntrance(
+            index: i + 1,
+            child: BentoTile(
+              color: Theme.of(context).colorScheme.surfaceContainerLowest,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(report.rows[i].dimension, style: textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final id in report.professorIds)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
+                            child: Text(report.rows[i].cells[id] ?? '-'),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
         ],
-        const Divider(height: 24),
-        Text('总体小结', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
-        GptMarkdown(report.summary),
-        const SizedBox(height: 16),
-        Text('选择建议', style: textTheme.titleMedium),
-        const SizedBox(height: 6),
-        GptMarkdown(report.suggestion),
+        const SizedBox(height: 8),
+        AnimatedEntrance(
+          index: report.rows.length + 1,
+          child: BentoTile(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('总体小结', style: textTheme.titleMedium),
+                const SizedBox(height: 6),
+                GptMarkdown(report.summary),
+                const SizedBox(height: 16),
+                Text('选择建议', style: textTheme.titleMedium),
+                const SizedBox(height: 6),
+                GptMarkdown(report.suggestion),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         const Text(
           '提示：对比为 AI 生成，招生等信息请以学校官网与导师主页为准。',

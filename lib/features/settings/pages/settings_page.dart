@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/haptics/haptics.dart';
 import '../../../data/local/local_profile_repository.dart'
     show LocalProfileRepository;
 import '../../../shared/widgets/section_header.dart';
@@ -23,6 +25,22 @@ class SettingsPage extends ConsumerWidget {
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SectionHeader('个人'),
+          ),
+          ListTile(
+            key: const Key('settings-profile-entry'),
+            leading: const Icon(Icons.person_outline),
+            title: const Text('我的背景档案'),
+            subtitle: const Text('用于让推荐结合你的成绩 / 竞赛 / 科研'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Haptics.light();
+              context.push('/profile');
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: SectionHeader('数据源'),
           ),
           SwitchListTile(
@@ -35,8 +53,10 @@ class SettingsPage extends ConsumerWidget {
             ),
             value: cfg.dataSource == DataSource.ai,
             onChanged: configured
-                ? (on) =>
-                      ctrl.setDataSource(on ? DataSource.ai : DataSource.mock)
+                ? (on) {
+                      Haptics.light();
+                      ctrl.setDataSource(on ? DataSource.ai : DataSource.mock);
+                    }
                 : null,
           ),
           ListTile(
@@ -53,7 +73,10 @@ class SettingsPage extends ConsumerWidget {
             title: const Text('演示模式'),
             subtitle: const Text('在推荐结果页展示本次 AI 调用的 prompt 与原始返回'),
             value: cfg.featureFlags.showAiTrace,
-            onChanged: ctrl.setShowAiTrace,
+            onChanged: (on) {
+              Haptics.light();
+              ctrl.setShowAiTrace(on);
+            },
           ),
           const Divider(),
           const Padding(
@@ -64,7 +87,15 @@ class SettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.delete_outline),
             title: const Text('清除本地数据'),
             subtitle: const Text('收藏 / 历史 / 个人背景（仅本机）'),
-            onTap: () => _confirmClear(context, ref),
+            onTap: () {
+              Haptics.light();
+              _confirmClear(context, ref);
+            },
+          ),
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('数据如何使用'),
+            subtitle: Text('资料仅保存在本机；AI 模式下会随请求发送给大模型用于解析与推荐。'),
           ),
           const Divider(),
           const Padding(
@@ -90,11 +121,17 @@ class SettingsPage extends ConsumerWidget {
         content: const Text('将清除本机的收藏、历史与个人背景，且不可恢复。是否继续？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () {
+              Haptics.light();
+              Navigator.of(ctx).pop(false);
+            },
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () {
+              Haptics.light();
+              Navigator.of(ctx).pop(true);
+            },
             child: const Text('清除'),
           ),
         ],
