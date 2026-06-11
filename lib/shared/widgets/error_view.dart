@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/haptics/haptics.dart';
+
 class ErrorView extends StatelessWidget {
   const ErrorView({super.key, required this.message, this.onRetry});
 
@@ -28,7 +30,13 @@ class ErrorView extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 18),
-              FilledButton(onPressed: onRetry, child: const Text('重试')),
+              FilledButton(
+                onPressed: () {
+                  Haptics.warning();
+                  onRetry!();
+                },
+                child: const Text('重试'),
+              ),
             ],
           ],
         ),
