@@ -4,7 +4,7 @@
 
 The backend source is uploaded by `.github/workflows/deploy-backend.yml` and the Docker image is built on the server. This avoids pulling the application image from GHCR during production deploys.
 
-The workflow uploads backend agent source on each deploy, but runtime data stays outside Git:
+The workflow uploads backend and backend agent source on each deploy, but raw source data and generated runtime data stay on the server:
 
 ```text
 /opt/schonavi/backend_agent
@@ -31,27 +31,28 @@ PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
 
 Override these values in Doppler `prd` only if the mirror becomes unavailable.
 
-Raw SQLite source files are not committed. Put or sync them into:
+Raw SQLite source files are not uploaded by GitHub Actions. Put them on the server manually:
 
 ```text
 /opt/schonavi/backend_agent/raw_data
 ```
 
-For automatic raw data updates, store a command in Doppler `RAW_DATA_SYNC_COMMAND`.
-Examples:
+After adding or replacing raw DB files, rebuild the backend agent database, graph, and Chroma vector index on the server:
 
 ```bash
-aws s3 sync s3://your-bucket/schonavi/raw_data /opt/schonavi/backend_agent/raw_data
-rclone sync schonavi-raw:/ /opt/schonavi/backend_agent/raw_data
+cd /opt/schonavi
+./scripts/rebuild_backend_agent_indexes.sh
 ```
 
-Every backend deploy runs `scripts/deploy_backend_agent.sh`, which syncs agent source. After the container is up, the workflow rebuilds data inside the backend container:
+The rebuild script is incremental for vectors: unchanged items keep their existing `vector_id`; new or changed items are upserted into Chroma.
+
+Every backend deploy runs `scripts/deploy_backend_agent.sh`, which syncs backend agent source while preserving server-side `raw_data/` and `data/`.
+
+To restart the backend without rebuilding indexes:
 
 ```bash
-doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml exec -T backend sh -lc 'cd "$BACKEND_AGENT_PATH" && python -m app.jobs.rebuild_all'
+doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml up -d --no-build
 ```
-
-Set `SKIP_AGENT_REBUILD=true` in Doppler if you want deploys to skip data/vector rebuilds.
 
 ## Frontend
 

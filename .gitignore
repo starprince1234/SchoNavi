@@ -64,4 +64,3 @@ web/backend_agent/logs/
 web/backend_agent/data/
 web/backend_agent/raw_data/*
 !web/backend_agent/raw_data/
-!web/backend_agent/raw_data/*.db

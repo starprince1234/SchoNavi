@@ -77,7 +77,7 @@ def build_vector_index():
             item.vector_id = text_hash
 
         if ids:
-            collection.add(
+            collection.upsert(
                 ids=ids,
                 documents=documents,
                 metadatas=metadatas,

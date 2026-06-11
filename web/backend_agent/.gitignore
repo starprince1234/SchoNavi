@@ -4,7 +4,6 @@ data/chroma/
 .env
 *.db
 !raw_data/
-!raw_data/*.db
 logs/
 .github/
 .omo/
