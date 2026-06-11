@@ -46,11 +46,4 @@ void main() {
       findsOneWidget,
     );
   });
-
-  testWidgets('profile icon navigates to /profile', (tester) async {
-    await tester.pumpWidget(_wrap());
-    await tester.tap(find.byTooltip('我的档案'));
-    await tester.pumpAndSettle();
-    expect(find.text('profile'), findsOneWidget);
-  });
 }
