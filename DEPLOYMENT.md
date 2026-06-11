@@ -44,6 +44,8 @@ cd /opt/schonavi
 ./scripts/rebuild_backend_agent_indexes.sh
 ```
 
+This script does not require you to type a Doppler token. It reuses the already-running backend container, which was started by the deployment workflow with Doppler-injected production environment variables.
+
 The rebuild script is incremental for vectors: unchanged items keep their existing `vector_id`; new or changed items are upserted into Chroma.
 
 Every backend deploy runs `scripts/deploy_backend_agent.sh`, which syncs backend agent source while preserving server-side `raw_data/` and `data/`.

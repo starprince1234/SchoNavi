@@ -7,11 +7,6 @@ AGENT_ROOT="${BACKEND_AGENT_HOST_PATH:-$APP_ROOT/backend_agent}"
 
 cd "$APP_ROOT"
 
-if ! command -v doppler >/dev/null 2>&1; then
-  echo "doppler CLI is required on the server." >&2
-  exit 1
-fi
-
 if ! ls "$AGENT_ROOT"/raw_data/*.db >/dev/null 2>&1; then
   echo "No raw SQLite DB files found in $AGENT_ROOT/raw_data" >&2
   exit 1
@@ -19,11 +14,13 @@ fi
 
 mkdir -p "$AGENT_ROOT/data" "$APP_ROOT/cache/chroma"
 
-doppler run --project schonavi --config prd -- \
-  docker compose -f "$COMPOSE_FILE" up -d --no-build backend
+if ! docker compose -f "$COMPOSE_FILE" ps --status running --services | grep -qx "backend"; then
+  echo "The backend container is not running." >&2
+  echo "Deploy/start the backend first so it has Doppler-injected production env vars." >&2
+  exit 1
+fi
 
-doppler run --project schonavi --config prd -- \
-  docker compose -f "$COMPOSE_FILE" exec -T backend sh -lc \
-    'cd "$BACKEND_AGENT_PATH" && python -m app.jobs.rebuild_all'
+docker compose -f "$COMPOSE_FILE" exec -T backend sh -lc \
+  'cd "$BACKEND_AGENT_PATH" && python -m app.jobs.rebuild_all'
 
 echo "Backend agent indexes rebuilt from $AGENT_ROOT/raw_data"
