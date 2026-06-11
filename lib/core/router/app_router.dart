@@ -132,11 +132,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             sharedAxisPage(state: state, child: const ProfileIntroPage()),
       ),
       GoRoute(
-        path: '/profile',
-        pageBuilder: (_, state) =>
-            sharedAxisPage(state: state, child: const ProfilePage()),
-      ),
-      GoRoute(
         path: '/profile/wizard',
         pageBuilder: (_, state) =>
             sharedAxisPage(state: state, child: const ProfileWizardPage()),

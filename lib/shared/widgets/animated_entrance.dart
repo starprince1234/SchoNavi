@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// Reusable staggered entrance animation wrapper.
@@ -41,6 +43,7 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
   late final AnimationController _controller;
   late final Animation<double> _opacity;
   late final Animation<Offset> _slide;
+  Timer? _delayTimer;
 
   @override
   void initState() {
@@ -69,13 +72,18 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
       ),
     );
 
-    Future.delayed(staggered, () {
-      if (mounted) _controller.forward();
-    });
+    if (staggered == Duration.zero) {
+      _controller.forward();
+    } else {
+      _delayTimer = Timer(staggered, () {
+        if (mounted) _controller.forward();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _delayTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

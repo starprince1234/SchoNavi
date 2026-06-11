@@ -21,6 +21,7 @@ Widget _wrap() {
 void main() {
   testWidgets('submit button disabled when input empty', (tester) async {
     await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
     final button = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, '开始推荐'),
     );
@@ -29,6 +30,7 @@ void main() {
 
   testWidgets('submit button enabled after typing', (tester) async {
     await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '我想找医学影像方向的导师');
     await tester.pump();
     final button = tester.widget<FilledButton>(
@@ -39,11 +41,21 @@ void main() {
 
   testWidgets('example prompt fills the input', (tester) async {
     await tester.pumpWidget(_wrap());
-    await tester.tap(find.text('我想找计算机视觉方向的导师，最好在北京。'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final example = find.text('我想找计算机视觉方向的导师，最好在北京。');
+    await tester.scrollUntilVisible(
+      example,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(example);
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(find.byType(TextField));
     expect(
-      find.widgetWithText(TextField, '我想找计算机视觉方向的导师，最好在北京。'),
-      findsOneWidget,
+      input.controller?.text,
+      '我想找计算机视觉方向的导师，最好在北京。',
     );
   });
 }

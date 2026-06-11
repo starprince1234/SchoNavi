@@ -84,7 +84,7 @@ class ProfileIntroPage extends StatelessWidget {
                 child: TextButton(
                   onPressed: () {
                     Haptics.light();
-                    Navigator.of(context).pop();
+                    if (context.mounted) context.pop();
                   },
                   child: const Text('以后再说'),
                 ),

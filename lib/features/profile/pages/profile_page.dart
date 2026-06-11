@@ -212,7 +212,7 @@ class _FooterLink extends StatelessWidget {
 void _showDataUsage(BuildContext context) {
   showDialog(
     context: context,
-    builder: (_) => AlertDialog(
+    builder: (dialogContext) => AlertDialog(
       title: const Text('数据如何使用'),
       content: const Text(
         '你的个人档案仅保存在本机，用于：\n\n'
@@ -224,7 +224,7 @@ void _showDataUsage(BuildContext context) {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(dialogContext).pop(),
           child: const Text('知道了'),
         ),
       ],

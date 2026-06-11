@@ -29,7 +29,7 @@ class _PrivacyAgreementPageState extends ConsumerState<PrivacyAgreementPage> {
 
   void _onDisagree() {
     Haptics.light();
-    Navigator.of(context).pop();
+    if (context.mounted) context.pop();
   }
 
   @override
