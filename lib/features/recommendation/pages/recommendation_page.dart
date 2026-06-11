@@ -1,26 +1,25 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/ai/llm_trace.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/launcher/link_launcher.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/favorite_item.dart';
 import '../../../domain/entities/recommendation_result.dart';
+import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
-import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/professor_card.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../providers/recommendation_provider.dart';
 import '../widgets/query_understanding_card.dart';
 
 class RecommendationPage extends ConsumerStatefulWidget {
   const RecommendationPage({super.key, required this.prompt});
-
   final String prompt;
 
   @override
@@ -48,7 +47,16 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
         orElse: () => null,
       ),
       body: async.when(
-        loading: () => const LoadingView(label: '正在为你匹配导师…'),
+        loading: () => ListView(
+          padding: const EdgeInsets.all(16),
+          children: const [
+            ProfessorCardSkeleton(),
+            SizedBox(height: 8),
+            ProfessorCardSkeleton(),
+            SizedBox(height: 8),
+            ProfessorCardSkeleton(),
+          ],
+        ),
         error: (e, _) => ErrorView(
           message: e is AppException ? e.message : '出错了，请稍后重试',
           onRetry: () => ref.invalidate(recommendationProvider(widget.prompt)),
@@ -62,28 +70,40 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
               onAction: () => context.pop(),
             );
           }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              QueryUnderstandingCard(understanding: result.queryUnderstanding),
-              const SizedBox(height: 8),
-              ...result.recommendations.map((r) {
-                final isFavorite = ref
-                    .watch(favoriteStatusProvider(r.professorId))
-                    .maybeWhen(data: (value) => value, orElse: () => false);
-                return ProfessorCard(
-                  recommendation: r,
-                  isFavorite: isFavorite,
-                  onTap: () => context.push('/professor/${r.professorId}'),
-                  onFavoritePressed: () => ref
-                      .read(favoriteRepositoryProvider)
-                      .toggle(FavoriteItem.fromRecommendation(r)),
-                  onOpenHomepagePressed: () =>
-                      _openHomepage(context, r.homepageUrl),
-                );
-              }),
-              const _AiTracePanel(),
-            ],
+          return RefreshIndicator(
+            color: AppColors.coral,
+            onRefresh: () async {
+              ref.invalidate(recommendationProvider(widget.prompt));
+              await ref.read(recommendationProvider(widget.prompt).future);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                QueryUnderstandingCard(understanding: result.queryUnderstanding),
+                const SizedBox(height: 8),
+                ...result.recommendations.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final r = entry.value;
+                  final isFavorite = ref
+                      .watch(favoriteStatusProvider(r.professorId))
+                      .maybeWhen(data: (value) => value, orElse: () => false);
+                  return AnimatedEntrance(
+                    index: index,
+                    child: ProfessorCard(
+                      recommendation: r,
+                      isFavorite: isFavorite,
+                      onTap: () => context.push('/professor/${r.professorId}'),
+                      onFavoritePressed: () => ref
+                          .read(favoriteRepositoryProvider)
+                          .toggle(FavoriteItem.fromRecommendation(r)),
+                      onOpenHomepagePressed: () =>
+                          _openHomepage(context, r.homepageUrl),
+                    ),
+                  );
+                }),
+                const _AiTracePanel(),
+              ],
+            ),
           );
         },
       ),

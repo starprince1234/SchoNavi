@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/di/providers.dart';
+import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/favorite_item.dart';
+import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/field_chips.dart';
-import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 
 class FavoritePage extends ConsumerStatefulWidget {
   const FavoritePage({super.key});
@@ -75,24 +77,71 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
             )
           : null,
       body: async.when(
-        loading: () => const LoadingView(),
+        loading: () => ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 3,
+          itemBuilder: (_, _) => const ProfessorCardSkeleton(),
+        ),
         error: (_, _) => const EmptyView(message: '收藏读取失败，可稍后重试'),
         data: (items) {
           if (items.isEmpty) {
             return const EmptyView(message: '还没有收藏导师');
           }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _FavoriteTile(
-                item: item,
-                selecting: _selecting,
-                selected: _selected.contains(item.professorId),
-                onToggleSelect: () => _toggleSelect(item.professorId),
-              );
+          return RefreshIndicator(
+            color: AppColors.coral,
+            onRefresh: () async {
+              ref.invalidate(favoritesProvider);
+              await ref.read(favoritesProvider.future);
             },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                Widget tile = _FavoriteTile(
+                  item: item,
+                  selecting: _selecting,
+                  selected: _selected.contains(item.professorId),
+                  onToggleSelect: () => _toggleSelect(item.professorId),
+                );
+                if (!_selecting) {
+                  tile = Dismissible(
+                    key: ValueKey(item.professorId),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.error,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (_) {
+                      Haptics.medium();
+                      ref.read(favoriteRepositoryProvider).remove(item.professorId);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('已删除收藏'),
+                          action: SnackBarAction(
+                            label: '撤销',
+                            onPressed: () {
+                              Haptics.success();
+                              ref.read(favoriteRepositoryProvider).add(item);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                    child: tile,
+                  );
+                }
+                return AnimatedEntrance(
+                  index: index,
+                  child: tile,
+                );
+              },
+            ),
           );
         },
       ),
@@ -121,6 +170,7 @@ class _FavoriteTile extends ConsumerWidget {
         onTap: selecting
             ? onToggleSelect
             : () => context.push('/professor/${item.professorId}'),
+        onLongPress: selecting ? null : () => _showPreview(context, ref),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -184,6 +234,59 @@ class _FavoriteTile extends ConsumerWidget {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPreview(BuildContext context, WidgetRef ref) {
+    Haptics.heavy();
+    final textTheme = Theme.of(context).textTheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(item.name, style: textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                '${item.university} / ${item.college}',
+                style: textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              FieldChips(fields: item.researchFields),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.push('/professor/${item.professorId}');
+                      },
+                      child: const Text('查看详情'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        ref
+                            .read(favoriteRepositoryProvider)
+                            .remove(item.professorId);
+                      },
+                      child: const Text('取消收藏'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

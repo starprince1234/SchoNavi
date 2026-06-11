@@ -1,8 +1,14 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/haptics/haptics.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/bento_tile.dart';
 
 /// 首启引导：可滑动 PageView 介绍"AI 选导师"卖点 + 圆点指示 + 跳过；
 /// 末页「开始使用」或随时「跳过」→ 写 seenOnboarding 后进首页。
@@ -43,8 +49,19 @@ const _pages = <_OnboardingData>[
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final PageController _controller = PageController();
   int _index = 0;
+  double _dotScale = 1.0;
 
   bool get _isLast => _index == _pages.length - 1;
+
+  void _onPageChanged(int i) {
+    setState(() {
+      _index = i;
+      _dotScale = 1.2;
+    });
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _dotScale = 1.0);
+    });
+  }
 
   @override
   void dispose() {
@@ -81,7 +98,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: TextButton(
-                  onPressed: _finish,
+                  onPressed: () {
+                    Haptics.light();
+                    _finish();
+                  },
                   child: const Text('跳过'),
                 ),
               ),
@@ -89,22 +109,47 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             Expanded(
               child: PageView.builder(
                 controller: _controller,
-                onPageChanged: (i) => setState(() => _index = i),
+                onPageChanged: _onPageChanged,
                 itemCount: _pages.length,
                 itemBuilder: (context, i) {
                   final p = _pages[i];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(p.icon, size: 72, color: scheme.secondary),
-                        const SizedBox(height: 24),
-                        Text(p.title, style: textTheme.displaySmall),
-                        const SizedBox(height: 12),
-                        Text(p.body, style: textTheme.bodyLarge),
-                      ],
+                    child: Center(
+                      child: AnimatedEntrance(
+                        key: ValueKey(i),
+                        slideOffset: const Offset(0, 24),
+                        child: BentoTile(
+                          color: scheme.surfaceContainerLowest,
+                          padding: const EdgeInsets.all(32),
+                          width: min(
+                            320,
+                            MediaQuery.sizeOf(context).width - 64,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                p.icon,
+                                size: 48,
+                                color: AppColors.coral,
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                p.title,
+                                style: textTheme.headlineSmall,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                p.body,
+                                style: textTheme.bodyMedium,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -114,14 +159,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 for (var i = 0; i < _pages.length; i++)
-                  AnimatedContainer(
+                  AnimatedScale(
+                    scale: i == _index ? _dotScale : 1.0,
                     duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: i == _index ? 22 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: i == _index ? scheme.secondary : scheme.outline,
-                      borderRadius: BorderRadius.circular(4),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _index ? 22 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _index ? scheme.secondary : scheme.outline,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
               ],
@@ -131,7 +180,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _next,
+                  onPressed: () {
+                    Haptics.medium();
+                    _next();
+                  },
                   child: Text(_isLast ? '开始使用' : '下一步'),
                 ),
               ),
