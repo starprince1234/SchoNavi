@@ -4,18 +4,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/app.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/features/profile/providers/profile_provider.dart';
 
 Future<Widget> _wrap() async {
   SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      // Provide a non-empty profile to prevent ProfilePage from redirecting
+      // to /profile/privacy during tab-switch tests.
+      profileProvider.overrideWith(
+        () => _StubProfileController(
+          const UserProfile(name: 'Test User'),
+        ),
+      ),
+    ],
     child: const SchoNaviApp(),
   );
 }
 
+class _StubProfileController extends ProfileController {
+  _StubProfileController(this._profile);
+  final UserProfile _profile;
+  @override
+  UserProfile build() => _profile;
+}
+
 void main() {
-  testWidgets('bottom navigation switches between home favorites and history', (
+  testWidgets('bottom navigation has two tabs and switches', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -23,16 +41,30 @@ void main() {
 
     expect(find.text('用自然语言找到适合你的导师'), findsOneWidget);
 
-    await tester.tap(find.text('收藏').last);
-    await tester.pumpAndSettle();
-    expect(find.text('还没有收藏导师'), findsOneWidget);
+    final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navBar.destinations.length, 2);
 
-    await tester.tap(find.text('历史').last);
+    await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();
-    expect(find.text('暂无搜索历史'), findsOneWidget);
 
-    await tester.tap(find.text('首页').last);
+    await tester.tap(find.byIcon(Icons.search_outlined));
     await tester.pumpAndSettle();
     expect(find.text('用自然语言找到适合你的导师'), findsOneWidget);
+  });
+
+  testWidgets('drawer opens and shows history with favorites entry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    final menuButton = find.byTooltip('菜单');
+    expect(menuButton, findsOneWidget);
+
+    await tester.tap(menuButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('搜索历史'), findsOneWidget);
+    expect(find.byTooltip('我的收藏'), findsOneWidget);
   });
 }

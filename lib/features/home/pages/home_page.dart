@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/history_drawer.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -97,11 +98,19 @@ class _HomePageState extends ConsumerState<HomePage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      drawer: const HistoryDrawer(),
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        leading: Builder(
+          builder: (innerContext) => IconButton(
+            tooltip: '菜单',
+            icon: const Icon(Icons.menu_outlined),
+            onPressed: () => Scaffold.of(innerContext).openDrawer(),
+          ),
+        ),
         title: const SizedBox.shrink(),
         actions: [
           IconButton(

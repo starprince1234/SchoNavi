@@ -13,7 +13,7 @@ class ScaffoldWithBottomNav extends StatefulWidget {
 }
 
 class _ScaffoldWithBottomNavState extends State<ScaffoldWithBottomNav> {
-  final Map<int, bool> _scaling = {0: false, 1: false, 2: false, 3: false};
+  final Map<int, bool> _scaling = {0: false, 1: false};
 
   void _onTabSelected(int index) {
     Haptics.selection();
@@ -34,6 +34,8 @@ class _ScaffoldWithBottomNavState extends State<ScaffoldWithBottomNav> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.navigationShell.currentIndex,
         onDestinationSelected: _onTabSelected,
+        height: 56,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: [
           NavigationDestination(
             icon: AnimatedScale(
@@ -52,36 +54,10 @@ class _ScaffoldWithBottomNavState extends State<ScaffoldWithBottomNav> {
             icon: AnimatedScale(
               scale: _scaling[1]! ? 1.1 : 1.0,
               duration: const Duration(milliseconds: 150),
-              child: const Icon(Icons.bookmark_border),
-            ),
-            selectedIcon: AnimatedScale(
-              scale: _scaling[1]! ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: const Icon(Icons.bookmark),
-            ),
-            label: '收藏',
-          ),
-          NavigationDestination(
-            icon: AnimatedScale(
-              scale: _scaling[2]! ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: const Icon(Icons.history),
-            ),
-            selectedIcon: AnimatedScale(
-              scale: _scaling[2]! ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 150),
-              child: const Icon(Icons.history),
-            ),
-            label: '历史',
-          ),
-          NavigationDestination(
-            icon: AnimatedScale(
-              scale: _scaling[3]! ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 150),
               child: const Icon(Icons.person_outline),
             ),
             selectedIcon: AnimatedScale(
-              scale: _scaling[3]! ? 1.1 : 1.0,
+              scale: _scaling[1]! ? 1.1 : 1.0,
               duration: const Duration(milliseconds: 150),
               child: const Icon(Icons.person),
             ),

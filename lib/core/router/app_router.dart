@@ -44,19 +44,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/favorites',
-                builder: (_, _) => const FavoritePage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/history', builder: (_, _) => const HistoryPage()),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
                 path: '/profile',
                 pageBuilder: (_, state) => sharedAxisPage(
                   state: state,
@@ -66,6 +53,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/favorites',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: const FavoritePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/history',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: const HistoryPage(),
+        ),
       ),
       GoRoute(
         path: '/recommendation',
