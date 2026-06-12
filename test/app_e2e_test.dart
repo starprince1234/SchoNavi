@@ -28,7 +28,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '我想找医学影像和计算机视觉方向的导师，最好在上海');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, '开始推荐'));
+    await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
     expect(find.text('推荐结果'), findsOneWidget);
