@@ -4,10 +4,10 @@ import type {
   RecommendationResponse,
 } from '../types/api'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || '').replace(/\/$/, '')
 
 function apiUrl(path: string) {
-  return `${API_BASE_URL}${path}`
+  return API_BASE_URL ? `${API_BASE_URL}${path}` : path
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
