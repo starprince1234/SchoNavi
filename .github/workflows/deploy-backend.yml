@@ -1,0 +1,144 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/backend/**"
+      - "web/backend_agent/**"
+      - "scripts/**"
+      - "docker-compose.prod.yml"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  BACKEND_IMAGE: schonavi-backend:local
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: false
+
+      - name: Install Doppler CLI
+        uses: dopplerhq/cli-action@v3
+
+      - name: Load deployment secrets from Doppler
+        id: doppler
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          get_secret() {
+            doppler secrets get "$1" --project schonavi --config prd --plain --raw
+          }
+
+          write_output() {
+            local name="$1"
+            local value="$2"
+            local delimiter="EOF_${name}_$(date +%s%N)"
+
+            echo "::add-mask::$value"
+            {
+              echo "$name<<$delimiter"
+              echo "$value"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          write_output "SERVER_HOST" "$(get_secret SERVER_HOST)"
+          write_output "SERVER_USER" "$(get_secret SERVER_USER)"
+          write_output "SERVER_PASSWORD" "$(get_secret SERVER_PASSWORD)"
+          write_output "SERVER_SSH_PORT" "$(get_secret SERVER_SSH_PORT)"
+
+      - name: Package backend source
+        run: |
+          tar \
+            --exclude='backend/.env*' \
+            --exclude='backend/.pytest_cache' \
+            --exclude='backend/__pycache__' \
+            -czf backend_src.tar.gz -C web backend
+          du -h backend_src.tar.gz
+
+      - name: Package backend agent source
+        run: |
+          tar \
+            --exclude='backend_agent/.env*' \
+            --exclude='backend_agent/.venv' \
+            --exclude='backend_agent/.pytest_cache' \
+            --exclude='backend_agent/.pytest_tmp' \
+            --exclude='backend_agent/.omo' \
+            --exclude='backend_agent/.opencode' \
+            --exclude='backend_agent/data' \
+            --exclude='backend_agent/raw_data' \
+            --exclude='backend_agent/logs' \
+            -czf backend_agent_src.tar.gz -C web backend_agent
+          du -h backend_agent_src.tar.gz
+          tar -tzf backend_agent_src.tar.gz | grep '^backend_agent/raw_data/' && exit 1 || true
+
+      - name: Upload deployment files
+        env:
+          SSHPASS: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+        run: |
+          if ! command -v sshpass >/dev/null 2>&1; then
+            sudo apt-get install -y --no-install-recommends sshpass || {
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends sshpass
+            }
+          fi
+          command -v sshpass
+
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "SSH upload attempt ${attempt} failed; retrying..."
+              sleep $((attempt * 8))
+            done
+            "$@"
+          }
+
+          retry sshpass -e scp \
+            -P "${{ steps.doppler.outputs.SERVER_SSH_PORT }}" \
+            -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            docker-compose.prod.yml backend_src.tar.gz backend_agent_src.tar.gz \
+            scripts/deploy_backend_agent.sh scripts/rebuild_backend_agent_indexes.sh \
+            "${{ steps.doppler.outputs.SERVER_USER }}@${{ steps.doppler.outputs.SERVER_HOST }}:/opt/schonavi/"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ steps.doppler.outputs.SERVER_HOST }}
+          username: ${{ steps.doppler.outputs.SERVER_USER }}
+          password: ${{ steps.doppler.outputs.SERVER_PASSWORD }}
+          port: ${{ steps.doppler.outputs.SERVER_SSH_PORT }}
+          command_timeout: 60m
+          script: |
+            set -e
+            export DOPPLER_TOKEN='${{ secrets.DOPPLER_TOKEN }}'
+            cd /opt/schonavi
+            mkdir -p scripts
+            if [ -f deploy_backend_agent.sh ]; then
+              mv deploy_backend_agent.sh scripts/deploy_backend_agent.sh
+            fi
+            if [ -f rebuild_backend_agent_indexes.sh ]; then
+              mv rebuild_backend_agent_indexes.sh scripts/rebuild_backend_agent_indexes.sh
+            fi
+            chmod +x scripts/deploy_backend_agent.sh
+            chmod +x scripts/rebuild_backend_agent_indexes.sh
+            doppler run --project schonavi --config prd -- ./scripts/deploy_backend_agent.sh
+            export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml build backend
+            doppler run --project schonavi --config prd -- docker compose -f docker-compose.prod.yml up -d --no-build
