@@ -9,6 +9,8 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/professor/pages/professor_page.dart';
 import 'package:scho_navi/features/recommendation/pages/recommendation_page.dart';
@@ -21,8 +23,16 @@ class _FakeRecRepo implements RecommendationRepository {
   @override
   Future<Result<RecommendationResult>> getRecommendations({
     required String prompt,
+    UserProfile? profile,
     String? sessionId,
   }) async => _result;
+}
+
+class _FakeProfileRepo implements ProfileRepository {
+  @override
+  UserProfile load() => const UserProfile();
+  @override
+  Future<void> save(UserProfile profile) async {}
 }
 
 final _recResult = RecommendationResult(
@@ -68,6 +78,7 @@ Future<Widget> _wrapRecommendation() async {
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
+      profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
       recommendationRepositoryProvider.overrideWithValue(
         _FakeRecRepo(Success(_recResult)),
       ),

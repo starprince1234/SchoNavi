@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/di/providers.dart';
+import '../../../core/haptics/haptics.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/search_history_item.dart';
+import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/field_chips.dart';
-import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -31,16 +33,53 @@ class HistoryPage extends ConsumerWidget {
         ],
       ),
       body: async.when(
-        loading: () => const LoadingView(),
+        loading: () => ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 3,
+          itemBuilder: (_, _) => const _HistoryTileSkeleton(),
+        ),
         error: (_, _) => const EmptyView(message: '历史读取失败，可稍后重试'),
         data: (items) {
           if (items.isEmpty) {
             return const EmptyView(message: '暂无搜索历史');
           }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: items.length,
-            itemBuilder: (context, index) => _HistoryTile(item: items[index]),
+          return RefreshIndicator(
+            color: AppColors.coral,
+            onRefresh: () async {
+              ref.invalidate(searchHistoryProvider);
+              await ref.read(searchHistoryProvider.future);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return AnimatedEntrance(
+                  index: index,
+                  child: Dismissible(
+                    key: ValueKey(item.sessionId),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.error,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      child: const Icon(Icons.delete, color: Colors.white),
+                    ),
+                    onDismissed: (_) {
+                      Haptics.medium();
+                      ref.read(historyRepositoryProvider).remove(item.sessionId);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('已删除')),
+                      );
+                    },
+                    child: _HistoryTile(item: item),
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -124,6 +163,39 @@ class _HistoryTile extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryTileSkeleton extends StatelessWidget {
+  const _HistoryTileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: ShimmerSkeleton(height: 16, width: double.infinity),
+                ),
+                SizedBox(width: 8),
+                ShimmerSkeleton(height: 24, width: 24),
+              ],
+            ),
+            SizedBox(height: 6),
+            ShimmerSkeleton(height: 14, width: double.infinity),
+            SizedBox(height: 8),
+            ShimmerSkeleton(height: 12, width: 120),
+            SizedBox(height: 8),
+            ShimmerSkeleton(height: 12, width: 200),
+          ],
         ),
       ),
     );

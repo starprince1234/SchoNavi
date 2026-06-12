@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/haptics/haptics.dart';
+import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/bento_tile.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/chat_message_bubble.dart';
 
@@ -24,6 +27,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   ];
 
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  int _messageCount = 0;
 
   @override
   void initState() {
@@ -39,6 +44,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -52,6 +58,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(chatProvider);
+    if (state.messages.length != _messageCount) {
+      _messageCount = state.messages.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('继续追问'),
@@ -69,11 +87,16 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(12),
               itemCount: state.messages.length,
-              itemBuilder: (context, index) => ChatMessageBubble(
-                message: state.messages[index],
-                onTapRecommendation: (id) => context.push('/professor/$id'),
+              itemBuilder: (context, index) => AnimatedEntrance(
+                index: index,
+                slideOffset: const Offset(0, 16),
+                child: ChatMessageBubble(
+                  message: state.messages[index],
+                  onTapRecommendation: (id) => context.push('/professor/$id'),
+                ),
               ),
             ),
           ),
@@ -84,8 +107,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
           _InputBar(
             controller: _controller,
-            enabled: !state.isResponding,
+            isResponding: state.isResponding,
             onSubmit: _send,
+            onStop: () => ref.read(chatProvider.notifier).stop(),
           ),
         ],
       ),
@@ -106,20 +130,40 @@ class _QuickQuestions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      height: 44,
-      child: ListView(
+      height: 48,
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        children: [
-          for (final question in questions) ...[
-            ActionChip(
-              label: Text(question),
-              onPressed: enabled ? () => onTap(question) : null,
+        itemCount: questions.length,
+        itemBuilder: (context, index) {
+          final question = questions[index];
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: BentoTile(
+                onTap: enabled
+                    ? () {
+                        Haptics.selection();
+                        onTap(question);
+                      }
+                    : null,
+                color: scheme.surfaceContainer,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                borderRadius: 16,
+                child: Text(
+                  question,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
@@ -128,44 +172,76 @@ class _QuickQuestions extends StatelessWidget {
 class _InputBar extends StatelessWidget {
   const _InputBar({
     required this.controller,
-    required this.enabled,
+    required this.isResponding,
     required this.onSubmit,
+    required this.onStop,
   });
 
   final TextEditingController controller;
-  final bool enabled;
+  final bool isResponding;
   final void Function(String) onSubmit;
+  final VoidCallback onStop;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: enabled,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: enabled ? onSubmit : null,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '输入你的追问…',
-                  isDense: true,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              tooltip: '发送',
-              onPressed: enabled ? () => onSubmit(controller.text) : null,
-              icon: const Icon(Icons.send),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: BentoTile(
+                  color: scheme.surfaceContainerLowest,
+                  borderRadius: 24,
+                  padding: EdgeInsets.zero,
+                  child: TextField(
+                    controller: controller,
+                    enabled: !isResponding,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: isResponding ? null : onSubmit,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      hintText: '输入你的追问…',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (isResponding)
+                IconButton.filled(
+                  tooltip: '停止生成',
+                  onPressed: onStop,
+                  icon: const Icon(Icons.stop),
+                )
+              else
+                IconButton.filled(
+                  tooltip: '发送',
+                  onPressed: () => onSubmit(controller.text),
+                  icon: const Icon(Icons.send),
+                ),
+            ],
+          ),
         ),
       ),
     );

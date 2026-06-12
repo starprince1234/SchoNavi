@@ -111,7 +111,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('访问主页'));
+    final homepageButton = find.text('访问主页');
+    await tester.scrollUntilVisible(homepageButton, 200);
+    await tester.tap(homepageButton);
     await tester.pumpAndSettle();
 
     expect(launcher.openedUrl, 'https://example.edu.cn/zhangsan');
@@ -134,7 +136,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('访问主页'));
+    final homepageButton = find.text('访问主页');
+    await tester.scrollUntilVisible(homepageButton, 200);
+    await tester.tap(homepageButton);
     await tester.pumpAndSettle();
 
     expect(find.text('暂无主页信息'), findsOneWidget);
@@ -149,7 +153,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('访问主页'));
+    final homepageButton = find.text('访问主页');
+    await tester.scrollUntilVisible(homepageButton, 200);
+    await tester.tap(homepageButton);
     await tester.pumpAndSettle();
 
     expect(find.text('主页可能已失效，可通过学校官网确认'), findsOneWidget);

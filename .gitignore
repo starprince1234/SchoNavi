@@ -65,3 +65,9 @@ web/backend_agent/logs/
 web/backend_agent/data/
 web/backend_agent/raw_data/*
 !web/backend_agent/raw_data/
+data-fixture/
+
+# Superpowers brainstorming visual companion (local mockups)
+.superpowers/
+
+.snow/

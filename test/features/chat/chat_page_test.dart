@@ -1,46 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
-import 'package:scho_navi/domain/entities/match_level.dart';
-import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/features/chat/pages/chat_page.dart';
-import 'package:scho_navi/shared/widgets/professor_card.dart';
 
-class _FakeChatRepo implements ChatRepository {
-  _FakeChatRepo(this._result);
+class _StreamChatRepo implements ChatRepository {
+  _StreamChatRepo(this.build);
 
-  final Result<ChatResult> _result;
-  int calls = 0;
+  final Stream<String> Function() build;
+  int streamCalls = 0;
 
   @override
   Future<Result<ChatResult>> sendMessage({
     required String sessionId,
     required String message,
     String? professorId,
-  }) async {
-    calls++;
-    return _result;
+  }) async => throw UnimplementedError();
+
+  @override
+  Stream<String> streamReply({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) {
+    streamCalls++;
+    return build();
   }
 }
 
-const _rec = Recommendation(
-  professorId: 'p_001',
-  name: '张三',
-  university: '上海交通大学',
-  college: '电子信息与电气工程学院',
-  title: '教授',
-  researchFields: ['医学影像', '计算机视觉'],
-  matchLevel: MatchLevel.high,
-  reason: '方向相关。',
-  limitations: [],
-);
-
-Widget _wrap(_FakeChatRepo repo) {
+Widget _wrap(_StreamChatRepo repo) {
   final router = GoRouter(
     routes: [
       GoRoute(
@@ -58,57 +53,60 @@ Widget _wrap(_FakeChatRepo repo) {
 
 void main() {
   testWidgets('挂载后显示标题与快捷问题', (tester) async {
-    await tester.pumpWidget(_wrap(_FakeChatRepo(const Success(_okResult))));
+    await tester.pumpWidget(
+      _wrap(_StreamChatRepo(() => Stream.fromIterable(const ['x']))),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('继续追问'), findsOneWidget);
     expect(find.text('有没有相似的导师？'), findsOneWidget);
   });
 
-  testWidgets('点击快捷问题：用户消息上屏、回答带卡片、点击卡片跳转', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        _FakeChatRepo(
-          const Success(
-            ChatResult(
-              sessionId: 's_test',
-              answer: '相近导师如下',
-              relatedRecommendations: [_rec],
-            ),
-          ),
-        ),
-      ),
-    );
+  testWidgets('点击快捷问题：用户消息上屏并流式返回回答', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['流式', '回答']));
+    await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('有没有相似的导师？'));
     await tester.pumpAndSettle();
 
     expect(find.text('有没有相似的导师？'), findsWidgets);
-    expect(find.byType(ProfessorCard), findsOneWidget);
+    expect(repo.streamCalls, 1);
+    expect(find.byType(GptMarkdown), findsWidgets);
+  });
 
-    await tester.tap(find.byType(ProfessorCard));
+  testWidgets('响应中显示「停止生成」，点击后恢复「发送」', (tester) async {
+    final controller = StreamController<String>();
+    addTearDown(controller.close);
+    await tester.pumpWidget(_wrap(_StreamChatRepo(() => controller.stream)));
     await tester.pumpAndSettle();
-    expect(find.byType(Placeholder), findsOneWidget);
+
+    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.pump();
+    controller.add('部分答案');
+    await tester.pump();
+
+    expect(find.byTooltip('停止生成'), findsOneWidget);
+    expect(find.byTooltip('发送'), findsNothing);
+
+    await tester.tap(find.byTooltip('停止生成'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byTooltip('发送'), findsOneWidget);
+    expect(find.byTooltip('停止生成'), findsNothing);
   });
 
   testWidgets('重新生成会再次调用仓储', (tester) async {
-    final repo = _FakeChatRepo(const Success(_okResult));
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('适合硕士申请吗？'));
     await tester.pumpAndSettle();
-    expect(repo.calls, 1);
+    expect(repo.streamCalls, 1);
 
     await tester.tap(find.byTooltip('重新生成'));
     await tester.pumpAndSettle();
-    expect(repo.calls, 2);
+    expect(repo.streamCalls, 2);
   });
 }
-
-const _okResult = ChatResult(
-  sessionId: 's_test',
-  answer: '测试回答',
-  relatedRecommendations: [],
-);

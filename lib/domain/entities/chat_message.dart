@@ -3,8 +3,8 @@ import 'recommendation.dart';
 /// 对话消息发送方。
 enum ChatRole { user, assistant }
 
-/// 消息状态。V0.2 非流式只用 sending/done/error；streaming 留待 V1.0。
-enum ChatMessageStatus { sending, done, error }
+/// 消息状态。streaming = 正在逐字接收；sending 保留为等待首个增量的思考态。
+enum ChatMessageStatus { sending, streaming, done, error }
 
 /// 一条对话消息。助手消息可携带嵌入推荐卡片。
 class ChatMessage {

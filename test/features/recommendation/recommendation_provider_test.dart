@@ -7,6 +7,8 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/recommendation/providers/recommendation_provider.dart';
 
@@ -18,8 +20,16 @@ class _FakeRepo implements RecommendationRepository {
   @override
   Future<Result<RecommendationResult>> getRecommendations({
     required String prompt,
+    UserProfile? profile,
     String? sessionId,
   }) async => _result;
+}
+
+class _FakeProfileRepo implements ProfileRepository {
+  @override
+  UserProfile load() => const UserProfile();
+  @override
+  Future<void> save(UserProfile profile) async {}
 }
 
 RecommendationResult _result({required bool empty}) => RecommendationResult(
@@ -50,6 +60,7 @@ void main() {
   test('provider resolves to data on Success', () async {
     final container = ProviderContainer(
       overrides: [
+        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
         recommendationRepositoryProvider.overrideWithValue(
           _FakeRepo(Success(_result(empty: false))),
         ),
@@ -66,6 +77,7 @@ void main() {
   test('provider yields empty recommendations when result is empty', () async {
     final container = ProviderContainer(
       overrides: [
+        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
         recommendationRepositoryProvider.overrideWithValue(
           _FakeRepo(Success(_result(empty: true))),
         ),
@@ -82,6 +94,7 @@ void main() {
   test('provider throws AppException on Failure', () async {
     final container = ProviderContainer(
       overrides: [
+        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
         recommendationRepositoryProvider.overrideWithValue(
           _FakeRepo(const Failure(ServerException())),
         ),
