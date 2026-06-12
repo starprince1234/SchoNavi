@@ -112,7 +112,7 @@ Output Directory: dist
 
 前端现在默认直接请求相对路径 `/api/...`，不再把后端地址写死在浏览器代码里。
 
-线上部署时，`web/frontend/vercel.mjs` 会在构建期读取环境变量并生成 rewrite：
+线上部署时，`web/frontend/vercel.ts` 会在构建期读取环境变量并生成 rewrite：
 
 - 优先读取 `BACKEND_ORIGIN`
 - 没有时回退读取 `SERVER_HOST`

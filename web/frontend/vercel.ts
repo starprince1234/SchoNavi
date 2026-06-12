@@ -10,7 +10,7 @@ const backendOrigin =
   normalizeOrigin(process.env.SERVER_HOST) ||
   'http://8.156.88.100:8000'
 
-export default {
+export const config = {
   rewrites: [
     {
       source: '/api/(.*)',
