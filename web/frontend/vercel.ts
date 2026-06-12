@@ -1,3 +1,5 @@
+import { routes } from '@vercel/config/v1'
+
 function normalizeOrigin(value: string | undefined) {
   const raw = (value || '').trim().replace(/\/$/, '')
   if (!raw) return ''
@@ -12,9 +14,6 @@ const backendOrigin =
 
 export const config = {
   rewrites: [
-    {
-      source: '/api/(.*)',
-      destination: `${backendOrigin}/api/$1`,
-    },
+    routes.rewrite('/api/:path*', `${backendOrigin}/api/:path*`),
   ],
 }
