@@ -37,14 +37,35 @@ Raw SQLite source files are not uploaded by GitHub Actions. Put them on the serv
 /opt/schonavi/backend_agent/raw_data
 ```
 
-After adding or replacing raw DB files, rebuild the backend agent database, graph, and Chroma vector index on the server:
+Recommended: build the backend agent runtime data locally, then upload the finished data bundle to the server. This keeps vector indexing IO and memory pressure off the cloud server.
+
+```powershell
+.\scripts\build_backend_agent_data_local.ps1
+.\scripts\upload_backend_agent_data.ps1
+```
+
+The local build creates:
+
+```text
+artifacts/backend_agent_data.tar.gz
+```
+
+The upload script installs that bundle into:
+
+```text
+/opt/schonavi/backend_agent/data
+```
+
+and restarts the backend container.
+
+Fallback: if you deliberately want to rebuild on the server after adding or replacing raw DB files:
 
 ```bash
 cd /opt/schonavi
 ./scripts/rebuild_backend_agent_indexes.sh
 ```
 
-This script does not require you to type a Doppler token. It reuses the already-running backend container, which was started by the deployment workflow with Doppler-injected production environment variables.
+The server rebuild script does not require you to type a Doppler token. It reuses the already-running backend container, which was started by the deployment workflow with Doppler-injected production environment variables.
 
 The rebuild script is incremental for vectors: unchanged items keep their existing `vector_id`; new or changed items are upserted into Chroma.
 

@@ -52,6 +52,7 @@ app.*.map.json
 !.env.example
 !.env.*.example
 .serena/
+artifacts/
 
 # Web runtime artifacts
 web/backend_agent/.env.cloud
