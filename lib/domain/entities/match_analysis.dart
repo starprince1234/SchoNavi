@@ -28,4 +28,11 @@ class MatchAnalysis {
   final List<String> gaps;
   final List<String> suggestions;
   final List<MatchDimension> dimensions;
+
+  /// 综合契合度平均分（信息性），无维度时返回 null。
+  int? get overallScore {
+    if (dimensions.isEmpty) return null;
+    final total = dimensions.fold<int>(0, (sum, d) => sum + d.score);
+    return total ~/ dimensions.length;
+  }
 }

@@ -141,13 +141,6 @@ class _AnalysisView extends StatelessWidget {
   final MatchAnalysis analysis;
   final VoidCallback onRegenerate;
 
-  int? get _overall {
-    final dims = analysis.dimensions;
-    if (dims.isEmpty) return null;
-    final sum = dims.fold<int>(0, (total, dimension) => total + dimension.score);
-    return (sum / dims.length).round();
-  }
-
   void _showDimension(BuildContext context, MatchDimension dimension) {
     showAppBottomSheet<void>(
       context: context,
@@ -183,7 +176,7 @@ class _AnalysisView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overall = _overall;
+    final overall = analysis.overallScore;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
