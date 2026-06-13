@@ -7,7 +7,9 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/search_history_item.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/history_repository.dart';
 import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/recommendation/providers/recommendation_provider.dart';
@@ -30,6 +32,24 @@ class _FakeProfileRepo implements ProfileRepository {
   UserProfile load() => const UserProfile();
   @override
   Future<void> save(UserProfile profile) async {}
+  @override
+  Future<void> clear() async {}
+}
+
+class _FakeHistoryRepo implements HistoryRepository {
+  @override
+  List<SearchHistoryItem> list() => [];
+  @override
+  Stream<List<SearchHistoryItem>> watch() => Stream.value([]);
+  @override
+  Future<void> addFromResult({
+    required String prompt,
+    required RecommendationResult result,
+  }) async {}
+  @override
+  Future<void> remove(String sessionId) async {}
+  @override
+  Future<void> clear() async {}
 }
 
 RecommendationResult _result({required bool empty}) => RecommendationResult(
@@ -56,58 +76,49 @@ const _rec = Recommendation(
   limitations: [],
 );
 
+ProviderContainer _container(Result<RecommendationResult> result) => ProviderContainer(
+  overrides: [
+    profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
+    historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
+    recommendationRepositoryProvider.overrideWithValue(
+      _FakeRepo(result),
+    ),
+  ],
+);
+
 void main() {
   test('provider resolves to data on Success', () async {
-    final container = ProviderContainer(
-      overrides: [
-        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
-        recommendationRepositoryProvider.overrideWithValue(
-          _FakeRepo(Success(_result(empty: false))),
-        ),
-      ],
-    );
-    try {
-      final data = await container.read(recommendationProvider('医学影像').future);
-      expect(data.sessionId, 's_1');
-    } finally {
-      container.dispose();
-    }
+    final container = _container(Success(_result(empty: false)));
+    addTearDown(container.dispose);
+
+    final data = await container.read(recommendationProvider('医学影像').future);
+    expect(data.sessionId, 's_1');
   });
 
   test('provider yields empty recommendations when result is empty', () async {
-    final container = ProviderContainer(
-      overrides: [
-        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
-        recommendationRepositoryProvider.overrideWithValue(
-          _FakeRepo(Success(_result(empty: true))),
-        ),
-      ],
-    );
-    try {
-      final data = await container.read(recommendationProvider('x').future);
-      expect(data.recommendations, isEmpty);
-    } finally {
-      container.dispose();
-    }
+    final container = _container(Success(_result(empty: true)));
+    addTearDown(container.dispose);
+
+    final data = await container.read(recommendationProvider('x').future);
+    expect(data.recommendations, isEmpty);
   });
 
   test('provider throws AppException on Failure', () async {
     final container = ProviderContainer(
       overrides: [
         profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
+        historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
         recommendationRepositoryProvider.overrideWithValue(
           _FakeRepo(const Failure(ServerException())),
         ),
       ],
       retry: (_, _) => null,
     );
-    try {
-      await expectLater(
-        container.read(recommendationProvider('x').future),
-        throwsA(isA<ServerException>()),
-      );
-    } finally {
-      container.dispose();
-    }
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(recommendationProvider('x').future),
+      throwsA(isA<ServerException>()),
+    );
   });
 }

@@ -34,6 +34,8 @@ class _FakeProfileRepo implements ProfileRepository {
   UserProfile load() => const UserProfile();
   @override
   Future<void> save(UserProfile profile) async {}
+  @override
+  Future<void> clear() async {}
 }
 
 class _FakeLauncher implements LinkLauncher {
