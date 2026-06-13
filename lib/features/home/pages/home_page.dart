@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
+import '../../../features/profile/providers/profile_provider.dart';
+import '../../../shared/utils/quick_tag_recommender.dart';
+import '../../../shared/widgets/inline_tag_input.dart';
+
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
@@ -28,7 +33,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     '我是自动化背景，想申请机器人方向博士。',
     '我想找江浙沪地区偏应用的人工智能导师。',
   ];
-  static const List<String> _tags = [
+  static const List<String> _mockTags = [
     '人工智能',
     '计算机视觉',
     '自然语言处理',
@@ -44,7 +49,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     '硕士申请',
   ];
 
-  final TextEditingController _controller = TextEditingController();
+  final InlineTagController _controller = InlineTagController();
   final FocusNode _focusNode = FocusNode();
   bool _focused = false;
 
@@ -64,10 +69,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  bool get _canSubmit => _controller.text.trim().isNotEmpty;
+  bool get _canSubmit => _controller.plainText.trim().isNotEmpty;
 
   Future<void> _submit() async {
-    final prompt = _controller.text.trim();
+    final prompt = _controller.plainText.trim();
     if (prompt.isEmpty) return;
     if (prompt.length < 6) {
       ScaffoldMessenger.of(
@@ -75,12 +80,15 @@ class _HomePageState extends ConsumerState<HomePage> {
       ).showSnackBar(const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')));
     }
 
-    context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
+    await context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
+    if (!mounted) return;
+
+    _controller.clear();
   }
 
   void _appendTag(String tag) {
-    final text = _controller.text;
-    _controller.text = text.isEmpty ? tag : '$text $tag';
+    _controller.addTag(tag);
+    Haptics.selection();
   }
 
   Color _tagColor(String tag, ColorScheme scheme) {
@@ -97,6 +105,14 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
+
+    final profile = ref.watch(profileProvider);
+    final dataSource = ref.watch(
+      appConfigProvider.select((c) => c.dataSource),
+    );
+    final recommendedTags = dataSource == DataSource.mock
+        ? _mockTags
+        : recommendQuickTags(profile);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -143,7 +159,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       return BentoTile(
                                         onTap: () {
                                           Haptics.light();
-                                          _controller.text = e;
+                                          _controller.value = TextEditingValue(
+                                            text: e,
+                                            selection: TextSelection.collapsed(offset: e.length),
+                                          );
                                         },
                                         color: scheme.surface,
                                         height: 120,
@@ -216,7 +235,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Expanded(
-                                        child: TextField(
+                                        child: InlineTagInput(
                                           controller: _controller,
                                           focusNode: _focusNode,
                                           maxLines: 5,
@@ -226,37 +245,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           onSubmitted: (_) {
                                             if (_canSubmit) _submit();
                                           },
-                                          decoration: InputDecoration(
-                                            border: InputBorder.none,
-                                            enabledBorder: InputBorder.none,
-                                            focusedBorder: InputBorder.none,
-                                            disabledBorder: InputBorder.none,
-                                            errorBorder: InputBorder.none,
-                                            focusedErrorBorder:
-                                                InputBorder.none,
-                                            filled: false,
-                                            fillColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            counterText: '',
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 12,
-                                                ),
-                                            hintText: '给 SchoNavi 发送消息',
-                                            suffixIcon: _controller.text.isEmpty
-                                                ? null
-                                                : IconButton(
-                                                    icon: const Icon(
-                                                      Icons.clear,
-                                                      size: 18,
-                                                    ),
-                                                    onPressed: () {
-                                                      Haptics.light();
-                                                      _controller.clear();
-                                                    },
-                                                  ),
-                                          ),
+                                          hintText: '给 SchoNavi 发送消息',
                                         ),
                                       ),
                                       Padding(
@@ -300,7 +289,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   scrollDirection: Axis.horizontal,
                                   physics: const BouncingScrollPhysics(),
                                   child: Row(
-                                    children: _tags.map((tag) {
+                                    children: recommendedTags.map((tag) {
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: 8,
