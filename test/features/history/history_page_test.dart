@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
@@ -24,7 +25,12 @@ Future<Widget> _wrap({bool withHistory = false}) async {
     ],
   );
   final container = ProviderContainer(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    overrides: [
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(dataSource: DataSource.ai),
+      ),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+    ],
   );
   addTearDown(container.dispose);
   if (withHistory) {
