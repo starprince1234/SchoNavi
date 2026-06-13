@@ -5,9 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
-import '../../../shared/widgets/history_drawer.dart';
+import '../../../shared/widgets/scho_navi_app_bar.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -98,28 +99,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      drawer: const HistoryDrawer(),
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: Builder(
-          builder: (innerContext) => IconButton(
-            tooltip: '菜单',
-            icon: const Icon(Icons.menu_outlined),
-            onPressed: () => Scaffold.of(innerContext).openDrawer(),
-          ),
-        ),
-        title: const SizedBox.shrink(),
-        actions: [
-          IconButton(
-            tooltip: '设置',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
+      endDrawer: const AppMenuDrawer(),
+      appBar: const SchoNaviAppBar(),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -133,31 +115,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         AnimatedEntrance(
                           index: 0,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'SchoNavi',
-                                style: textTheme.displayMedium?.copyWith(
-                                  color: AppColors.coral,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '用自然语言找到适合你的导师',
-                                style: textTheme.bodyLarge?.copyWith(
-                                  color: AppColors.inkSoft,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                          child: Text(
+                            '用自然语言找到适合你的导师',
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: AppColors.inkSoft,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
                         AnimatedEntrance(
                           index: 1,
                           child: BentoGrid(
