@@ -13,6 +13,8 @@ class _MemProfileRepo implements ProfileRepository {
   UserProfile load() => p;
   @override
   Future<void> save(UserProfile profile) async => p = profile;
+  @override
+  Future<void> clear() async {}
 }
 
 void main() {

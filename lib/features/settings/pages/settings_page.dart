@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
-import '../../../data/local/local_profile_repository.dart'
-    show LocalProfileRepository;
 import '../../../shared/widgets/section_header.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -144,7 +142,7 @@ class SettingsPage extends ConsumerWidget {
       await favoriteRepo.remove(item.professorId);
     }
     await ref.read(historyRepositoryProvider).clear();
-    await ref.read(localStoreProvider).remove(LocalProfileRepository.storageKey);
+    await ref.read(profileRepositoryProvider).clear();
     messenger.showSnackBar(const SnackBar(content: Text('已清除本地数据')));
   }
 }

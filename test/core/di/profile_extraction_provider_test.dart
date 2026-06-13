@@ -3,15 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/data/ai/ai_profile_extraction_repository.dart';
+import 'package:scho_navi/data/mock/mock_profile_extraction_repository.dart';
 
 void main() {
-  test('默认（mock，无 key）也接 AiProfileExtractionRepository（分析类恒 AI）', () {
+  test('默认（mock，无 key）接 MockProfileExtractionRepository', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     expect(
       container.read(profileExtractionRepositoryProvider),
-      isA<AiProfileExtractionRepository>(),
+      isA<MockProfileExtractionRepository>(),
     );
   });
 

@@ -14,10 +14,14 @@ import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_chat_repository.dart';
 import '../../data/mock/mock_comparison_repository.dart';
+import '../../data/mock/mock_favorite_repository.dart';
+import '../../data/mock/mock_history_repository.dart';
 import '../../data/mock/mock_match_analysis_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_outreach_email_repository.dart';
 import '../../data/mock/mock_professor_repository.dart';
+import '../../data/mock/mock_profile_extraction_repository.dart';
+import '../../data/mock/mock_profile_repository.dart';
 import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/search_history_item.dart';
@@ -109,11 +113,15 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 });
 
 final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
+  final professorRepo = ref.watch(professorRepositoryProvider);
   switch (ref.watch(appConfigProvider).dataSource) {
     case DataSource.mock:
-      return MockComparisonRepository();
+      return MockComparisonRepository(professorRepository: professorRepo);
     case DataSource.ai:
-      return AiComparisonRepository(ref.watch(llmClientProvider));
+      return AiComparisonRepository(
+        llm: ref.watch(llmClientProvider),
+        professorRepository: professorRepo,
+      );
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
@@ -131,10 +139,17 @@ final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
 });
-
-final profileRepositoryProvider = Provider<ProfileRepository>(
-  (ref) => LocalProfileRepository(ref.watch(localStoreProvider)),
-);
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  switch (cfg.dataSource) {
+    case DataSource.mock:
+      return MockProfileRepository();
+    case DataSource.ai:
+      return LocalProfileRepository(ref.watch(localStoreProvider));
+    case DataSource.http:
+      throw UnimplementedError('HTTP data source not wired until V1.0');
+  }
+});
 
 final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
   ref,
@@ -150,15 +165,13 @@ final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
   }
 });
 
-/// 成果抽取属"分析类"——恒为 AI（mock 模式也用 AI，无假分析实现）；
-/// 真实后端（V1.0）到位后 http 分支切 HttpProfileExtractionRepository。
+/// 成果抽取：mock 使用本地轻量解析，ai 调用 LLM，http 待接入真实后端。
 final profileExtractionRepositoryProvider = Provider<ProfileExtractionRepository>(
   (ref) {
     final cfg = ref.watch(appConfigProvider);
     return switch (cfg.dataSource) {
-      DataSource.mock || DataSource.ai => AiProfileExtractionRepository(
-        ref.watch(llmClientProvider),
-      ),
+      DataSource.mock => const MockProfileExtractionRepository(),
+      DataSource.ai => AiProfileExtractionRepository(ref.watch(llmClientProvider)),
       DataSource.http => throw UnimplementedError(
         'HTTP data source not wired until V1.0',
       ),
@@ -186,8 +199,22 @@ final linkLauncherProvider = Provider<LinkLauncher>(
 );
 
 final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
-  final repo = LocalFavoriteRepository(ref.watch(localStoreProvider));
-  ref.onDispose(repo.dispose);
+  final cfg = ref.watch(appConfigProvider);
+  final FavoriteRepository repo;
+  switch (cfg.dataSource) {
+    case DataSource.mock:
+      repo = MockFavoriteRepository();
+    case DataSource.ai:
+    case DataSource.http:
+      repo = LocalFavoriteRepository(ref.watch(localStoreProvider));
+  }
+  ref.onDispose(() {
+    if (repo is MockFavoriteRepository) {
+      repo.dispose();
+    } else if (repo is LocalFavoriteRepository) {
+      repo.dispose();
+    }
+  });
   return repo;
 });
 
@@ -206,8 +233,22 @@ final favoriteStatusProvider = StreamProvider.family<bool, String>((
 });
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  final repo = LocalHistoryRepository(ref.watch(localStoreProvider));
-  ref.onDispose(repo.dispose);
+  final cfg = ref.watch(appConfigProvider);
+  final HistoryRepository repo;
+  switch (cfg.dataSource) {
+    case DataSource.mock:
+      repo = MockHistoryRepository();
+    case DataSource.ai:
+    case DataSource.http:
+      repo = LocalHistoryRepository(ref.watch(localStoreProvider));
+  }
+  ref.onDispose(() {
+    if (repo is MockHistoryRepository) {
+      repo.dispose();
+    } else if (repo is LocalHistoryRepository) {
+      repo.dispose();
+    }
+  });
   return repo;
 });
 

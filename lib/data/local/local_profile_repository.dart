@@ -56,6 +56,9 @@ class LocalProfileRepository implements ProfileRepository {
       'research': [for (final r in profile.research) r.toJson()],
   });
 
+  @override
+  Future<void> clear() => _store.remove(storageKey);
+
   String? _str(Object? value) =>
       value is String && value.isNotEmpty ? value : null;
 
