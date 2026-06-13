@@ -8,43 +8,29 @@ import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/comparison_report.dart';
 import 'package:scho_navi/domain/entities/professor.dart';
 import 'package:scho_navi/domain/repositories/comparison_repository.dart';
-import 'package:scho_navi/domain/repositories/professor_repository.dart';
 import 'package:scho_navi/features/compare/providers/compare_provider.dart';
 
-class _FakeProfessorRepository implements ProfessorRepository {
-  @override
-  Future<Result<Professor>> getProfessor(String professorId) async {
-    if (professorId == 'missing') return const Failure(NotFoundException());
-    return Success(
-      Professor(
-        id: professorId,
-        name: '导师$professorId',
-        university: 'U',
-        college: 'C',
-        title: '教授',
-        researchFields: const ['方向'],
-      ),
-    );
-  }
-}
+const _p1 = Professor(
+  id: 'p_001',
+  name: '导师p_001',
+  university: 'U',
+  college: 'C',
+  title: '教授',
+  researchFields: ['方向'],
+);
 
-class _FakeComparisonRepository implements ComparisonRepository {
-  _FakeComparisonRepository(this.response);
+const _p2 = Professor(
+  id: 'p_002',
+  name: '导师p_002',
+  university: 'U',
+  college: 'C',
+  title: '教授',
+  researchFields: ['方向'],
+);
 
-  final Future<Result<ComparisonReport>> response;
-  List<Professor>? lastProfessors;
-
-  @override
-  Future<Result<ComparisonReport>> compare({
-    required List<Professor> professors,
-  }) {
-    lastProfessors = professors;
-    return response;
-  }
-}
-
-ComparisonReport _report(List<String> ids) => ComparisonReport(
+ComparisonReport _report(List<String> ids, {required List<Professor> professors}) => ComparisonReport(
   professorIds: ids,
+  professors: professors,
   rows: const [
     ComparisonRow(dimension: '研究方向', cells: {}),
   ],
@@ -52,9 +38,23 @@ ComparisonReport _report(List<String> ids) => ComparisonReport(
   suggestion: 'g',
 );
 
+class _FakeComparisonRepository implements ComparisonRepository {
+  _FakeComparisonRepository(this.response);
+
+  final Future<Result<ComparisonReport>> response;
+  List<String>? lastIds;
+
+  @override
+  Future<Result<ComparisonReport>> compare({
+    required List<String> professorIds,
+  }) {
+    lastIds = professorIds;
+    return response;
+  }
+}
+
 ProviderContainer _container(ComparisonRepository repo) => ProviderContainer(
   overrides: [
-    professorRepositoryProvider.overrideWithValue(_FakeProfessorRepository()),
     comparisonRepositoryProvider.overrideWithValue(repo),
   ],
 );
@@ -62,7 +62,7 @@ ProviderContainer _container(ComparisonRepository repo) => ProviderContainer(
 void main() {
   test('2 位有效导师 -> ready 且携带 report 与 professors', () async {
     final repo = _FakeComparisonRepository(
-      Future.value(Success(_report(['p_001', 'p_002']))),
+      Future.value(Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2]))),
     );
     final container = _container(repo);
     addTearDown(container.dispose);
@@ -73,53 +73,10 @@ void main() {
     expect(state.status, CompareStatus.ready);
     expect(state.report, isNotNull);
     expect(state.professors.map((p) => p.id).toList(), ['p_001', 'p_002']);
-    expect(repo.lastProfessors, hasLength(2));
+    expect(repo.lastIds, ['p_001', 'p_002']);
   });
 
-  test('少于 2 位 -> error（不调用对比仓储）', () async {
-    final repo = _FakeComparisonRepository(
-      Future.value(Success(_report(['p_001']))),
-    );
-    final container = _container(repo);
-    addTearDown(container.dispose);
-
-    await container.read(compareProvider.notifier).load(['p_001']);
-    final state = container.read(compareProvider);
-
-    expect(state.status, CompareStatus.error);
-    expect(state.message, contains('2-3'));
-    expect(repo.lastProfessors, isNull);
-  });
-
-  test('多于 3 位 -> error', () async {
-    final repo = _FakeComparisonRepository(
-      Future.value(Success(_report(const []))),
-    );
-    final container = _container(repo);
-    addTearDown(container.dispose);
-
-    await container
-        .read(compareProvider.notifier)
-        .load(['p_001', 'p_002', 'p_003', 'p_004']);
-
-    expect(container.read(compareProvider).status, CompareStatus.error);
-    expect(repo.lastProfessors, isNull);
-  });
-
-  test('有效导师不足 2（解析失败被丢弃）-> error', () async {
-    final repo = _FakeComparisonRepository(
-      Future.value(Success(_report(const []))),
-    );
-    final container = _container(repo);
-    addTearDown(container.dispose);
-
-    await container.read(compareProvider.notifier).load(['p_001', 'missing']);
-
-    expect(container.read(compareProvider).status, CompareStatus.error);
-    expect(repo.lastProfessors, isNull);
-  });
-
-  test('对比仓储失败 -> error 携带文案', () async {
+  test('repository 返回错误 -> error 携带文案', () async {
     final repo = _FakeComparisonRepository(
       Future.value(const Failure(ServerException())),
     );
@@ -145,7 +102,7 @@ void main() {
 
     expect(container.read(compareProvider).status, CompareStatus.loading);
 
-    completer.complete(Success(_report(['p_001', 'p_002'])));
+    completer.complete(Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2])));
     await future;
     expect(container.read(compareProvider).status, CompareStatus.ready);
   });

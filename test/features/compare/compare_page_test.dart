@@ -27,20 +27,34 @@ class _FakeProfessorRepository implements ProfessorRepository {
 class _FakeComparisonRepository implements ComparisonRepository {
   @override
   Future<Result<ComparisonReport>> compare({
-    required List<Professor> professors,
-  }) async => Success(
-    ComparisonReport(
-      professorIds: professors.map((p) => p.id).toList(),
-      rows: const [
-        ComparisonRow(
-          dimension: '研究方向',
-          cells: {'p_001': '偏医学影像', 'p_003': '偏自动驾驶'},
+    required List<String> professorIds,
+  }) async {
+    final professors = [
+      for (final id in professorIds)
+        Professor(
+          id: id,
+          name: id == 'p_001' ? '张三' : '王强',
+          university: id == 'p_001' ? '上海交通大学' : '北京大学',
+          college: 'C',
+          title: '教授',
+          researchFields: const ['方向'],
         ),
-      ],
-      summary: '两位方向差异明显。',
-      suggestion: '若看重医学影像优先张三。',
-    ),
-  );
+    ];
+    return Success(
+      ComparisonReport(
+        professorIds: professorIds,
+        professors: professors,
+        rows: const [
+          ComparisonRow(
+            dimension: '研究方向',
+            cells: {'p_001': '偏医学影像', 'p_003': '偏自动驾驶'},
+          ),
+        ],
+        summary: '两位方向差异明显。',
+        suggestion: '若看重医学影像优先张三。',
+      ),
+    );
+  }
 }
 
 Widget _wrap() {
