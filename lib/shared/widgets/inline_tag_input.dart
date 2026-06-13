@@ -1,23 +1,31 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../../core/haptics/haptics.dart';
 
-/// 标签占位符格式：{tagName}
-final _tagPattern = RegExp(r'\{([^}]+)\}');
+const String _tagPlaceholder = '\uFFFC';
+const int _tagPlaceholderCodeUnit = 0xFFFC;
+final _legacyTagPattern = RegExp(r'\{([^}]+)\}');
 
 /// 用于在普通文本流中嵌入可删除标签的 [TextEditingController]。
 ///
-/// 标签以 `{tagName}` 形式存储在 [text] 中，渲染时隐藏 `{` 和 `}`，
-/// 只把标签名显示为普通文本；真正的 chip UI 由 [InlineTagInput]
-/// 通过 [RenderEditable] 定位后覆盖在文本上方。
+/// 每个标签在 [text] 中只占用一个 object replacement placeholder，
+/// 标签名称由 controller 内部维护；渲染时通过 [WidgetSpan] 让 chip
+/// 真实参与 Flutter 文本排版，避免换行后 overlay 定位错乱。
 class InlineTagController extends TextEditingController {
-  InlineTagController({super.text});
+  InlineTagController({String? text}) : super(text: '') {
+    value = TextEditingValue(text: text ?? '');
+  }
+
+  final List<String> _tagLabels = <String>[];
 
   /// 在当前光标位置插入一个标签占位符。
   void addTag(String tag) {
+    final label = tag.trim();
+    if (label.isEmpty) return;
+
     final base = selection.baseOffset;
     final extent = selection.extentOffset;
 
@@ -29,23 +37,87 @@ class InlineTagController extends TextEditingController {
     final normalizedEnd = math.max(start, end);
 
     final before = text.substring(0, normalizedStart);
+    final selected = text.substring(normalizedStart, normalizedEnd);
     final after = text.substring(normalizedEnd);
-    const open = '{';
-    const close = '}';
+    final beforeTagCount = _countTagPlaceholders(before);
+    final selectedTagCount = _countTagPlaceholders(selected);
+    final retainedAfterStart = beforeTagCount + selectedTagCount;
+
     // 在标签后加一个空格，保证连续插入多个标签时不会贴在一起。
-    final inserted = '$open$tag$close ';
+    const inserted = '$_tagPlaceholder ';
     final newText = before + inserted + after;
-    text = newText;
-    selection = TextSelection.collapsed(
-      offset: math.min(before.length + inserted.length, newText.length),
+    final newTags = <String>[
+      ..._tagLabels.take(beforeTagCount),
+      label,
+      ..._tagLabels.skip(retainedAfterStart),
+    ];
+
+    _setValue(
+      TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: math.min(before.length + inserted.length, newText.length),
+        ),
+      ),
+      newTags,
     );
   }
 
+  /// 删除指定序号的标签。
+  void removeTagAt(int tagIndex) {
+    if (tagIndex < 0 || tagIndex >= _tagLabels.length) return;
+
+    var currentTagIndex = 0;
+    for (var offset = 0; offset < text.length; offset++) {
+      if (text.codeUnitAt(offset) != _tagPlaceholderCodeUnit) continue;
+      if (currentTagIndex != tagIndex) {
+        currentTagIndex++;
+        continue;
+      }
+
+      final newText = text.substring(0, offset) + text.substring(offset + 1);
+      final newTags = List<String>.of(_tagLabels)..removeAt(tagIndex);
+      _setValue(
+        TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: math.min(offset, newText.length),
+          ),
+        ),
+        newTags,
+      );
+      return;
+    }
+  }
+
   /// 把带占位符的文本解码为普通 prompt（标签替换为空格分隔的文本）。
-  String get plainText => text
-      .replaceAllMapped(_tagPattern, (match) => ' ${match.group(1)} ')
-      .replaceAll(RegExp(r' +'), ' ')
-      .trim();
+  String get plainText {
+    final buffer = StringBuffer();
+    var tagIndex = 0;
+
+    for (var offset = 0; offset < text.length; offset++) {
+      if (text.codeUnitAt(offset) == _tagPlaceholderCodeUnit) {
+        final label = tagIndex < _tagLabels.length ? _tagLabels[tagIndex] : '';
+        if (label.isNotEmpty) {
+          buffer
+            ..write(' ')
+            ..write(label)
+            ..write(' ');
+        }
+        tagIndex++;
+      } else {
+        buffer.write(text.substring(offset, offset + 1));
+      }
+    }
+
+    return buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  @override
+  set value(TextEditingValue newValue) {
+    final normalized = _normalizeIncomingValue(newValue);
+    _setValue(normalized.value, normalized.tags);
+  }
 
   @override
   TextSpan buildTextSpan({
@@ -54,46 +126,205 @@ class InlineTagController extends TextEditingController {
     required bool withComposing,
   }) {
     final children = <InlineSpan>[];
-    var lastEnd = 0;
-    for (final match in _tagPattern.allMatches(text)) {
-      // 标签之间至少保留一个空格，避免 chip 在视觉上重叠。
-      final tagStart = match.start;
-      final tagEnd = match.end;
-      if (tagStart > lastEnd) {
-        children.add(TextSpan(text: text.substring(lastEnd, tagStart), style: style));
-      }
+    var runStart = 0;
+    var tagIndex = 0;
+
+    for (var offset = 0; offset < text.length; offset++) {
+      if (text.codeUnitAt(offset) != _tagPlaceholderCodeUnit) continue;
+
+      _addTextRun(
+        children: children,
+        start: runStart,
+        end: offset,
+        style: style,
+        withComposing: withComposing,
+      );
+
+      final currentTagIndex = tagIndex;
+      final label = tagIndex < _tagLabels.length ? _tagLabels[tagIndex] : '';
       children.add(
-        TextSpan(
-          children: [
-            // 开始/结束标记占位但几乎不可见，只用于 RenderEditable 定位。
-            // 额外加一个零宽空格，让 RenderEditable 给 chip 右侧留出间距。
-            TextSpan(
-              text: '{\u200B',
-              style: style?.copyWith(color: Colors.transparent, fontSize: 0.01),
-            ),
-            TextSpan(text: match.group(1), style: style),
-            TextSpan(
-              text: '\u200B}',
-              style: style?.copyWith(color: Colors.transparent, fontSize: 0.01),
-            ),
-          ],
+        WidgetSpan(
+          alignment: ui.PlaceholderAlignment.middle,
+          child: _InlineTagChip(
+            tag: label,
+            textStyle: style,
+            onDeleted: () {
+              Haptics.light();
+              removeTagAt(currentTagIndex);
+            },
+          ),
         ),
       );
-      lastEnd = tagEnd;
+      tagIndex++;
+      runStart = offset + 1;
     }
-    if (lastEnd < text.length) {
-      children.add(TextSpan(text: text.substring(lastEnd), style: style));
-    }
-    return TextSpan(children: children);
+
+    _addTextRun(
+      children: children,
+      start: runStart,
+      end: text.length,
+      style: style,
+      withComposing: withComposing,
+    );
+
+    return TextSpan(style: style, children: children);
   }
+
+  void _addTextRun({
+    required List<InlineSpan> children,
+    required int start,
+    required int end,
+    required TextStyle? style,
+    required bool withComposing,
+  }) {
+    if (start >= end) return;
+
+    final composing = value.composing;
+    final hasComposing = withComposing &&
+        value.isComposingRangeValid &&
+        composing.isValid &&
+        composing.start < end &&
+        composing.end > start;
+
+    if (!hasComposing) {
+      children.add(TextSpan(text: text.substring(start, end), style: style));
+      return;
+    }
+
+    final composingStyle =
+        style?.merge(const TextStyle(decoration: TextDecoration.underline)) ??
+            const TextStyle(decoration: TextDecoration.underline);
+    final composingStart = math.max(start, composing.start);
+    final composingEnd = math.min(end, composing.end);
+
+    if (start < composingStart) {
+      children.add(
+        TextSpan(text: text.substring(start, composingStart), style: style),
+      );
+    }
+    if (composingStart < composingEnd) {
+      children.add(
+        TextSpan(
+          text: text.substring(composingStart, composingEnd),
+          style: composingStyle,
+        ),
+      );
+    }
+    if (composingEnd < end) {
+      children.add(
+        TextSpan(text: text.substring(composingEnd, end), style: style),
+      );
+    }
+  }
+
+  void _setValue(TextEditingValue newValue, List<String> tags) {
+    _tagLabels
+      ..clear()
+      ..addAll(tags);
+    super.value = newValue;
+  }
+
+  _NormalizedInlineValue _normalizeIncomingValue(TextEditingValue incoming) {
+    final source = incoming.text;
+    final offsetMap = List<int>.filled(source.length + 1, 0);
+    final buffer = StringBuffer();
+    final tags = <String>[];
+    var sourceOffset = 0;
+    var existingTagIndex = 0;
+
+    while (sourceOffset < source.length) {
+      offsetMap[sourceOffset] = buffer.length;
+
+      final legacyMatch = _legacyTagPattern.matchAsPrefix(source, sourceOffset);
+      if (legacyMatch != null) {
+        final outputStart = buffer.length;
+        buffer.write(_tagPlaceholder);
+        tags.add(legacyMatch.group(1)!);
+        final outputEnd = buffer.length;
+        for (var i = sourceOffset; i <= legacyMatch.end; i++) {
+          offsetMap[i] = i == sourceOffset ? outputStart : outputEnd;
+        }
+        sourceOffset = legacyMatch.end;
+        continue;
+      }
+
+      if (source.codeUnitAt(sourceOffset) == _tagPlaceholderCodeUnit) {
+        buffer.write(_tagPlaceholder);
+        tags.add(
+          existingTagIndex < _tagLabels.length
+              ? _tagLabels[existingTagIndex]
+              : '',
+        );
+        existingTagIndex++;
+        sourceOffset++;
+        offsetMap[sourceOffset] = buffer.length;
+        continue;
+      }
+
+      buffer.write(source.substring(sourceOffset, sourceOffset + 1));
+      sourceOffset++;
+      offsetMap[sourceOffset] = buffer.length;
+    }
+    offsetMap[source.length] = buffer.length;
+
+    return _NormalizedInlineValue(
+      value: TextEditingValue(
+        text: buffer.toString(),
+        selection: _mapSelection(incoming.selection, offsetMap),
+        composing: _mapTextRange(incoming.composing, offsetMap),
+      ),
+      tags: tags,
+    );
+  }
+
+  TextSelection _mapSelection(TextSelection selection, List<int> offsetMap) {
+    if (!selection.isValid) return selection;
+    return TextSelection(
+      baseOffset: _mapOffset(selection.baseOffset, offsetMap),
+      extentOffset: _mapOffset(selection.extentOffset, offsetMap),
+      affinity: selection.affinity,
+      isDirectional: selection.isDirectional,
+    );
+  }
+
+  TextRange _mapTextRange(TextRange range, List<int> offsetMap) {
+    if (!range.isValid || range.isCollapsed) return TextRange.empty;
+    final start = _mapOffset(range.start, offsetMap);
+    final end = _mapOffset(range.end, offsetMap);
+    if (start >= end) return TextRange.empty;
+    return TextRange(start: start, end: end);
+  }
+
+  int _mapOffset(int offset, List<int> offsetMap) {
+    if (offset < 0) return offset;
+    if (offset >= offsetMap.length) return offsetMap.last;
+    return offsetMap[offset];
+  }
+
+  static int _countTagPlaceholders(String value) {
+    var count = 0;
+    for (var offset = 0; offset < value.length; offset++) {
+      if (value.codeUnitAt(offset) == _tagPlaceholderCodeUnit) count++;
+    }
+    return count;
+  }
+}
+
+class _NormalizedInlineValue {
+  const _NormalizedInlineValue({
+    required this.value,
+    required this.tags,
+  });
+
+  final TextEditingValue value;
+  final List<String> tags;
 }
 
 /// 在 [TextField] 文本流中内联显示可删除标签的输入组件。
 ///
-/// 底层是一个普通 [TextField]，标签以 `{tagName}` 占位符形式存在
-/// 于文本中；组件通过 [RenderEditable.getBoxesForSelection] 计算
-/// 每个标签名的精确位置，并在其上方覆盖一个真正的 chip widget。
-class InlineTagInput extends StatefulWidget {
+/// 底层是普通 [TextField]；标签通过 [InlineTagController.buildTextSpan]
+/// 生成 [WidgetSpan]，由原生文本布局处理换行与光标位置。
+class InlineTagInput extends StatelessWidget {
   const InlineTagInput({
     super.key,
     required this.controller,
@@ -121,217 +352,97 @@ class InlineTagInput extends StatefulWidget {
   final EdgeInsets contentPadding;
 
   @override
-  State<InlineTagInput> createState() => _InlineTagInputState();
-}
-
-class _InlineTagInputState extends State<InlineTagInput> {
-  final _fieldKey = GlobalKey();
-  var _tagRects = <_TagRect>[];
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_scheduleUpdate);
-    widget.focusNode?.addListener(_scheduleUpdate);
-  }
-
-  @override
-  void didUpdateWidget(covariant InlineTagInput oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_scheduleUpdate);
-      widget.controller.addListener(_scheduleUpdate);
-      _scheduleUpdate();
-    }
-    if (oldWidget.focusNode != widget.focusNode) {
-      oldWidget.focusNode?.removeListener(_scheduleUpdate);
-      widget.focusNode?.addListener(_scheduleUpdate);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_scheduleUpdate);
-    widget.focusNode?.removeListener(_scheduleUpdate);
-    super.dispose();
-  }
-
-  void _scheduleUpdate() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _updateTagRects();
-    });
-  }
-
-  void _updateTagRects() {
-    final fieldBox = _fieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (fieldBox == null) return;
-
-    final renderEditable = _findRenderEditable(fieldBox);
-    if (renderEditable == null) return;
-
-    final editableOffset = renderEditable.localToGlobal(Offset.zero);
-    final fieldOffset = fieldBox.localToGlobal(Offset.zero);
-    final delta = editableOffset - fieldOffset;
-
-    final tags = <_TagRect>[];
-    final text = widget.controller.text;
-    for (final match in _tagPattern.allMatches(text)) {
-      // 跳过 `{` 和 `}`，只取标签名区域，让 chip 左对齐标签名。
-      final start = match.start + 1;
-      final end = match.end - 1;
-      final boxes = renderEditable.getBoxesForSelection(
-        TextSelection(baseOffset: start, extentOffset: end),
-      );
-      if (boxes.isEmpty) continue;
-
-      var rect = boxes.first.toRect();
-      for (var i = 1; i < boxes.length; i++) {
-        rect = rect.expandToInclude(boxes[i].toRect());
-      }
-      rect = rect.shift(delta);
-
-      tags.add(
-        _TagRect(
-          tag: match.group(1)!,
-          start: match.start,
-          end: match.end,
-          rect: rect,
-        ),
-      );
-    }
-
-    if (!mounted) return;
-    setState(() => _tagRects = tags);
-  }
-
-  RenderEditable? _findRenderEditable(RenderObject? node) {
-    if (node == null) return null;
-    if (node is RenderEditable) return node;
-    RenderEditable? result;
-    node.visitChildren((child) {
-      result ??= _findRenderEditable(child);
-    });
-    return result;
-  }
-
-  void _removeTagAt(_TagRect tagRect) {
-    Haptics.light();
-    final text = widget.controller.text;
-    final newText = text.substring(0, tagRect.start) + text.substring(tagRect.end);
-    widget.controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: tagRect.start),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        TextField(
-          key: _fieldKey,
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          maxLines: widget.maxLines,
-          minLines: widget.minLines,
-          maxLength: widget.maxLength,
-          textInputAction: widget.textInputAction,
-          onSubmitted: widget.onSubmitted,
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            filled: false,
-            fillColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            counterText: '',
-            contentPadding: widget.contentPadding,
-            hintText: widget.hintText,
-          ),
-        ),
-        for (final tagRect in _tagRects)
-          Positioned(
-            left: tagRect.rect.left,
-            top: tagRect.rect.top,
-            child: _TagChip(
-              tag: tagRect.tag,
-              baselineHeight: tagRect.rect.height,
-              onDeleted: () => _removeTagAt(tagRect),
-            ),
-          ),
-      ],
+    final textStyle = Theme.of(context).textTheme.bodyLarge;
+
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      style: textStyle,
+      strutStyle: const StrutStyle(
+        height: 1.6,
+        forceStrutHeight: true,
+      ),
+      maxLines: maxLines,
+      minLines: minLines,
+      maxLength: maxLength,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        filled: false,
+        fillColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        counterText: '',
+        contentPadding: contentPadding,
+        hintText: hintText,
+      ),
     );
   }
 }
 
-class _TagRect {
-  const _TagRect({
+class _InlineTagChip extends StatelessWidget {
+  const _InlineTagChip({
     required this.tag,
-    required this.start,
-    required this.end,
-    required this.rect,
-  });
-
-  final String tag;
-  final int start;
-  final int end;
-  final Rect rect;
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip({
-    required this.tag,
-    required this.baselineHeight,
+    required this.textStyle,
     required this.onDeleted,
   });
 
   final String tag;
-  final double baselineHeight;
+  final TextStyle? textStyle;
   final VoidCallback onDeleted;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textStyle = DefaultTextStyle.of(context).style;
+    final effectiveTextStyle = textStyle ?? DefaultTextStyle.of(context).style;
 
-    return Transform.translate(
-      // 让 chip 垂直居中于文本基线。
-      offset: Offset(0, -2),
+    return Padding(
+      padding: const EdgeInsets.only(right: 4, bottom: 1),
       child: Material(
+        key: const ValueKey('inline-tag-chip'),
         color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {}, // chip 主体点击不拦截事件，仅显示。
-          child: Container(
-            height: baselineHeight + 6,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            alignment: Alignment.center,
+        child: SizedBox(
+          height: 24,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 7, right: 2),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  tag,
-                  style: textStyle.copyWith(
-                    fontSize: (textStyle.fontSize ?? 14) - 1,
-                    fontWeight: FontWeight.w600,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 96),
+                  child: Text(
+                    tag,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: effectiveTextStyle.copyWith(
+                      fontSize: (effectiveTextStyle.fontSize ?? 14) - 1,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 2),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onDeleted,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.close,
-                      size: 14,
-                      color: scheme.onSurfaceVariant,
+                const SizedBox(width: 1),
+                Semantics(
+                  button: true,
+                  label: '删除$tag',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onDeleted,
+                    child: SizedBox(
+                      width: 19,
+                      height: 19,
+                      child: Icon(
+                        Icons.close,
+                        size: 13,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
