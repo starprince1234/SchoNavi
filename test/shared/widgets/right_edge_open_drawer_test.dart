@@ -4,7 +4,7 @@ import 'package:scho_navi/shared/widgets/right_edge_open_drawer.dart';
 
 void main() {
   group('RightEdgeOpenDrawer', () {
-    Widget _build(VoidCallback onSwipe) {
+    Widget build(VoidCallback onSwipe) {
       return MaterialApp(
         home: Scaffold(
           body: Stack(
@@ -25,7 +25,7 @@ void main() {
       tester,
     ) async {
       var calls = 0;
-      await tester.pumpWidget(_build(() => calls++));
+      await tester.pumpWidget(build(() => calls++));
       await tester.pumpAndSettle();
 
       final size = tester.getSize(find.byType(Scaffold));
@@ -40,7 +40,7 @@ void main() {
 
     testWidgets('slow leftward swipe does not trigger onSwipe', (tester) async {
       var calls = 0;
-      await tester.pumpWidget(_build(() => calls++));
+      await tester.pumpWidget(build(() => calls++));
       await tester.pumpAndSettle();
 
       final size = tester.getSize(find.byType(Scaffold));
@@ -55,7 +55,7 @@ void main() {
 
     testWidgets('rightward swipe does not trigger onSwipe', (tester) async {
       var calls = 0;
-      await tester.pumpWidget(_build(() => calls++));
+      await tester.pumpWidget(build(() => calls++));
       await tester.pumpAndSettle();
 
       final size = tester.getSize(find.byType(Scaffold));
@@ -72,7 +72,7 @@ void main() {
       tester,
     ) async {
       var calls = 0;
-      await tester.pumpWidget(_build(() => calls++));
+      await tester.pumpWidget(build(() => calls++));
       await tester.pumpAndSettle();
 
       final size = tester.getSize(find.byType(Scaffold));
