@@ -10,11 +10,53 @@ import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
 
-class HistoryPage extends ConsumerWidget {
+class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryPage> createState() => _HistoryPageState();
+}
+
+class _HistoryPageState extends ConsumerState<HistoryPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _query = _searchController.text;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<SearchHistoryItem> _filter(List<SearchHistoryItem> items) {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return items;
+    return items.where((item) {
+      return item.prompt.toLowerCase().contains(query) ||
+          item.summary.toLowerCase().contains(query) ||
+          item.researchInterests.any(
+            (field) => field.toLowerCase().contains(query),
+          ) ||
+          item.preferredLocations.any(
+            (location) => location.toLowerCase().contains(query),
+          );
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(searchHistoryProvider);
     return Scaffold(
       appBar: AppBar(
@@ -43,43 +85,91 @@ class HistoryPage extends ConsumerWidget {
           if (items.isEmpty) {
             return const EmptyView(message: '暂无搜索历史');
           }
-          return RefreshIndicator(
-            color: AppColors.coral,
-            onRefresh: () async {
-              ref.invalidate(searchHistoryProvider);
-              await ref.read(searchHistoryProvider.future);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return AnimatedEntrance(
-                  index: index,
-                  child: Dismissible(
-                    key: ValueKey(item.sessionId),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.error,
-                        borderRadius: BorderRadius.circular(12),
+
+          final filtered = _filter(items);
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: SizedBox(
+                  height: 38,
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: '搜索',
+                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).hintColor,
+                          ),
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 16),
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                            ),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      child: const Icon(Icons.delete, color: Colors.white),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                      isDense: true,
                     ),
-                    onDismissed: (_) {
-                      Haptics.medium();
-                      ref.read(historyRepositoryProvider).remove(item.sessionId);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已删除')),
-                      );
-                    },
-                    child: _HistoryTile(item: item),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              if (filtered.isEmpty)
+                const Expanded(
+                  child: EmptyView(message: '没有匹配的搜索记录'),
+                )
+              else
+                Expanded(
+                  child: RefreshIndicator(
+                    color: AppColors.coral,
+                    onRefresh: () async {
+                      ref.invalidate(searchHistoryProvider);
+                      await ref.read(searchHistoryProvider.future);
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final item = filtered[index];
+                        return AnimatedEntrance(
+                          index: index,
+                          child: Dismissible(
+                            key: ValueKey(item.sessionId),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.error,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            onDismissed: (_) {
+                              Haptics.medium();
+                              ref.read(historyRepositoryProvider).remove(item.sessionId);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已删除')),
+                              );
+                            },
+                            child: _HistoryTile(item: item),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),
@@ -109,6 +199,7 @@ class HistoryPage extends ConsumerWidget {
     }
   }
 }
+
 
 class _HistoryTile extends ConsumerWidget {
   const _HistoryTile({required this.item});

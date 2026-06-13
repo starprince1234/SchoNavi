@@ -14,7 +14,7 @@ Future<Widget> _wrap() async {
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       // Provide a non-empty profile to prevent ProfilePage from redirecting
-      // to /profile/privacy during tab-switch tests.
+      // to /profile/privacy during navigation tests.
       profileProvider.overrideWith(
         () => _StubProfileController(
           const UserProfile(name: 'Test User'),
@@ -33,23 +33,14 @@ class _StubProfileController extends ProfileController {
 }
 
 void main() {
-  testWidgets('bottom navigation has two tabs and switches', (
+  testWidgets('home page shows search intro and menu button', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
     expect(find.text('用自然语言找到适合你的导师'), findsOneWidget);
-
-    final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    expect(navBar.destinations.length, 2);
-
-    await tester.tap(find.byIcon(Icons.person_outline));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byIcon(Icons.search_outlined));
-    await tester.pumpAndSettle();
-    expect(find.text('用自然语言找到适合你的导师'), findsOneWidget);
+    expect(find.byTooltip('菜单'), findsOneWidget);
   });
 
   testWidgets('drawer opens and shows history with favorites entry', (
@@ -64,7 +55,22 @@ void main() {
     await tester.tap(menuButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('搜索历史'), findsOneWidget);
+    expect(find.text('历史'), findsOneWidget);
     expect(find.byTooltip('我的收藏'), findsOneWidget);
+  });
+
+  testWidgets('drawer history entry navigates to history page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('菜单'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('历史'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('历史'), findsWidgets);
   });
 }

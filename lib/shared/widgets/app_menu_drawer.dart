@@ -5,17 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/search_history_item.dart';
 
 /// ChatGPT 风格的综合抽屉菜单。
 ///
-/// 从屏幕右侧滑出，顶部展示个人档案入口，下方列出搜索历史、收藏、设置等
+/// 从屏幕右侧滑出，顶部展示个人档案入口，下方列出历史、收藏、设置等
 /// 核心功能入口。
 class AppMenuDrawer extends ConsumerWidget {
   const AppMenuDrawer({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
     final historyAsync = ref.watch(searchHistoryProvider);
 
     return Drawer(
@@ -34,7 +34,7 @@ class AppMenuDrawer extends ConsumerWidget {
             // ── 功能入口 ─────────────────────────────────────────────────
             _DrawerTile(
               icon: Icons.history,
-              label: '搜索历史',
+              label: '历史',
               onTap: () => _navigate(context, '/history'),
             ),
             _DrawerTile(
@@ -51,16 +51,6 @@ class AppMenuDrawer extends ConsumerWidget {
             Divider(height: 1, color: AppColors.line),
 
             // ── 最近搜索历史预览 ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                '最近搜索',
-                style: textTheme.labelLarge?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
             Expanded(
               child: historyAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -75,20 +65,13 @@ class AppMenuDrawer extends ConsumerWidget {
                       message: '暂无搜索历史',
                     );
                   }
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: items.length.clamp(0, 8),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return _HistoryTile(
-                        prompt: item.prompt,
-                        onTap: () {
-                          Haptics.light();
-                          Navigator.of(context).pop();
-                          context.push(
-                            '/recommendation?q=${Uri.encodeComponent(item.prompt)}',
-                          );
-                        },
+                  return _RecentSearchPanel(
+                    items: items,
+                    onTap: (item) {
+                      Haptics.light();
+                      Navigator.of(context).pop();
+                      context.push(
+                        '/recommendation?q=${Uri.encodeComponent(item.prompt)}',
                       );
                     },
                   );
@@ -187,18 +170,153 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: AppColors.inkSoft, size: 22),
-      title: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.ink,
-              fontWeight: FontWeight.w600,
-            ),
+    return Tooltip(
+      message: label,
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.inkSoft, size: 22),
+        title: Text(
+          label,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        minLeadingWidth: 24,
+        horizontalTitleGap: 12,
+        onTap: onTap,
       ),
-      minLeadingWidth: 24,
-      horizontalTitleGap: 12,
-      onTap: onTap,
+    );
+  }
+}
+
+// ── Recent search panel with local filtering ─────────────────────────────────
+
+class _RecentSearchPanel extends StatefulWidget {
+  const _RecentSearchPanel({required this.items, required this.onTap});
+
+  final List<SearchHistoryItem> items;
+  final ValueChanged<SearchHistoryItem> onTap;
+
+  @override
+  State<_RecentSearchPanel> createState() => _RecentSearchPanelState();
+}
+
+class _RecentSearchPanelState extends State<_RecentSearchPanel> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _query = _searchController.text;
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<SearchHistoryItem> get _filtered {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.items;
+    return widget.items.where((item) {
+      return item.prompt.toLowerCase().contains(query) ||
+          item.summary.toLowerCase().contains(query) ||
+          item.researchInterests.any(
+            (field) => field.toLowerCase().contains(query),
+          ) ||
+          item.preferredLocations.any(
+            (location) => location.toLowerCase().contains(query),
+          );
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+          child: Row(
+            children: [
+              Text(
+                '最近',
+                style: textTheme.labelLarge?.copyWith(
+                      color: AppColors.inkSoft,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SizedBox(
+                  height: 32,
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    style: textTheme.bodySmall,
+                    decoration: InputDecoration(
+                      hintText: '搜索',
+                      hintStyle: textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).hintColor,
+                          ),
+                      prefixIcon: const Icon(Icons.search, size: 16),
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear, size: 14),
+                              onPressed: _searchController.clear,
+                            ),
+                      filled: true,
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? _EmptyHint(
+                  icon: Icons.manage_search_outlined,
+                  message: '没有匹配的最近搜索',
+                )
+              : ListView.builder(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  itemCount: filtered.length.clamp(0, 8),
+                  itemBuilder: (context, index) {
+                    final item = filtered[index];
+                    return _HistoryTile(
+                      prompt: item.prompt,
+                      onTap: () => widget.onTap(item),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

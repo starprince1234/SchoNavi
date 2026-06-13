@@ -95,6 +95,30 @@ void main() {
     expect(find.text('暂无搜索历史'), findsOneWidget);
   });
 
+  testWidgets('search filters history items', (tester) async {
+    await tester.pumpWidget(await _wrap(withHistory: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('医学影像 上海'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '上海');
+    await tester.pumpAndSettle();
+    expect(find.text('医学影像 上海'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '北京');
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配的搜索记录'), findsOneWidget);
+    expect(find.text('医学影像 上海'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.clear));
+    await tester.pumpAndSettle();
+    expect(find.text('医学影像 上海'), findsOneWidget);
+    expect(find.text('没有匹配的搜索记录'), findsNothing);
+  });
+
   testWidgets('clear history asks confirmation and clears list', (tester) async {
     await tester.pumpWidget(await _wrap(withHistory: true));
     await tester.pumpAndSettle();
