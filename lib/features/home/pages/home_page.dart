@@ -8,6 +8,7 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/quick_tag.dart';
 import '../../../shared/widgets/right_edge_open_drawer.dart';
 import '../../../shared/widgets/scho_navi_app_bar.dart';
 
@@ -304,19 +305,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         padding: const EdgeInsets.only(
                                           right: 8,
                                         ),
-                                        child: BentoTile(
+                                        child: QuickTag(
+                                          label: tag,
                                           onTap: () => _appendTag(tag),
                                           haptic: Haptics.selection,
                                           color: _tagColor(tag, scheme),
-                                          borderRadius: 20,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          child: Text(
-                                            tag,
-                                            style: textTheme.labelSmall,
-                                          ),
                                         ),
                                       );
                                     }).toList(),
