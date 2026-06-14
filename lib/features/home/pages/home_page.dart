@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/inline_tag_input.dart';
 
+import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/home_prompt.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
@@ -13,6 +15,7 @@ import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/quick_tag.dart';
 import '../../../shared/widgets/right_edge_open_drawer.dart';
 import '../../../shared/widgets/rotating_subtitle.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/sliding_pill_switch.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -30,12 +33,10 @@ const SubtitleAnimationStrategy _kSubtitleStrategy = TypewriterStrategy();
 class _TabConfig {
   const _TabConfig({
     required this.taglines,
-    required this.examples,
     required this.quickTags,
   });
 
   final List<String> taglines;
-  final List<String> examples;
   final List<String> quickTags;
 }
 
@@ -48,13 +49,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         '想做哪个方向的研究？我来帮你找导师',
         '不知道选谁？告诉我你的兴趣就好',
         '地区、方向、阶段，想到什么都可以说',
-      ],
-      examples: [
-        '我想找计算机视觉方向的导师，最好在北京。',
-        '我想做 AI 和医疗结合的研究，有没有适合的老师？',
-        '推荐几个 NLP 和大模型安全方向的导师。',
-        '我是自动化背景，想申请机器人方向博士。',
-        '我想找江浙沪地区偏应用的人工智能导师。',
       ],
       quickTags: [
         '计算机视觉',
@@ -75,13 +69,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         '想参加什么样的比赛？我来帮你找',
         '还在纠结报哪个？告诉我你擅长什么',
         '时间、方向、组队，想到什么都可以说',
-      ],
-      examples: [
-        '推荐近期可报名的人工智能竞赛。',
-        '适合计算机专业大一参加的团队赛。',
-        '我想参加数学建模竞赛，有什么建议？',
-        '帮我找算法竞赛，最好有校内选拔。',
-        '想参加信息安全方向的 CTF 或竞赛。',
       ],
       quickTags: [
         '人工智能竞赛',
@@ -181,11 +168,73 @@ class _HomePageState extends ConsumerState<HomePage> {
     return scheme.surfaceContainer;
   }
 
+  BentoTile _buildPromptTile(HomePrompt prompt) {
+    return BentoTile(
+      onTap: () {
+        Haptics.light();
+        _controller.value = TextEditingValue(
+          text: prompt.text,
+          selection: TextSelection.collapsed(offset: prompt.text.length),
+        );
+      },
+      color: Theme.of(context).colorScheme.surface,
+      height: 120,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            prompt.text,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const Align(
+            alignment: Alignment.bottomRight,
+            child: Icon(
+              Icons.lightbulb_outline,
+              color: AppColors.coral,
+              size: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromptGridSkeleton() {
+    return BentoGrid(
+      crossAxisCount: 2,
+      spacing: 12,
+      runSpacing: 12,
+      animateEntrance: false,
+      children: List.generate(
+        4,
+        (_) => BentoTile(
+          color: Theme.of(context).colorScheme.surface,
+          height: 120,
+          padding: const EdgeInsets.all(16),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Skeleton(height: 12, width: double.infinity),
+              SizedBox(height: 8),
+              Skeleton(height: 12, width: 80),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final scheme = theme.colorScheme;
+    final promptsAsync = ref.watch(homePromptsProvider(_currentTab.name));
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -201,9 +250,24 @@ class _HomePageState extends ConsumerState<HomePage> {
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: Column(
                       children: [
+                        // Fixed top bar so the menu stays pinned at the top-right.
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          child: SizedBox(
+                            height: 44,
+                            width: double.infinity,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: _HomeMenuButton(),
+                            ),
+                          ),
+                        ),
                         Expanded(
                           child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
+                            physics: const ClampingScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -217,15 +281,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     ),
                                     child: Column(
                                       children: [
-                                        // 顶栏：仅菜单按钮，右对齐。
-                                        const SizedBox(
-                                          height: 44,
-                                          width: double.infinity,
-                                          child: Align(
-                                            alignment: Alignment.centerRight,
-                                            child: _HomeMenuButton(),
-                                          ),
-                                        ),
                                         // 品牌字标，居中 Hero。
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
@@ -278,49 +333,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 const SizedBox(height: 24),
                                 AnimatedEntrance(
                                   index: 1,
-                                  child: BentoGrid(
-                                    crossAxisCount: 2,
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    animateEntrance: false,
-                                    children: _currentConfig.examples.map((e) {
-                                      return BentoTile(
-                                        onTap: () {
-                                          Haptics.light();
-                                          _controller.value = TextEditingValue(
-                                            text: e,
-                                            selection: TextSelection.collapsed(
-                                              offset: e.length,
-                                            ),
-                                          );
-                                        },
-                                        color: scheme.surface,
-                                        height: 120,
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              e,
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: textTheme.bodyMedium,
-                                            ),
-                                            const Align(
-                                              alignment: Alignment.bottomRight,
-                                              child: Icon(
-                                                Icons.lightbulb_outline,
-                                                color: AppColors.coral,
-                                                size: 18,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  child: promptsAsync.when(
+                                    data: (prompts) {
+                                      return BentoGrid(
+                                        crossAxisCount: 2,
+                                        spacing: 12,
+                                        runSpacing: 12,
+                                        animateEntrance: false,
+                                        children: prompts
+                                            .take(4)
+                                            .map(_buildPromptTile)
+                                            .toList(),
                                       );
-                                    }).toList(),
+                                    },
+                                    loading: () => _buildPromptGridSkeleton(),
+                                    error: (e, st) => _buildPromptGridSkeleton(),
                                   ),
                                 ),
                                 const SizedBox(height: 24),

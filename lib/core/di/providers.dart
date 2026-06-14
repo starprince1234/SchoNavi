@@ -17,13 +17,17 @@ import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
+import '../../data/http/http_home_prompt_repository.dart';
+import '../../data/mock/mock_home_prompt_repository.dart';
 import '../../domain/entities/favorite_item.dart';
+import '../../domain/entities/home_prompt.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/comparison_repository.dart';
 import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
+import '../../domain/repositories/home_prompt_repository.dart';
 import '../../domain/repositories/match_analysis_repository.dart';
 import '../../domain/repositories/outreach_email_repository.dart';
 import '../../domain/repositories/professor_repository.dart';
@@ -188,6 +192,23 @@ final profileExtractionRepositoryProvider =
         ),
       };
     });
+
+/// 首页快捷 prompt 仓库。llm 模式使用本地 mock，http 模式走真实后端。
+final homePromptRepositoryProvider = Provider<HomePromptRepository>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  return switch (cfg.dataSource) {
+    DataSource.llm => const MockHomePromptRepository(),
+    DataSource.http => HttpHomePromptRepository(ref.watch(dioProvider)),
+  };
+});
+
+/// 首页快捷 prompt 列表，按模式（mentor / competition）缓存。
+final homePromptsProvider = FutureProvider.family<List<HomePrompt>, String>((
+  ref,
+  mode,
+) {
+  return ref.watch(homePromptRepositoryProvider).fetchPrompts(mode);
+});
 
 /// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
 /// 未 override 直接读取会抛错，提醒接线缺失。
