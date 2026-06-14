@@ -70,9 +70,7 @@ class AppMenuDrawer extends ConsumerWidget {
                     onTap: (item) {
                       Haptics.light();
                       Navigator.of(context).pop();
-                      context.push(
-                        '/recommendation?q=${Uri.encodeComponent(item.prompt)}',
-                      );
+                      context.push(_historyRoute(item));
                     },
                   );
                 },
@@ -228,8 +226,10 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return widget.items;
     return widget.items.where((item) {
+      final typeLabel = _historyTypeLabel(item.type);
       return item.prompt.toLowerCase().contains(query) ||
           item.summary.toLowerCase().contains(query) ||
+          typeLabel.contains(query) ||
           item.researchInterests.any(
             (field) => field.toLowerCase().contains(query),
           ) ||
@@ -310,7 +310,7 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
                   itemBuilder: (context, index) {
                     final item = filtered[index];
                     return _HistoryTile(
-                      prompt: item.prompt,
+                      item: item,
                       onTap: () => widget.onTap(item),
                     );
                   },
@@ -324,13 +324,17 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
 // ── History preview tile ─────────────────────────────────────────────────────
 
 class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({required this.prompt, required this.onTap});
+  const _HistoryTile({required this.item, required this.onTap});
 
-  final String prompt;
+  final SearchHistoryItem item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (item.type) {
+      SearchHistoryType.competition => Icons.emoji_events_outlined,
+      SearchHistoryType.mentor => Icons.chat_bubble_outline,
+    };
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -344,14 +348,14 @@ class _HistoryTile extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.chat_bubble_outline,
+                  icon,
                   size: 16,
                   color: AppColors.inkSoft,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    prompt,
+                    item.prompt,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -369,6 +373,19 @@ class _HistoryTile extends StatelessWidget {
     );
   }
 }
+
+String _historyRoute(SearchHistoryItem item) {
+  final path = switch (item.type) {
+    SearchHistoryType.competition => '/competition-recommendation',
+    SearchHistoryType.mentor => '/recommendation',
+  };
+  return '$path?q=${Uri.encodeComponent(item.prompt)}';
+}
+
+String _historyTypeLabel(SearchHistoryType type) => switch (type) {
+  SearchHistoryType.competition => '竞赛',
+  SearchHistoryType.mentor => '导师',
+};
 
 // ── Empty hint ───────────────────────────────────────────────────────────────
 

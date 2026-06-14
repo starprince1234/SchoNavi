@@ -44,8 +44,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final query = _query.trim().toLowerCase();
     if (query.isEmpty) return items;
     return items.where((item) {
+      final typeLabel = _historyTypeLabel(item.type);
       return item.prompt.toLowerCase().contains(query) ||
           item.summary.toLowerCase().contains(query) ||
+          typeLabel.contains(query) ||
           item.researchInterests.any(
             (field) => field.toLowerCase().contains(query),
           ) ||
@@ -211,9 +213,7 @@ class _HistoryTile extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     return Card(
       child: InkWell(
-        onTap: () => context.push(
-          '/recommendation?q=${Uri.encodeComponent(item.prompt)}',
-        ),
+        onTap: () => context.push(_historyRoute(item)),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -249,7 +249,7 @@ class _HistoryTile extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 '${_formatDateTime(item.createdAt)} · '
-                '${item.recommendationCount} 位导师',
+                '${item.recommendationCount} ${_historyCountUnit(item.type)}',
                 style: textTheme.bodySmall,
               ),
             ],
@@ -298,3 +298,21 @@ String _formatDateTime(DateTime value) {
   return '${value.year}-${two(value.month)}-${two(value.day)} '
       '${two(value.hour)}:${two(value.minute)}';
 }
+
+String _historyRoute(SearchHistoryItem item) {
+  final path = switch (item.type) {
+    SearchHistoryType.competition => '/competition-recommendation',
+    SearchHistoryType.mentor => '/recommendation',
+  };
+  return '$path?q=${Uri.encodeComponent(item.prompt)}';
+}
+
+String _historyCountUnit(SearchHistoryType type) => switch (type) {
+  SearchHistoryType.competition => '项竞赛',
+  SearchHistoryType.mentor => '位导师',
+};
+
+String _historyTypeLabel(SearchHistoryType type) => switch (type) {
+  SearchHistoryType.competition => '竞赛',
+  SearchHistoryType.mentor => '导师',
+};

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
@@ -17,7 +19,17 @@ final competitionRecommendationProvider =
         profile: profile,
       );
       return switch (result) {
-        Success(:final data) => data,
+        Success(:final data) => () {
+          if (data.recommendations.isNotEmpty) {
+            unawaited(
+              ref.read(historyRepositoryProvider).addFromCompetitionResult(
+                prompt: prompt,
+                result: data,
+              ),
+            );
+          }
+          return data;
+        }(),
         Failure(:final error) => throw error,
       };
     });
