@@ -12,7 +12,8 @@ import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/quick_tag.dart';
 import '../../../shared/widgets/right_edge_open_drawer.dart';
-import '../../../shared/widgets/scho_navi_app_bar.dart';
+import '../../../shared/widgets/rotating_subtitle.dart';
+import '../../../shared/widgets/sliding_pill_switch.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -23,14 +24,17 @@ class HomePage extends ConsumerStatefulWidget {
 
 enum _HomeTab { mentor, competition }
 
+/// 首页副标题动效。后期可替换为 FadeSlideStrategy() / CrossfadeStrategy()。
+const SubtitleAnimationStrategy _kSubtitleStrategy = TypewriterStrategy();
+
 class _TabConfig {
   const _TabConfig({
-    required this.title,
+    required this.taglines,
     required this.examples,
     required this.quickTags,
   });
 
-  final String title;
+  final List<String> taglines;
   final List<String> examples;
   final List<String> quickTags;
 }
@@ -39,7 +43,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   static const int _maxLen = 1000;
   static const Map<_HomeTab, _TabConfig> _tabConfigs = {
     _HomeTab.mentor: _TabConfig(
-      title: '用自然语言找到适合你的导师',
+      taglines: [
+        '说说你想研究的方向，我帮你找到合适的导师',
+        '想做哪个方向的研究？我来帮你找导师',
+        '不知道选谁？告诉我你的兴趣就好',
+        '地区、方向、阶段，想到什么都可以说',
+      ],
       examples: [
         '我想找计算机视觉方向的导师，最好在北京。',
         '我想做 AI 和医疗结合的研究，有没有适合的老师？',
@@ -61,7 +70,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       ],
     ),
     _HomeTab.competition: _TabConfig(
-      title: '用自然语言找到适合你的竞赛',
+      taglines: [
+        '说说你的兴趣，我帮你找到适合的竞赛',
+        '想参加什么样的比赛？我来帮你找',
+        '还在纠结报哪个？告诉我你擅长什么',
+        '时间、方向、组队，想到什么都可以说',
+      ],
       examples: [
         '推荐近期可报名的人工智能竞赛。',
         '适合计算机专业大一参加的团队赛。',
@@ -169,14 +183,14 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final scheme = theme.colorScheme;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       endDrawer: const AppMenuDrawer(),
       drawerEdgeDragWidth: 0,
-      appBar: const SchoNaviAppBar(),
       body: Builder(
         builder: (context) {
           return Stack(
@@ -194,51 +208,74 @@ class _HomePageState extends ConsumerState<HomePage> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const SizedBox(height: 16),
                                 AnimatedEntrance(
                                   index: 0,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SegmentedButton<_HomeTab>(
-                                        segments: const [
-                                          ButtonSegment(
-                                            value: _HomeTab.mentor,
-                                            label: Text('导师推荐'),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 8,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        // 顶栏：仅菜单按钮，右对齐。
+                                        const SizedBox(
+                                          height: 44,
+                                          width: double.infinity,
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child: _HomeMenuButton(),
                                           ),
-                                          ButtonSegment(
-                                            value: _HomeTab.competition,
-                                            label: Text('竞赛推荐'),
+                                        ),
+                                        // 品牌字标，居中 Hero。
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            'SchoNavi',
+                                            style: textTheme.headlineMedium
+                                                ?.copyWith(
+                                              color: AppColors.coral,
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                           ),
-                                        ],
-                                        selected: <_HomeTab>{_currentTab},
-                                        onSelectionChanged: (newSelection) {
-                                          if (newSelection.isNotEmpty) {
-                                            setState(() {
-                                              _currentTab = newSelection.first;
-                                            });
-                                            Haptics.selection();
-                                          }
-                                        },
-                                        style: SegmentedButton.styleFrom(
-                                          selectedBackgroundColor:
-                                              AppColors.coral,
-                                          selectedForegroundColor:
-                                              Colors.white,
                                         ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        _currentConfig.title,
-                                        style: textTheme.bodyLarge?.copyWith(
-                                          color: AppColors.inkSoft,
+                                        const SizedBox(height: 16),
+                                        // 模式切换器，居中放大。
+                                        SizedBox(
+                                          width: 200,
+                                          child: SlidingPillSwitch<_HomeTab>(
+                                            values: const [
+                                              _HomeTab.mentor,
+                                              _HomeTab.competition,
+                                            ],
+                                            selected: _currentTab,
+                                            labels: const ['导师', '竞赛'],
+                                            onChanged: (value) {
+                                              setState(
+                                                () => _currentTab = value,
+                                              );
+                                            },
+                                          ),
                                         ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
+                                        const SizedBox(height: 12),
+                                        // 随模式轮播的动态副标题（固定高度防跳动）。
+                                        SizedBox(
+                                          height: 44,
+                                          child: Center(
+                                            child: RotatingSubtitle(
+                                              phrases: _currentConfig.taglines,
+                                              strategy: _kSubtitleStrategy,
+                                              style: textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                color: AppColors.inkSoft,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 32),
+                                const SizedBox(height: 24),
                                 AnimatedEntrance(
                                   index: 1,
                                   child: BentoGrid(
@@ -424,6 +461,26 @@ class _HomePageState extends ConsumerState<HomePage> {
           );
         },
       ),
+    );
+  }
+}
+
+class _HomeMenuButton extends StatelessWidget {
+  const _HomeMenuButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: '菜单',
+      icon: const Icon(Icons.menu_outlined),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        tapTargetSize: MaterialTapTargetSize.padded,
+      ),
+      onPressed: () {
+        Haptics.light();
+        Scaffold.of(context).openEndDrawer();
+      },
     );
   }
 }
