@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
@@ -19,35 +19,25 @@ Future<Widget> _wrap(AppConfig initial) async {
 }
 
 void main() {
-  testWidgets('无 key 时 AI 开关置灰并提示', (tester) async {
+  testWidgets('无 key 时展示 LLM 模式和配置缺失提示', (tester) async {
     await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: '')));
     await tester.pumpAndSettle();
 
-    final sw = tester.widget<SwitchListTile>(
-      find.byKey(const Key('settings-ai-switch')),
-    );
-    expect(sw.onChanged, isNull); // 置灰
-    expect(find.textContaining('未配置'), findsOneWidget);
+    expect(find.byKey(const Key('settings-data-source')), findsOneWidget);
+    expect(find.textContaining('LLM 模式'), findsOneWidget);
+    expect(find.textContaining('未配置 LLM_API_KEY'), findsOneWidget);
+    expect(find.textContaining('离线 Mock'), findsNothing);
   });
 
-  testWidgets('有 key 时切 AI 开关 → 在 ai/mock 间切换', (tester) async {
+  testWidgets('有 key 时展示当前模型', (tester) async {
     await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: 'sk-test')));
     await tester.pumpAndSettle();
 
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(SettingsPage)),
-    );
-    // resolve 有 key 初值即 ai，先关到 mock 再开，验证开关生效
-    await tester.tap(find.byKey(const Key('settings-ai-switch')));
-    await tester.pumpAndSettle();
-    expect(container.read(appConfigProvider).dataSource, DataSource.mock);
-
-    await tester.tap(find.byKey(const Key('settings-ai-switch')));
-    await tester.pumpAndSettle();
-    expect(container.read(appConfigProvider).dataSource, DataSource.ai);
+    expect(find.textContaining('LLM 模式'), findsOneWidget);
+    expect(find.text('deepseek-chat'), findsOneWidget);
   });
 
-  testWidgets('演示模式开关 → showAiTrace', (tester) async {
+  testWidgets('演示模式开关 -> showAiTrace', (tester) async {
     await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: 'sk-test')));
     await tester.pumpAndSettle();
 

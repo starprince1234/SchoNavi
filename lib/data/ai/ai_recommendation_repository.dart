@@ -138,6 +138,7 @@ class AiRecommendationRepository implements RecommendationRepository {
       if (p == null) continue;
 
       final reason = (item['reason'] as String?)?.trim();
+      if (reason == null || reason.isEmpty) continue;
       recs.add(
         Recommendation(
           professorId: p.id,
@@ -148,7 +149,7 @@ class AiRecommendationRepository implements RecommendationRepository {
           researchFields: p.researchFields,
           homepageUrl: p.homepageUrl,
           matchLevel: _matchLevel(item['matchLevel'] as String?),
-          reason: reason == null || reason.isEmpty ? '与你的需求相关。' : reason,
+          reason: reason,
           limitations: _strings(item['limitations']),
         ),
       );
