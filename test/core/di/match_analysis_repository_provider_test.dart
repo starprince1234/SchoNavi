@@ -3,20 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/data/ai/ai_match_analysis_repository.dart';
-import 'package:scho_navi/data/mock/mock_match_analysis_repository.dart';
 
 void main() {
-  test('默认（mock）接 MockMatchAnalysisRepository', () {
+  test('默认接 AiMatchAnalysisRepository', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     expect(
       container.read(matchAnalysisRepositoryProvider),
-      isA<MockMatchAnalysisRepository>(),
+      isA<AiMatchAnalysisRepository>(),
     );
   });
 
-  test('dataSource=ai 接 AiMatchAnalysisRepository', () {
+  test('dataSource=llm 接 AiMatchAnalysisRepository', () {
     final container = ProviderContainer(
       overrides: [
         initialAppConfigProvider.overrideWithValue(

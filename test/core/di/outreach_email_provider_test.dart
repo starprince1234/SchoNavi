@@ -5,8 +5,6 @@ import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/data/ai/ai_outreach_email_repository.dart';
 import 'package:scho_navi/data/local/local_profile_repository.dart';
-import 'package:scho_navi/data/mock/mock_outreach_email_repository.dart';
-import 'package:scho_navi/data/mock/mock_profile_repository.dart';
 
 Future<ProviderContainer> _container({String apiKey = ''}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -21,21 +19,21 @@ Future<ProviderContainer> _container({String apiKey = ''}) async {
 }
 
 void main() {
-  test('默认（mock）接 MockOutreachEmailRepository + MockProfileRepository', () async {
+  test('默认接 AiOutreachEmailRepository + LocalProfileRepository', () async {
     final container = await _container();
     addTearDown(container.dispose);
 
     expect(
       container.read(outreachEmailRepositoryProvider),
-      isA<MockOutreachEmailRepository>(),
+      isA<AiOutreachEmailRepository>(),
     );
     expect(
       container.read(profileRepositoryProvider),
-      isA<MockProfileRepository>(),
+      isA<LocalProfileRepository>(),
     );
   });
 
-  test('dataSource=ai 接 AiOutreachEmailRepository + LocalProfileRepository', () async {
+  test('dataSource=llm 接 AiOutreachEmailRepository + LocalProfileRepository', () async {
     final container = await _container(apiKey: 'sk-test');
     addTearDown(container.dispose);
 

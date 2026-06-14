@@ -4,10 +4,11 @@ import 'package:scho_navi/core/ai/deepseek_llm_client.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
+import 'package:scho_navi/data/ai/ai_competition_recommendation_repository.dart';
 import 'package:scho_navi/data/ai/ai_recommendation_repository.dart';
 
 void main() {
-  test('dataSource=ai wires AI repositories and DeepSeekLlmClient', () {
+  test('dataSource=llm wires LLM repositories and DeepSeekLlmClient', () {
     final container = ProviderContainer(
       overrides: [
         initialAppConfigProvider.overrideWithValue(
@@ -21,15 +22,25 @@ void main() {
       container.read(recommendationRepositoryProvider),
       isA<AiRecommendationRepository>(),
     );
+    expect(
+      container.read(competitionRecommendationRepositoryProvider),
+      isA<AiCompetitionRecommendationRepository>(),
+    );
     expect(container.read(chatRepositoryProvider), isA<AiChatRepository>());
     expect(container.read(llmClientProvider), isA<DeepSeekLlmClient>());
   });
 
-  test('default config still wires mock repositories', () {
+  test('default config still wires LLM repositories', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
-    expect(container.read(recommendationRepositoryProvider), isNotNull);
-    expect(container.read(chatRepositoryProvider), isNotNull);
+    expect(
+      container.read(recommendationRepositoryProvider),
+      isA<AiRecommendationRepository>(),
+    );
+    expect(
+      container.read(competitionRecommendationRepositoryProvider),
+      isA<AiCompetitionRecommendationRepository>(),
+    );
   });
 }
