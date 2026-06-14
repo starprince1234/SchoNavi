@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config.dart';
-import '../../../features/profile/providers/profile_provider.dart';
-import '../../../shared/utils/quick_tag_recommender.dart';
+import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
+import '../../../shared/utils/recommendation_intent_router.dart';
 import '../../../shared/widgets/inline_tag_input.dart';
 
 import '../../../core/haptics/haptics.dart';
@@ -33,25 +33,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     '我是自动化背景，想申请机器人方向博士。',
     '我想找江浙沪地区偏应用的人工智能导师。',
   ];
-  static const List<String> _mockTags = [
-    '人工智能',
-    '计算机视觉',
-    '自然语言处理',
-    '医学影像',
-    '机器人',
-    '网络安全',
-    '生物信息',
-    '材料计算',
-    '北京',
-    '上海',
-    '江浙沪',
-    '博士申请',
-    '硕士申请',
+  static const List<String> _quickTags = [
+    '人工智能竞赛',
+    '算法竞赛',
+    '数学建模',
+    '创新创业',
+    '挑战杯',
+    '互联网+',
+    '电子设计',
+    '信息安全',
+    '智能车',
+    '蓝桥杯',
+    '团队赛',
+    '个人赛',
+    '近期可报名',
   ];
 
   final InlineTagController _controller = InlineTagController();
   final FocusNode _focusNode = FocusNode();
   bool _focused = false;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -69,21 +70,39 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  bool get _canSubmit => _controller.plainText.trim().isNotEmpty;
+  bool get _canSubmit =>
+      _controller.plainText.trim().isNotEmpty && !_submitting;
 
   Future<void> _submit() async {
     final prompt = _controller.plainText.trim();
-    if (prompt.isEmpty) return;
+    if (prompt.isEmpty || _submitting) return;
     if (prompt.length < 6) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')));
     }
 
-    await context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
-    if (!mounted) return;
+    setState(() => _submitting = true);
+    try {
+      final intent = await ref
+          .read(recommendationIntentClassifierProvider)
+          .classify(prompt);
+      final path = switch (intent) {
+        RecommendationIntent.competition => '/competition-recommendation',
+        RecommendationIntent.mentor => '/recommendation',
+      };
+      if (!mounted) return;
+      await context.push('$path?q=${Uri.encodeComponent(prompt)}');
+      if (!mounted) return;
 
-    _controller.clear();
+      _controller.clear();
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is AppException ? e.message : '出错了，请稍后重试';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   void _appendTag(String tag) {
@@ -98,6 +117,13 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (tag == '博士申请' || tag == '硕士申请') {
       return AppColors.coralSoft;
     }
+    if (tag.contains('竞赛') ||
+        tag == '挑战杯' ||
+        tag == '互联网+' ||
+        tag == '蓝桥杯' ||
+        tag == '近期可报名') {
+      return AppColors.coralSoft;
+    }
     return scheme.surfaceContainer;
   }
 
@@ -105,14 +131,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-
-    final profile = ref.watch(profileProvider);
-    final dataSource = ref.watch(
-      appConfigProvider.select((c) => c.dataSource),
-    );
-    final recommendedTags = dataSource == DataSource.mock
-        ? _mockTags
-        : recommendQuickTags(profile);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -161,7 +179,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           Haptics.light();
                                           _controller.value = TextEditingValue(
                                             text: e,
-                                            selection: TextSelection.collapsed(offset: e.length),
+                                            selection: TextSelection.collapsed(
+                                              offset: e.length,
+                                            ),
                                           );
                                         },
                                         color: scheme.surface,
@@ -289,7 +309,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   scrollDirection: Axis.horizontal,
                                   physics: const BouncingScrollPhysics(),
                                   child: Row(
-                                    children: recommendedTags.map((tag) {
+                                    children: _quickTags.map((tag) {
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: 8,

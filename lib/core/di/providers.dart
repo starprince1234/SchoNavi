@@ -4,29 +4,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/ai/ai_chat_repository.dart';
 import '../../data/ai/ai_comparison_repository.dart';
+import '../../data/ai/ai_competition_recommendation_repository.dart';
 import '../../data/ai/ai_match_analysis_repository.dart';
 import '../../data/ai/ai_outreach_email_repository.dart';
 import '../../data/ai/ai_profile_extraction_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
+import '../../data/ai/llm_recommendation_intent_classifier.dart';
 import '../../data/ai/professor_candidate_source.dart';
+import '../../data/fixtures/competition_catalog.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
-import '../../data/mock/mock_chat_repository.dart';
-import '../../data/mock/mock_comparison_repository.dart';
-import '../../data/mock/mock_favorite_repository.dart';
-import '../../data/mock/mock_history_repository.dart';
-import '../../data/mock/mock_match_analysis_repository.dart';
 import '../../data/mock/mock_db.dart';
-import '../../data/mock/mock_outreach_email_repository.dart';
 import '../../data/mock/mock_professor_repository.dart';
-import '../../data/mock/mock_profile_extraction_repository.dart';
-import '../../data/mock/mock_profile_repository.dart';
-import '../../data/mock/mock_recommendation_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/comparison_repository.dart';
+import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/match_analysis_repository.dart';
@@ -35,9 +30,11 @@ import '../../domain/repositories/professor_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../domain/repositories/profile_extraction_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
+import '../../shared/utils/recommendation_intent_router.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
 import '../ai/llm_trace.dart';
+import '../ai/missing_llm_client.dart';
 import '../config/app_config.dart';
 import '../launcher/link_launcher.dart';
 import '../launcher/url_launcher_link_launcher.dart';
@@ -50,6 +47,7 @@ final dioProvider = Provider<Dio>((ref) => Dio());
 
 final llmClientProvider = Provider<LlmClient>((ref) {
   final cfg = ref.watch(appConfigProvider);
+  if (!cfg.llm.isConfigured) return const MissingLlmClient();
   final base = DeepSeekLlmClient(
     dio: ref.watch(dioProvider),
     apiKey: cfg.llm.apiKey,
@@ -68,14 +66,22 @@ final professorCandidateSourceProvider = Provider<ProfessorCandidateSource>(
   (ref) => MockDbCandidateSource(ref.watch(mockDbProvider)),
 );
 
+final competitionCandidateSourceProvider =
+    Provider<CompetitionCandidateSource>((ref) {
+      return const StaticCompetitionCandidateSource();
+    });
+
+final recommendationIntentClassifierProvider =
+    Provider<RecommendationIntentClassifier>((ref) {
+      return LlmRecommendationIntentClassifier(ref.watch(llmClientProvider));
+    });
+
 final recommendationRepositoryProvider = Provider<RecommendationRepository>((
   ref,
 ) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      return MockRecommendationRepository(ref.watch(mockDbProvider));
-    case DataSource.ai:
+    case DataSource.llm:
       return AiRecommendationRepository(
         llm: ref.watch(llmClientProvider),
         candidates: ref.watch(professorCandidateSourceProvider),
@@ -86,11 +92,25 @@ final recommendationRepositoryProvider = Provider<RecommendationRepository>((
   }
 });
 
+final competitionRecommendationRepositoryProvider =
+    Provider<CompetitionRecommendationRepository>((ref) {
+      switch (ref.watch(appConfigProvider).dataSource) {
+        case DataSource.llm:
+          return AiCompetitionRecommendationRepository(
+            llm: ref.watch(llmClientProvider),
+            candidates: ref.watch(competitionCandidateSourceProvider),
+          );
+        case DataSource.http:
+          throw UnimplementedError(
+            'HTTP competition data source not wired until V1.0',
+          );
+      }
+    });
+
 final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
-    case DataSource.mock:
-    case DataSource.ai:
+    case DataSource.llm:
       return MockProfessorRepository(ref.watch(mockDbProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
@@ -100,9 +120,7 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      return MockChatRepository(ref.watch(mockDbProvider));
-    case DataSource.ai:
+    case DataSource.llm:
       return AiChatRepository(
         llm: ref.watch(llmClientProvider),
         db: ref.watch(mockDbProvider),
@@ -115,9 +133,7 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
 final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
   final professorRepo = ref.watch(professorRepositoryProvider);
   switch (ref.watch(appConfigProvider).dataSource) {
-    case DataSource.mock:
-      return MockComparisonRepository(professorRepository: professorRepo);
-    case DataSource.ai:
+    case DataSource.llm:
       return AiComparisonRepository(
         llm: ref.watch(llmClientProvider),
         professorRepository: professorRepo,
@@ -131,9 +147,7 @@ final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
   ref,
 ) {
   switch (ref.watch(appConfigProvider).dataSource) {
-    case DataSource.mock:
-      return MockMatchAnalysisRepository();
-    case DataSource.ai:
+    case DataSource.llm:
       return AiMatchAnalysisRepository(ref.watch(llmClientProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
@@ -142,9 +156,7 @@ final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      return MockProfileRepository();
-    case DataSource.ai:
+    case DataSource.llm:
       return LocalProfileRepository(ref.watch(localStoreProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
@@ -156,28 +168,26 @@ final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
 ) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      return MockOutreachEmailRepository();
-    case DataSource.ai:
+    case DataSource.llm:
       return AiOutreachEmailRepository(ref.watch(llmClientProvider));
     case DataSource.http:
       throw UnimplementedError('HTTP data source not wired until V1.0');
   }
 });
 
-/// 成果抽取：mock 使用本地轻量解析，ai 调用 LLM，http 待接入真实后端。
-final profileExtractionRepositoryProvider = Provider<ProfileExtractionRepository>(
-  (ref) {
-    final cfg = ref.watch(appConfigProvider);
-    return switch (cfg.dataSource) {
-      DataSource.mock => const MockProfileExtractionRepository(),
-      DataSource.ai => AiProfileExtractionRepository(ref.watch(llmClientProvider)),
-      DataSource.http => throw UnimplementedError(
-        'HTTP data source not wired until V1.0',
-      ),
-    };
-  },
-);
+/// 成果抽取：LLM 模式调用大模型，http 待接入真实后端。
+final profileExtractionRepositoryProvider =
+    Provider<ProfileExtractionRepository>((ref) {
+      final cfg = ref.watch(appConfigProvider);
+      return switch (cfg.dataSource) {
+        DataSource.llm => AiProfileExtractionRepository(
+          ref.watch(llmClientProvider),
+        ),
+        DataSource.http => throw UnimplementedError(
+          'HTTP data source not wired until V1.0',
+        ),
+      };
+    });
 
 /// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
 /// 未 override 直接读取会抛错，提醒接线缺失。
@@ -202,16 +212,12 @@ final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   final FavoriteRepository repo;
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      repo = MockFavoriteRepository();
-    case DataSource.ai:
+    case DataSource.llm:
     case DataSource.http:
       repo = LocalFavoriteRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
-    if (repo is MockFavoriteRepository) {
-      repo.dispose();
-    } else if (repo is LocalFavoriteRepository) {
+    if (repo is LocalFavoriteRepository) {
       repo.dispose();
     }
   });
@@ -236,16 +242,12 @@ final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   final HistoryRepository repo;
   switch (cfg.dataSource) {
-    case DataSource.mock:
-      repo = MockHistoryRepository();
-    case DataSource.ai:
+    case DataSource.llm:
     case DataSource.http:
       repo = LocalHistoryRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
-    if (repo is MockHistoryRepository) {
-      repo.dispose();
-    } else if (repo is LocalHistoryRepository) {
+    if (repo is LocalHistoryRepository) {
       repo.dispose();
     }
   });
