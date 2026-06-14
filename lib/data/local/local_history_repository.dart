@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../core/storage/local_store.dart';
+import '../../domain/entities/competition_recommendation_result.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/history_repository.dart';
@@ -31,12 +32,38 @@ class LocalHistoryRepository implements HistoryRepository {
     required RecommendationResult result,
   }) async {
     final item = SearchHistoryItem(
+      type: SearchHistoryType.mentor,
       sessionId: result.sessionId,
       prompt: prompt,
       createdAt: _now(),
       summary: _buildSummary(result),
       researchInterests: result.queryUnderstanding.researchInterests,
       preferredLocations: result.queryUnderstanding.preferredLocations,
+      recommendationCount: result.recommendations.length,
+    );
+    final items = [
+      item,
+      ...list().where((current) => current.sessionId != result.sessionId),
+    ]..sort(_byNewest);
+    await _writeAll(items);
+  }
+
+  @override
+  Future<void> addFromCompetitionResult({
+    required String prompt,
+    required CompetitionRecommendationResult result,
+  }) async {
+    final item = SearchHistoryItem(
+      type: SearchHistoryType.competition,
+      sessionId: result.sessionId,
+      prompt: prompt,
+      createdAt: _now(),
+      summary: _buildCompetitionSummary(result),
+      researchInterests: _unique([
+        ...result.understanding.directions,
+        ...result.understanding.categories,
+      ]),
+      preferredLocations: const [],
       recommendationCount: result.recommendations.length,
     );
     final items = [
@@ -92,6 +119,7 @@ class LocalHistoryRepository implements HistoryRepository {
     }
 
     return SearchHistoryItem(
+      type: searchHistoryTypeFromString(json['type'] as String?),
       sessionId: sessionId,
       prompt: prompt,
       createdAt: createdAt,
@@ -117,6 +145,7 @@ class LocalHistoryRepository implements HistoryRepository {
   }
 
   Map<String, dynamic> _toJson(SearchHistoryItem item) => <String, dynamic>{
+    'type': item.type.name,
     'session_id': item.sessionId,
     'prompt': item.prompt,
     'created_at': item.createdAt.toIso8601String(),
@@ -134,6 +163,29 @@ class LocalHistoryRepository implements HistoryRepository {
       if (locations.isNotEmpty) '地区：${locations.join('、')}',
     ];
     return parts.isEmpty ? '未识别出明确方向，可重推优化条件' : parts.join(' / ');
+  }
+
+  static String _buildCompetitionSummary(CompetitionRecommendationResult result) {
+    final u = result.understanding;
+    final parts = <String>[
+      if (u.directions.isNotEmpty) '方向：${u.directions.join('、')}',
+      if (u.categories.isNotEmpty) '类别：${u.categories.join('、')}',
+      if (u.timingPreferences.isNotEmpty)
+        '时间：${u.timingPreferences.join('、')}',
+      if (u.teamPreferences.isNotEmpty) '组队：${u.teamPreferences.join('、')}',
+    ];
+    return parts.isEmpty ? '未识别出明确竞赛需求，可重推优化条件' : parts.join(' / ');
+  }
+
+  static List<String> _unique(Iterable<String> values) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty || !seen.add(trimmed)) continue;
+      out.add(trimmed);
+    }
+    return out;
   }
 
   static int _byNewest(SearchHistoryItem a, SearchHistoryItem b) =>
