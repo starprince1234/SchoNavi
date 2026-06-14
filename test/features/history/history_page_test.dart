@@ -5,13 +5,16 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
+import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
+import 'package:scho_navi/domain/entities/recommended_competition.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/features/history/pages/history_page.dart';
 
-Future<Widget> _wrap({bool withHistory = false}) async {
+Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -21,6 +24,10 @@ Future<Widget> _wrap({bool withHistory = false}) async {
         path: '/recommendation',
         builder: (_, state) =>
             Text('重推：${state.uri.queryParameters['q'] ?? ''}'),
+      ),
+      GoRoute(
+        path: '/competition-recommendation',
+        builder: (_, state) => Text('竞赛重推：${state.uri.queryParameters['q'] ?? ''}'),
       ),
     ],
   );
@@ -37,6 +44,12 @@ Future<Widget> _wrap({bool withHistory = false}) async {
     await container.read(historyRepositoryProvider).addFromResult(
       prompt: '医学影像 上海',
       result: _result(),
+    );
+  }
+  if (withCompetition) {
+    await container.read(historyRepositoryProvider).addFromCompetitionResult(
+      prompt: '数学建模 团队赛',
+      result: _competitionResult(),
     );
   }
 
@@ -71,6 +84,38 @@ RecommendationResult _result() => RecommendationResult(
   followUpQuestions: const [],
 );
 
+CompetitionRecommendationResult _competitionResult() =>
+    const CompetitionRecommendationResult(
+      sessionId: 'c_1',
+      understanding: CompetitionQueryUnderstanding(
+        directions: ['数学建模'],
+        categories: ['理学类'],
+        timingPreferences: ['秋季/下半年'],
+        teamPreferences: ['团队赛'],
+        uncertainties: [],
+      ),
+      recommendations: [_competition],
+      followUpQuestions: [],
+    );
+
+const _competition = RecommendedCompetition(
+  id: 'comp_math_modeling',
+  name: '全国大学生数学建模竞赛',
+  category: '理学类',
+  level: '国家级',
+  tags: ['数学建模', '团队赛'],
+  teamSize: '3 人团队',
+  signupTime: '以官网通知为准',
+  contestTime: '通常每年 9 月',
+  format: '建模、编程和论文写作',
+  organizer: '中国工业与应用数学学会',
+  officialUrl: 'http://www.mcm.edu.cn/',
+  reason: '方向匹配。',
+  preparationTips: ['训练论文写作'],
+  limitations: ['以官网通知为准。'],
+  matchScore: 0.91,
+);
+
 void main() {
   testWidgets('shows empty state when no history', (tester) async {
     await tester.pumpWidget(await _wrap());
@@ -89,6 +134,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('重推：医学影像 上海'), findsOneWidget);
+  });
+
+  testWidgets('tap competition history item reruns competition page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await _wrap(withCompetition: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('数学建模 团队赛'), findsOneWidget);
+    expect(find.textContaining('项竞赛'), findsWidgets);
+
+    await tester.tap(find.text('数学建模 团队赛'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('竞赛重推：数学建模 团队赛'), findsOneWidget);
   });
 
   testWidgets('delete one history updates page to empty state', (tester) async {
@@ -123,6 +183,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('医学影像 上海'), findsOneWidget);
     expect(find.text('没有匹配的搜索记录'), findsNothing);
+  });
+
+  testWidgets('search filters mentor and competition labels', (tester) async {
+    await tester.pumpWidget(
+      await _wrap(withHistory: true, withCompetition: true),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '竞赛');
+    await tester.pumpAndSettle();
+
+    expect(find.text('数学建模 团队赛'), findsOneWidget);
+    expect(find.text('医学影像 上海'), findsNothing);
+    expect(find.textContaining('项竞赛'), findsWidgets);
   });
 
   testWidgets('clear history asks confirmation and clears list', (tester) async {

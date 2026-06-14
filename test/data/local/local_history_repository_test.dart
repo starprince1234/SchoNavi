@@ -2,8 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/storage/shared_preferences_local_store.dart';
 import 'package:scho_navi/data/local/local_history_repository.dart';
+import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
+import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
+import 'package:scho_navi/domain/entities/recommended_competition.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/search_history_item.dart';
@@ -38,6 +41,20 @@ void main() {
     followUpQuestions: const [],
   );
 
+  CompetitionRecommendationResult competitionResult(String sessionId) =>
+      const CompetitionRecommendationResult(
+        sessionId: 'c_1',
+        understanding: CompetitionQueryUnderstanding(
+          directions: ['数学建模'],
+          categories: ['理学类'],
+          timingPreferences: ['秋季/下半年'],
+          teamPreferences: ['团队赛'],
+          uncertainties: [],
+        ),
+        recommendations: [_competition],
+        followUpQuestions: [],
+      );
+
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
@@ -50,6 +67,7 @@ void main() {
   test('addFromResult/remove/clear/list works', () async {
     await repo.addFromResult(prompt: '医学影像 上海', result: result('s_1'));
     expect(repo.list(), hasLength(1));
+    expect(repo.list().single.type, SearchHistoryType.mentor);
     expect(repo.list().single.summary, '方向：医学影像 / 地区：上海');
 
     await repo.remove('s_1');
@@ -58,6 +76,23 @@ void main() {
     await repo.addFromResult(prompt: '医学影像 上海', result: result('s_1'));
     await repo.clear();
     expect(repo.list(), isEmpty);
+  });
+
+  test('addFromCompetitionResult stores competition history', () async {
+    await repo.addFromCompetitionResult(
+      prompt: '数学建模团队赛',
+      result: competitionResult('c_1'),
+    );
+
+    final item = repo.list().single;
+    expect(item.type, SearchHistoryType.competition);
+    expect(item.sessionId, 'c_1');
+    expect(item.recommendationCount, 1);
+    expect(item.researchInterests, ['数学建模', '理学类']);
+    expect(
+      item.summary,
+      '方向：数学建模 / 类别：理学类 / 时间：秋季/下半年 / 组队：团队赛',
+    );
   });
 
   test('same sessionId is deduped and updated', () async {
@@ -103,5 +138,24 @@ void main() {
     final items = repo.list();
     expect(items, hasLength(1));
     expect(items.single.sessionId, 's_1');
+    expect(items.single.type, SearchHistoryType.mentor);
   });
 }
+
+const _competition = RecommendedCompetition(
+  id: 'comp_math_modeling',
+  name: '全国大学生数学建模竞赛',
+  category: '理学类',
+  level: '国家级',
+  tags: ['数学建模', '团队赛'],
+  teamSize: '3 人团队',
+  signupTime: '以官网通知为准',
+  contestTime: '通常每年 9 月',
+  format: '建模、编程和论文写作',
+  organizer: '中国工业与应用数学学会',
+  officialUrl: 'http://www.mcm.edu.cn/',
+  reason: '方向匹配。',
+  preparationTips: ['训练论文写作'],
+  limitations: ['以官网通知为准。'],
+  matchScore: 0.91,
+);

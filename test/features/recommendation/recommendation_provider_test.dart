@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
@@ -45,6 +46,11 @@ class _FakeHistoryRepo implements HistoryRepository {
   Future<void> addFromResult({
     required String prompt,
     required RecommendationResult result,
+  }) async {}
+  @override
+  Future<void> addFromCompetitionResult({
+    required String prompt,
+    required CompetitionRecommendationResult result,
   }) async {}
   @override
   Future<void> remove(String sessionId) async {}
