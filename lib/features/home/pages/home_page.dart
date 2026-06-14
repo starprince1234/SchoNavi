@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/di/providers.dart';
-import '../../../core/error/app_exception.dart';
-import '../../../shared/utils/recommendation_intent_router.dart';
 import '../../../shared/widgets/inline_tag_input.dart';
 
 import '../../../core/haptics/haptics.dart';
@@ -24,35 +21,79 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
+enum _HomeTab { mentor, competition }
+
+class _TabConfig {
+  const _TabConfig({
+    required this.title,
+    required this.examples,
+    required this.quickTags,
+  });
+
+  final String title;
+  final List<String> examples;
+  final List<String> quickTags;
+}
+
 class _HomePageState extends ConsumerState<HomePage> {
   static const int _maxLen = 1000;
-  static const List<String> _examples = [
-    '我想找计算机视觉方向的导师，最好在北京。',
-    '我想做 AI 和医疗结合的研究，有没有适合的老师？',
-    '推荐几个 NLP 和大模型安全方向的导师。',
-    '我是自动化背景，想申请机器人方向博士。',
-    '我想找江浙沪地区偏应用的人工智能导师。',
-  ];
-  static const List<String> _quickTags = [
-    '人工智能竞赛',
-    '算法竞赛',
-    '数学建模',
-    '创新创业',
-    '挑战杯',
-    '互联网+',
-    '电子设计',
-    '信息安全',
-    '智能车',
-    '蓝桥杯',
-    '团队赛',
-    '个人赛',
-    '近期可报名',
-  ];
+  static const Map<_HomeTab, _TabConfig> _tabConfigs = {
+    _HomeTab.mentor: _TabConfig(
+      title: '用自然语言找到适合你的导师',
+      examples: [
+        '我想找计算机视觉方向的导师，最好在北京。',
+        '我想做 AI 和医疗结合的研究，有没有适合的老师？',
+        '推荐几个 NLP 和大模型安全方向的导师。',
+        '我是自动化背景，想申请机器人方向博士。',
+        '我想找江浙沪地区偏应用的人工智能导师。',
+      ],
+      quickTags: [
+        '计算机视觉',
+        '自然语言处理',
+        '机器人',
+        '北京',
+        '上海',
+        '江浙沪',
+        '博士申请',
+        '硕士申请',
+        '人工智能',
+        '推荐系统',
+      ],
+    ),
+    _HomeTab.competition: _TabConfig(
+      title: '用自然语言找到适合你的竞赛',
+      examples: [
+        '推荐近期可报名的人工智能竞赛。',
+        '适合计算机专业大一参加的团队赛。',
+        '我想参加数学建模竞赛，有什么建议？',
+        '帮我找算法竞赛，最好有校内选拔。',
+        '想参加信息安全方向的 CTF 或竞赛。',
+      ],
+      quickTags: [
+        '人工智能竞赛',
+        '算法竞赛',
+        '数学建模',
+        '创新创业',
+        '挑战杯',
+        '互联网+',
+        '电子设计',
+        '信息安全',
+        '智能车',
+        '蓝桥杯',
+        '团队赛',
+        '个人赛',
+        '近期可报名',
+      ],
+    ),
+  };
 
   final InlineTagController _controller = InlineTagController();
   final FocusNode _focusNode = FocusNode();
   bool _focused = false;
   bool _submitting = false;
+  _HomeTab _currentTab = _HomeTab.mentor;
+
+  _TabConfig get _currentConfig => _tabConfigs[_currentTab]!;
 
   @override
   void initState() {
@@ -79,30 +120,22 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (prompt.length < 6) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')));
+      ).showSnackBar(
+        const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')),
+      );
     }
 
     setState(() => _submitting = true);
-    try {
-      final intent = await ref
-          .read(recommendationIntentClassifierProvider)
-          .classify(prompt);
-      final path = switch (intent) {
-        RecommendationIntent.competition => '/competition-recommendation',
-        RecommendationIntent.mentor => '/recommendation',
-      };
-      if (!mounted) return;
-      await context.push('$path?q=${Uri.encodeComponent(prompt)}');
-      if (!mounted) return;
+    final path = switch (_currentTab) {
+      _HomeTab.mentor => '/recommendation',
+      _HomeTab.competition => '/competition-recommendation',
+    };
+    if (!mounted) return;
+    await context.push('$path?q=${Uri.encodeComponent(prompt)}');
+    if (!mounted) return;
 
-      _controller.clear();
-    } catch (e) {
-      if (!mounted) return;
-      final message = e is AppException ? e.message : '出错了，请稍后重试';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    _controller.clear();
+    setState(() => _submitting = false);
   }
 
   void _appendTag(String tag) {
@@ -115,6 +148,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       return AppColors.matchSoft;
     }
     if (tag == '博士申请' || tag == '硕士申请') {
+      return AppColors.coralSoft;
+    }
+    if (tag == '计算机视觉' ||
+        tag == '自然语言处理' ||
+        tag == '机器人' ||
+        tag == '人工智能' ||
+        tag == '推荐系统') {
       return AppColors.coralSoft;
     }
     if (tag.contains('竞赛') ||
@@ -157,12 +197,45 @@ class _HomePageState extends ConsumerState<HomePage> {
                                 const SizedBox(height: 16),
                                 AnimatedEntrance(
                                   index: 0,
-                                  child: Text(
-                                    '用自然语言找到适合你的导师',
-                                    style: textTheme.bodyLarge?.copyWith(
-                                      color: AppColors.inkSoft,
-                                    ),
-                                    textAlign: TextAlign.center,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      SegmentedButton<_HomeTab>(
+                                        segments: const [
+                                          ButtonSegment(
+                                            value: _HomeTab.mentor,
+                                            label: Text('导师推荐'),
+                                          ),
+                                          ButtonSegment(
+                                            value: _HomeTab.competition,
+                                            label: Text('竞赛推荐'),
+                                          ),
+                                        ],
+                                        selected: <_HomeTab>{_currentTab},
+                                        onSelectionChanged: (newSelection) {
+                                          if (newSelection.isNotEmpty) {
+                                            setState(() {
+                                              _currentTab = newSelection.first;
+                                            });
+                                            Haptics.selection();
+                                          }
+                                        },
+                                        style: SegmentedButton.styleFrom(
+                                          selectedBackgroundColor:
+                                              AppColors.coral,
+                                          selectedForegroundColor:
+                                              Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        _currentConfig.title,
+                                        style: textTheme.bodyLarge?.copyWith(
+                                          color: AppColors.inkSoft,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(height: 32),
@@ -173,7 +246,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                     spacing: 12,
                                     runSpacing: 12,
                                     animateEntrance: false,
-                                    children: _examples.take(4).map((e) {
+                                    children: _currentConfig.examples.map((e) {
                                       return BentoTile(
                                         onTap: () {
                                           Haptics.light();
@@ -309,7 +382,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   scrollDirection: Axis.horizontal,
                                   physics: const BouncingScrollPhysics(),
                                   child: Row(
-                                    children: _quickTags.map((tag) {
+                                    children: _currentConfig.quickTags.map((tag) {
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: 8,

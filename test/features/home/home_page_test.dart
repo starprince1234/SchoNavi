@@ -5,20 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
-import 'package:scho_navi/shared/utils/recommendation_intent_router.dart';
 
-class _FakeIntentClassifier implements RecommendationIntentClassifier {
-  const _FakeIntentClassifier(this.intent);
-
-  final RecommendationIntent intent;
-
-  @override
-  Future<RecommendationIntent> classify(String prompt) async => intent;
-}
-
-Future<Widget> _wrap({
-  RecommendationIntent intent = RecommendationIntent.mentor,
-}) async {
+Future<Widget> _wrap() async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -39,9 +27,6 @@ Future<Widget> _wrap({
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
-      recommendationIntentClassifierProvider.overrideWithValue(
-        _FakeIntentClassifier(intent),
-      ),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
@@ -94,9 +79,10 @@ void main() {
   testWidgets('competition prompt routes to competition recommendation', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      await _wrap(intent: RecommendationIntent.competition),
-    );
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('竞赛推荐'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '我想参加蓝桥杯');
@@ -124,9 +110,10 @@ void main() {
   testWidgets('competition quick tag routes to competition recommendation', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      await _wrap(intent: RecommendationIntent.competition),
-    );
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('竞赛推荐'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('人工智能竞赛'));
@@ -151,5 +138,38 @@ void main() {
 
     final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
     expect(scaffoldState.isEndDrawerOpen, isTrue);
+  });
+
+  testWidgets('switching tab shows competition examples and tags', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('竞赛推荐'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('推荐近期可报名的人工智能竞赛。'),
+      findsOneWidget,
+    );
+    expect(find.text('人工智能竞赛'), findsOneWidget);
+  });
+
+  testWidgets('switching tab preserves input text', (tester) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '保留输入');
+    await tester.pump();
+
+    await tester.tap(find.text('竞赛推荐'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('导师推荐'));
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.controller?.text, '保留输入');
   });
 }
