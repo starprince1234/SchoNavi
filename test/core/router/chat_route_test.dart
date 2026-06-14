@@ -26,6 +26,9 @@ void main() {
     router.go('/chat?sid=s_x');
     await tester.pumpAndSettle();
 
-    expect(find.text('继续追问'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('继续追问')),
+      findsOneWidget,
+    );
   });
 }

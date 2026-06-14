@@ -42,6 +42,9 @@ class _FakeProfileRepo implements ProfileRepository {
     saves++;
     _profile = profile;
   }
+
+  @override
+  Future<void> clear() async {}
 }
 
 class _FakeEmailRepo implements OutreachEmailRepository {

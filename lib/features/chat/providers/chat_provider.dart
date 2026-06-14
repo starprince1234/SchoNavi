@@ -69,12 +69,7 @@ class ChatNotifier extends Notifier<ChatState> {
     state = ChatState(
       sessionId: sessionId,
       professorId: professorId,
-      messages: [
-        _assistant(
-          '你好，我可以基于上一步的推荐继续解答。\n\n'
-          '试试问我：**为什么推荐**、**相似导师**、**只看某地**、**是否适合硕士 / 博士**。',
-        ),
-      ],
+      messages: const [],
       isResponding: false,
     );
   }
@@ -114,6 +109,38 @@ class ChatNotifier extends Notifier<ChatState> {
     final lastUserText = messages[lastUserIndex].content;
     state = state.copyWith(messages: messages.sublist(0, lastUserIndex + 1));
     await _respondTo(lastUserText);
+  }
+
+  Future<void> regenerateMessage(String assistantMessageId) async {
+    if (state.isResponding || state.sessionId == null) return;
+
+    final messages = state.messages;
+    final assistantIndex = messages.indexWhere((m) => m.id == assistantMessageId);
+    if (assistantIndex == -1) return;
+
+    final lastUserIndex = messages.lastIndexWhere(
+      (m) => m.role == ChatRole.user,
+      assistantIndex - 1,
+    );
+    if (lastUserIndex == -1) return;
+
+    final lastUserText = messages[lastUserIndex].content;
+    state = state.copyWith(messages: messages.sublist(0, lastUserIndex + 1));
+    await _respondTo(lastUserText);
+  }
+
+  void setFeedback(String messageId, ChatMessageFeedback feedback) {
+    final messages = [...state.messages];
+    final i = messages.indexWhere((m) => m.id == messageId);
+    if (i == -1) return;
+
+    final message = messages[i];
+    if (message.role != ChatRole.assistant || message.status != ChatMessageStatus.done) {
+      return;
+    }
+
+    messages[i] = message.copyWith(feedback: feedback);
+    state = state.copyWith(messages: messages);
   }
 
   Future<void> _respondTo(String content) async {
@@ -219,14 +246,7 @@ class ChatNotifier extends Notifier<ChatState> {
     final messages = [...state.messages];
     final i = messages.indexWhere((m) => m.id == id);
     if (i == -1) return;
-    messages[i] = ChatMessage(
-      id: id,
-      role: ChatRole.assistant,
-      content: content,
-      createdAt: messages[i].createdAt,
-      relatedRecommendations: const [],
-      status: status,
-    );
+    messages[i] = messages[i].copyWith(content: content, status: status);
     state = state.copyWith(messages: messages);
   }
 
@@ -237,15 +257,6 @@ class ChatNotifier extends Notifier<ChatState> {
   }
 
   String _nextId() => 'm_${_seq++}';
-
-  ChatMessage _assistant(String content) => ChatMessage(
-    id: _nextId(),
-    role: ChatRole.assistant,
-    content: content,
-    createdAt: DateTime.now(),
-    relatedRecommendations: const [],
-    status: ChatMessageStatus.done,
-  );
 }
 
 final chatProvider = NotifierProvider<ChatNotifier, ChatState>(

@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
+import '../../../features/profile/providers/profile_provider.dart';
+import '../../../shared/utils/quick_tag_recommender.dart';
+import '../../../shared/widgets/inline_tag_input.dart';
+
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/quick_tag.dart';
+import '../../../shared/widgets/right_edge_open_drawer.dart';
+import '../../../shared/widgets/scho_navi_app_bar.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -24,7 +33,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     '我是自动化背景，想申请机器人方向博士。',
     '我想找江浙沪地区偏应用的人工智能导师。',
   ];
-  static const List<String> _tags = [
+  static const List<String> _mockTags = [
     '人工智能',
     '计算机视觉',
     '自然语言处理',
@@ -40,7 +49,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     '硕士申请',
   ];
 
-  final TextEditingController _controller = TextEditingController();
+  final InlineTagController _controller = InlineTagController();
   final FocusNode _focusNode = FocusNode();
   bool _focused = false;
 
@@ -60,25 +69,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  bool get _canSubmit => _controller.text.trim().isNotEmpty;
+  bool get _canSubmit => _controller.plainText.trim().isNotEmpty;
 
   Future<void> _submit() async {
-    final prompt = _controller.text.trim();
+    final prompt = _controller.plainText.trim();
     if (prompt.isEmpty) return;
     if (prompt.length < 6) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(
-        const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')),
-      );
+      ).showSnackBar(const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')));
     }
 
-    context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
+    await context.push('/recommendation?q=${Uri.encodeComponent(prompt)}');
+    if (!mounted) return;
+
+    _controller.clear();
   }
 
   void _appendTag(String tag) {
-    final text = _controller.text;
-    _controller.text = text.isEmpty ? tag : '$text $tag';
+    _controller.addTag(tag);
+    Haptics.selection();
   }
 
   Color _tagColor(String tag, ColorScheme scheme) {
@@ -96,200 +106,230 @@ class _HomePageState extends ConsumerState<HomePage> {
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
 
+    final profile = ref.watch(profileProvider);
+    final dataSource = ref.watch(
+      appConfigProvider.select((c) => c.dataSource),
+    );
+    final recommendedTags = dataSource == DataSource.mock
+        ? _mockTags
+        : recommendQuickTags(profile);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text('SchoNavi', style: textTheme.displaySmall),
-        actions: [
-          IconButton(
-            tooltip: '设置',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AnimatedEntrance(
-              index: 0,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '用自然语言找到适合你的导师',
-                    style: textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'AI 驱动的研究生导师推荐',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            AnimatedEntrance(
-              index: 1,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    decoration: BoxDecoration(
-                      color: scheme.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: _focused
-                          ? Border.all(color: AppColors.coral, width: 2)
-                          : Border.all(
-                              color: scheme.outline.withValues(alpha: 0.5),
-                              width: 1,
+      resizeToAvoidBottomInset: true,
+      endDrawer: const AppMenuDrawer(),
+      drawerEdgeDragWidth: 0,
+      appBar: const SchoNaviAppBar(),
+      body: Builder(
+        builder: (context) {
+          return Stack(
+            children: [
+              SafeArea(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: 16),
+                                AnimatedEntrance(
+                                  index: 0,
+                                  child: Text(
+                                    '用自然语言找到适合你的导师',
+                                    style: textTheme.bodyLarge?.copyWith(
+                                      color: AppColors.inkSoft,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                AnimatedEntrance(
+                                  index: 1,
+                                  child: BentoGrid(
+                                    crossAxisCount: 2,
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    animateEntrance: false,
+                                    children: _examples.take(4).map((e) {
+                                      return BentoTile(
+                                        onTap: () {
+                                          Haptics.light();
+                                          _controller.value = TextEditingValue(
+                                            text: e,
+                                            selection: TextSelection.collapsed(offset: e.length),
+                                          );
+                                        },
+                                        color: scheme.surface,
+                                        height: 120,
+                                        padding: const EdgeInsets.all(16),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              e,
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: textTheme.bodyMedium,
+                                            ),
+                                            const Align(
+                                              alignment: Alignment.bottomRight,
+                                              child: Icon(
+                                                Icons.lightbulb_outline,
+                                                color: AppColors.coral,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                              ],
                             ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x08000000),
-                          blurRadius: 12,
-                          offset: Offset(0, 3),
+                          ),
+                        ),
+                        AnimatedEntrance(
+                          index: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeInOut,
+                                  decoration: BoxDecoration(
+                                    color: scheme.surface,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: _focused
+                                        ? Border.all(
+                                            color: AppColors.coral,
+                                            width: 2,
+                                          )
+                                        : Border.all(
+                                            color: scheme.outline.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                            width: 1,
+                                          ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x0A000000),
+                                        blurRadius: 16,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Expanded(
+                                        child: InlineTagInput(
+                                          controller: _controller,
+                                          focusNode: _focusNode,
+                                          maxLines: 5,
+                                          minLines: 1,
+                                          maxLength: _maxLen,
+                                          textInputAction: TextInputAction.send,
+                                          onSubmitted: (_) {
+                                            if (_canSubmit) _submit();
+                                          },
+                                          hintText: '给 SchoNavi 发送消息',
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Material(
+                                          color: _canSubmit
+                                              ? AppColors.coral
+                                              : scheme.surfaceContainer,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            onTap: _canSubmit
+                                                ? () {
+                                                    Haptics.medium();
+                                                    _submit();
+                                                  }
+                                                : null,
+                                            child: SizedBox(
+                                              width: 40,
+                                              height: 40,
+                                              child: Icon(
+                                                Icons.arrow_upward,
+                                                color: _canSubmit
+                                                    ? Colors.white
+                                                    : AppColors.inkSoft,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  child: Row(
+                                    children: recommendedTags.map((tag) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
+                                        child: QuickTag(
+                                          label: tag,
+                                          onTap: () => _appendTag(tag),
+                                          haptic: Haptics.selection,
+                                          color: _tagColor(tag, scheme),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        maxLines: 5,
-                        maxLength: _maxLen,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          filled: false,
-                          hintText:
-                              '例如：我想找医学影像和计算机视觉方向的导师，最好在上海，适合申请硕士。',
-                          suffixIcon: _controller.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () {
-                                    Haptics.light();
-                                    _controller.clear();
-                                  },
-                                ),
-                        ),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: _canSubmit
-                        ? () {
-                            Haptics.medium();
-                            _submit();
-                          }
-                        : null,
-                    child: const Text('开始推荐'),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            AnimatedEntrance(
-              index: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('快捷标签', style: textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  BentoGrid(
-                    crossAxisCount: 3,
-                    spacing: 8,
-                    runSpacing: 8,
-                    animateEntrance: false,
-                    children: _tags.map((t) {
-                      return BentoTile(
-                        onTap: () => _appendTag(t),
-                        haptic: Haptics.selection,
-                        color: _tagColor(t, scheme),
-                        padding: const EdgeInsets.all(8),
-                        child: Center(
-                          child: Text(
-                            t,
-                            style: textTheme.labelSmall,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+              // Right-edge swipe area. It stops 120 logical pixels above the
+              // bottom of the screen so it does not steal horizontal scroll
+              // gestures from the tag row.
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 120,
+                child: RightEdgeOpenDrawer(
+                  onSwipe: () {
+                    Haptics.light();
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            AnimatedEntrance(
-              index: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('试试这些', style: textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      children: _examples.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final e = entry.value;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            right: index == _examples.length - 1 ? 0 : 12,
-                          ),
-                          child: AnimatedEntrance(
-                            index: index,
-                            child: BentoTile(
-                              onTap: () {
-                                _controller.text = e;
-                              },
-                              width: 240,
-                              height: 100,
-                              color: scheme.surface,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.lightbulb_outline,
-                                    color: AppColors.coral,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    child: Text(
-                                      e,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: textTheme.bodySmall,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -40,6 +40,10 @@ class BadRequestException extends AppException {
   const BadRequestException() : super('输入内容不合法');
 }
 
+class ValidationException extends AppException {
+  const ValidationException(super.message);
+}
+
 class UnauthorizedException extends AppException {
   const UnauthorizedException() : super('请先登录');
 }

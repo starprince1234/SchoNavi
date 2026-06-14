@@ -37,6 +37,9 @@ class _FakeProfileRepo implements ProfileRepository {
 
   @override
   Future<void> save(UserProfile profile) async => _profile = profile;
+
+  @override
+  Future<void> clear() async {}
 }
 
 class _FakeMatchRepo implements MatchAnalysisRepository {

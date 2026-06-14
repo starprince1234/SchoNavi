@@ -28,7 +28,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '我想找医学影像和计算机视觉方向的导师，最好在上海');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, '开始推荐'));
+    await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
     expect(find.text('推荐结果'), findsOneWidget);
@@ -48,12 +48,24 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('收藏').last);
+    await tester.tap(find.byTooltip('菜单'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('我的收藏'));
     await tester.pumpAndSettle();
     expect(find.text('张三'), findsOneWidget);
 
-    await tester.tap(find.text('历史').last);
+    await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(find.textContaining('医学影像和计算机视觉'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('菜单'));
+    await tester.pumpAndSettle();
+
+    final historyTexts = find
+        .byType(Text)
+        .evaluate()
+        .map((e) => (e.widget as Text).data ?? '')
+        .where((t) => t.contains('医学影像和计算机视觉'));
+    expect(historyTexts, isNotEmpty);
   });
 }

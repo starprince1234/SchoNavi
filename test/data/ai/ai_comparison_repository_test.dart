@@ -7,6 +7,7 @@ import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/ai/ai_comparison_repository.dart';
 import 'package:scho_navi/domain/entities/comparison_report.dart';
 import 'package:scho_navi/domain/entities/professor.dart';
+import 'package:scho_navi/domain/repositories/professor_repository.dart';
 
 class _FakeLlm implements LlmClient {
   const _FakeLlm(this._result);
@@ -31,6 +32,15 @@ class _FakeLlm implements LlmClient {
     required List<LlmMessage> messages,
     double temperature = 0.7,
   }) => const Stream.empty();
+}
+
+class _FakeProfessorRepository implements ProfessorRepository {
+  @override
+  Future<Result<Professor>> getProfessor(String professorId) async {
+    if (professorId == _p1.id) return const Success(_p1);
+    if (professorId == _p3.id) return const Success(_p3);
+    return const Failure(NotFoundException());
+  }
 }
 
 const _p1 = Professor(
@@ -62,6 +72,11 @@ String _validJson() => jsonEncode({
   'suggestion': '若你更看重医学影像，可优先关注张三。',
 });
 
+AiComparisonRepository _repo(Result<String> llmResult) => AiComparisonRepository(
+  llm: _FakeLlm(llmResult),
+  professorRepository: _FakeProfessorRepository(),
+);
+
 void main() {
   setUp(() {
     _FakeLlm.lastMessages = null;
@@ -69,11 +84,13 @@ void main() {
   });
 
   test('解析 rows/summary/suggestion，列顺序取传入导师，且用 JSON 模式', () async {
-    final repo = AiComparisonRepository(_FakeLlm(Success(_validJson())));
-    final result = await repo.compare(professors: [_p1, _p3]);
+    final result = await _repo(Success(_validJson())).compare(
+      professorIds: [_p1.id, _p3.id],
+    );
     final report = (result as Success<ComparisonReport>).data;
 
-    expect(report.professorIds, ['p_001', 'p_003']);
+    expect(report.professorIds, [_p1.id, _p3.id]);
+    expect(report.professors.map((p) => p.id), [_p1.id, _p3.id]);
     expect(report.rows.single.dimension, '研究方向');
     expect(report.rows.single.cells['p_001'], '偏医学影像');
     expect(report.summary, contains('差异'));
@@ -92,17 +109,18 @@ void main() {
       'summary': 's',
       'suggestion': 'g',
     });
-    final repo = AiComparisonRepository(_FakeLlm(Success(data)));
-    final result = await repo.compare(professors: [_p1, _p3]);
+    final result = await _repo(Success(data)).compare(
+      professorIds: [_p1.id, _p3.id],
+    );
     final report = (result as Success<ComparisonReport>).data;
 
-    expect(report.rows.single.cells.keys.toSet(), {'p_001', 'p_003'});
+    expect(report.rows.single.cells.keys.toSet(), {_p1.id, _p3.id});
   });
 
   test('user prompt 含两位导师方向（接地输入）', () async {
-    await AiComparisonRepository(
-      _FakeLlm(Success(_validJson())),
-    ).compare(professors: [_p1, _p3]);
+    await _repo(Success(_validJson())).compare(
+      professorIds: [_p1.id, _p3.id],
+    );
 
     final userMessage = _FakeLlm.lastMessages!.last.content;
     expect(userMessage, contains('医学影像'));
@@ -112,27 +130,33 @@ void main() {
   });
 
   test('坏 JSON -> Failure(ServerException)', () async {
-    final repo = AiComparisonRepository(const _FakeLlm(Success('not json')));
-    final result = await repo.compare(professors: [_p1, _p3]);
+    final result = await _repo(const Success('not json')).compare(
+      professorIds: [_p1.id, _p3.id],
+    );
 
     expect((result as Failure).error, isA<ServerException>());
   });
 
   test('缺 summary/suggestion -> Failure(ServerException)', () async {
-    final repo = AiComparisonRepository(
-      _FakeLlm(Success(jsonEncode({'rows': [], 'summary': 's'}))),
-    );
-    final result = await repo.compare(professors: [_p1, _p3]);
+    final result = await _repo(
+      Success(jsonEncode({'rows': [], 'summary': 's'})),
+    ).compare(professorIds: [_p1.id, _p3.id]);
 
     expect((result as Failure).error, isA<ServerException>());
   });
 
   test('LlmClient 失败透传', () async {
-    final repo = AiComparisonRepository(
-      const _FakeLlm(Failure(NetworkException())),
-    );
-    final result = await repo.compare(professors: [_p1, _p3]);
+    final result = await _repo(
+      const Failure(NetworkException()),
+    ).compare(professorIds: [_p1.id, _p3.id]);
 
     expect((result as Failure).error, isA<NetworkException>());
+  });
+
+  test('少于 2 位返回 ValidationException，不调用 LLM', () async {
+    final result = await _repo(const Failure(ServerException()))
+        .compare(professorIds: [_p1.id]);
+
+    expect((result as Failure).error, isA<ValidationException>());
   });
 }

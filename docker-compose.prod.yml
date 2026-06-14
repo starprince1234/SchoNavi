@@ -1,0 +1,41 @@
+services:
+  backend:
+    image: ${BACKEND_IMAGE:-schonavi-backend:local}
+    build:
+      context: .
+      dockerfile: web/backend/Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-m.daocloud.io/docker.io/library/python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-pypi.tuna.tsinghua.edu.cn}
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV}
+      - API_TIMEOUT_SECONDS=${API_TIMEOUT_SECONDS}
+      - BACKEND_AGENT_PATH=${BACKEND_AGENT_PATH}
+      - DATABASE_URL=${DATABASE_URL}
+      - CHROMA_PATH=${CHROMA_PATH}
+      - ENABLE_LLM=${ENABLE_LLM}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_MODEL=${LLM_MODEL}
+      - ENABLE_VECTOR=${ENABLE_VECTOR}
+      - ENABLE_GRAPH=${ENABLE_GRAPH}
+      - ENABLE_RERANKER=${ENABLE_RERANKER}
+      - RERANK_PROVIDER=${RERANK_PROVIDER}
+      - RERANK_MODEL=${RERANK_MODEL}
+      - RERANK_BASE_URL=${RERANK_BASE_URL}
+      - RERANK_API_KEY=${RERANK_API_KEY}
+      - RERANK_TOP_N=${RERANK_TOP_N}
+    volumes:
+      - ${BACKEND_AGENT_HOST_PATH}:${BACKEND_AGENT_PATH}:ro
+      - ${BACKEND_AGENT_HOST_PATH}/data:${BACKEND_AGENT_PATH}/data:rw
+      - ${APP_ROOT:-/opt/schonavi}/cache/chroma:/root/.cache/chroma:rw
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

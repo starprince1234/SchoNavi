@@ -35,51 +35,17 @@ class CompareNotifier extends Notifier<CompareState> {
   Future<void> load(List<String> ids) async {
     state = const CompareState.loading();
 
-    final unique = <String>[];
-    for (final id in ids) {
-      final trimmed = id.trim();
-      if (trimmed.isNotEmpty && !unique.contains(trimmed)) {
-        unique.add(trimmed);
-      }
-    }
-    if (unique.length < 2 || unique.length > 3) {
-      state = const CompareState(
-        status: CompareStatus.error,
-        message: '请选择 2-3 位导师进行对比',
-      );
-      return;
-    }
-
-    final professorRepo = ref.read(professorRepositoryProvider);
-    final professors = <Professor>[];
-    for (final id in unique) {
-      switch (await professorRepo.getProfessor(id)) {
-        case Success(:final data):
-          professors.add(data);
-        case Failure():
-          break;
-      }
-    }
-    if (professors.length < 2) {
-      state = const CompareState(
-        status: CompareStatus.error,
-        message: '未能加载足够的导师信息，请返回重试',
-      );
-      return;
-    }
-
     final result = await ref
         .read(comparisonRepositoryProvider)
-        .compare(professors: professors);
+        .compare(professorIds: ids);
     state = switch (result) {
       Success(:final data) => CompareState(
         status: CompareStatus.ready,
-        professors: professors,
+        professors: data.professors,
         report: data,
       ),
       Failure(:final error) => CompareState(
         status: CompareStatus.error,
-        professors: professors,
         message: error.message,
       ),
     };

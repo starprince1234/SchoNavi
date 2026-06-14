@@ -1,7 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/ai/llm_trace.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
@@ -9,7 +9,6 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/favorite_item.dart';
-import '../../../domain/entities/recommendation_result.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
@@ -27,8 +26,6 @@ class RecommendationPage extends ConsumerStatefulWidget {
 }
 
 class _RecommendationPageState extends ConsumerState<RecommendationPage> {
-  String? _recordedSessionId;
-
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(recommendationProvider(widget.prompt));
@@ -62,7 +59,6 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
           onRetry: () => ref.invalidate(recommendationProvider(widget.prompt)),
         ),
         data: (result) {
-          _recordHistoryOnce(result);
           if (result.recommendations.isEmpty) {
             return EmptyView(
               message: '暂未找到完全符合条件的导师。\n可尝试放宽学校、地区或研究方向限制。',
@@ -107,16 +103,6 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
           );
         },
       ),
-    );
-  }
-
-  void _recordHistoryOnce(RecommendationResult result) {
-    if (_recordedSessionId == result.sessionId) return;
-    _recordedSessionId = result.sessionId;
-    unawaited(
-      ref
-          .read(historyRepositoryProvider)
-          .addFromResult(prompt: widget.prompt, result: result),
     );
   }
 

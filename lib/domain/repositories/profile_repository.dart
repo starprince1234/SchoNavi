@@ -4,4 +4,5 @@ import '../entities/user_profile.dart';
 abstract interface class ProfileRepository {
   UserProfile load();
   Future<void> save(UserProfile profile);
+  Future<void> clear();
 }

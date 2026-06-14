@@ -16,7 +16,7 @@ import '../../features/profile/pages/profile_intro_page.dart';
 import '../../features/profile/pages/profile_page.dart';
 import '../../features/profile/pages/profile_wizard_page.dart';
 import '../../features/settings/pages/settings_page.dart';
-import '../../shared/widgets/scaffold_with_bottom_nav.dart';
+
 import '../di/providers.dart';
 import '../motion/page_transition.dart';
 
@@ -32,40 +32,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      StatefulShellRoute.indexedStack(
-        builder: (_, _, navigationShell) =>
-            ScaffoldWithBottomNav(navigationShell: navigationShell),
-        branches: [
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/home', builder: (_, _) => const HomePage()),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/favorites',
-                builder: (_, _) => const FavoritePage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(path: '/history', builder: (_, _) => const HistoryPage()),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/profile',
-                pageBuilder: (_, state) => sharedAxisPage(
-                  state: state,
-                  child: const ProfilePage(),
-                ),
-              ),
-            ],
-          ),
-        ],
+      GoRoute(path: '/home', builder: (_, _) => const HomePage()),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: const ProfilePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/favorites',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: const FavoritePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/history',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: const HistoryPage(),
+        ),
       ),
       GoRoute(
         path: '/recommendation',

@@ -47,7 +47,7 @@ ProviderContainer _containerWith(ChatRepository repo) {
 }
 
 void main() {
-  test('start 注入会话并植入一条助手问候', () {
+  test('start 注入会话且不带助手问候', () {
     final container = _containerWith(
       _StreamChatRepo(() => Stream.fromIterable(const ['x'])),
     );
@@ -60,8 +60,7 @@ void main() {
 
     expect(state.sessionId, 's_1');
     expect(state.professorId, 'p_001');
-    expect(state.messages, hasLength(1));
-    expect(state.messages.single.role, ChatRole.assistant);
+    expect(state.messages, isEmpty);
     expect(state.isResponding, isFalse);
   });
 
@@ -77,9 +76,9 @@ void main() {
     await notifier.send('为什么推荐他');
     final msgs = container.read(chatProvider).messages;
 
-    expect(msgs, hasLength(3));
-    expect(msgs[1].role, ChatRole.user);
-    expect(msgs[1].content, '为什么推荐他');
+    expect(msgs, hasLength(2));
+    expect(msgs[0].role, ChatRole.user);
+    expect(msgs[0].content, '为什么推荐他');
     expect(msgs.last.role, ChatRole.assistant);
     expect(msgs.last.status, ChatMessageStatus.done);
     expect(msgs.last.content, '测试回答');
@@ -144,7 +143,7 @@ void main() {
     await notifier.regenerate();
     expect(repo.streamCalls, 2);
     expect(repo.lastMessage, '为什么推荐他');
-    expect(container.read(chatProvider).messages, hasLength(3));
+    expect(container.read(chatProvider).messages, hasLength(2));
     expect(container.read(chatProvider).messages.last.content, '答案');
   });
 }

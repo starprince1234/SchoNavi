@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/features/chat/pages/chat_page.dart';
+import 'package:scho_navi/features/chat/widgets/chat_message_bubble.dart';
 
 class _StreamChatRepo implements ChatRepository {
   _StreamChatRepo(this.build);
@@ -58,7 +60,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('继续追问'), findsOneWidget);
+    expect(find.text('继续追问'), findsWidgets);
     expect(find.text('有没有相似的导师？'), findsOneWidget);
   });
 
@@ -105,8 +107,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.streamCalls, 1);
 
-    await tester.tap(find.byTooltip('重新生成'));
+    await tester.tap(find.descendant(of: find.byType(AppBar), matching: find.byTooltip('重新生成')));
     await tester.pumpAndSettle();
+    expect(repo.streamCalls, 2);
+  });
+
+  testWidgets('助手消息气泡显示操作栏工具提示', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('为什么推荐这位导师？'));
+    await tester.pumpAndSettle();
+
+    final bubble = find.byType(ChatMessageBubble).last;
+    expect(find.descendant(of: bubble, matching: find.byTooltip('复制')), findsOneWidget);
+    expect(find.descendant(of: bubble, matching: find.byTooltip('重新生成')), findsOneWidget);
+    expect(find.descendant(of: bubble, matching: find.byTooltip('有用')), findsOneWidget);
+    expect(find.descendant(of: bubble, matching: find.byTooltip('没用')), findsOneWidget);
+  });
+
+  testWidgets('点击复制按钮显示已复制提示', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.pumpAndSettle();
+
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') return null;
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    final bubble = find.byType(ChatMessageBubble).last;
+    await tester.tap(find.descendant(of: bubble, matching: find.byTooltip('复制')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已复制'), findsOneWidget);
+  });
+
+  testWidgets('点赞按钮可切换状态', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.pumpAndSettle();
+
+    final bubble = find.byType(ChatMessageBubble).last;
+
+    await tester.tap(find.descendant(of: bubble, matching: find.byTooltip('有用')));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: bubble, matching: find.byIcon(Icons.thumb_up)), findsOneWidget);
+
+    await tester.tap(find.descendant(of: bubble, matching: find.byTooltip('有用')));
+    await tester.pumpAndSettle();
+
+    expect(find.descendant(of: bubble, matching: find.byIcon(Icons.thumb_up_outlined)), findsOneWidget);
+  });
+
+  testWidgets('点击单条消息重新生成会再次调用仓储', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.pumpAndSettle();
+    expect(repo.streamCalls, 1);
+
+    final bubble = find.byType(ChatMessageBubble).last;
+    await tester.tap(find.descendant(of: bubble, matching: find.byTooltip('重新生成')));
+    await tester.pumpAndSettle();
+
     expect(repo.streamCalls, 2);
   });
 }

@@ -13,19 +13,20 @@ Widget _wrap() {
       GoRoute(path: '/profile', builder: (_, _) => const Text('profile')),
     ],
   );
-  return ProviderScope(
-    child: MaterialApp.router(routerConfig: router),
-  );
+  return ProviderScope(child: MaterialApp.router(routerConfig: router));
 }
 
 void main() {
   testWidgets('submit button disabled when input empty', (tester) async {
     await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '开始推荐'),
+    final button = tester.widget<InkWell>(
+      find.ancestor(
+        of: find.byIcon(Icons.arrow_upward),
+        matching: find.byType(InkWell),
+      ),
     );
-    expect(button.onPressed, isNull);
+    expect(button.onTap, isNull);
   });
 
   testWidgets('submit button enabled after typing', (tester) async {
@@ -33,10 +34,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '我想找医学影像方向的导师');
     await tester.pump();
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '开始推荐'),
+    final button = tester.widget<InkWell>(
+      find.ancestor(
+        of: find.byIcon(Icons.arrow_upward),
+        matching: find.byType(InkWell),
+      ),
     );
-    expect(button.onPressed, isNotNull);
+    expect(button.onTap, isNotNull);
   });
 
   testWidgets('example prompt fills the input', (tester) async {
@@ -53,9 +57,22 @@ void main() {
     await tester.pumpAndSettle();
 
     final input = tester.widget<TextField>(find.byType(TextField));
-    expect(
-      input.controller?.text,
-      '我想找计算机视觉方向的导师，最好在北京。',
+    expect(input.controller?.text, '我想找计算机视觉方向的导师，最好在北京。');
+  });
+
+  testWidgets('right edge swipe opens the end drawer', (tester) async {
+    await tester.pumpWidget(_wrap());
+    await tester.pumpAndSettle();
+
+    final size = tester.getSize(find.byType(Scaffold));
+    await tester.flingFrom(
+      Offset(size.width - 10, 200),
+      const Offset(-200, 0),
+      800,
     );
+    await tester.pumpAndSettle();
+
+    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+    expect(scaffoldState.isEndDrawerOpen, isTrue);
   });
 }

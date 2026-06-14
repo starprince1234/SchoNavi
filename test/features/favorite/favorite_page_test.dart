@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/launcher/link_launcher.dart';
 import 'package:scho_navi/domain/entities/favorite_item.dart';
@@ -35,6 +36,9 @@ Future<Widget> _wrap({
   );
   final container = ProviderContainer(
     overrides: [
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(dataSource: DataSource.ai),
+      ),
       sharedPreferencesProvider.overrideWithValue(prefs),
       if (launcher != null) linkLauncherProvider.overrideWithValue(launcher),
     ],

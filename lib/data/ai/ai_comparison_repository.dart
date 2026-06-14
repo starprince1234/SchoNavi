@@ -6,18 +6,51 @@ import '../../core/result/result.dart';
 import '../../domain/entities/comparison_report.dart';
 import '../../domain/entities/professor.dart';
 import '../../domain/repositories/comparison_repository.dart';
+import '../../domain/repositories/professor_repository.dart';
 
 /// 用大模型对传入的 2-3 位导师做横向对比。
 class AiComparisonRepository implements ComparisonRepository {
-  const AiComparisonRepository(this.llm);
+  const AiComparisonRepository({
+    required this.llm,
+    required this.professorRepository,
+  });
 
   final LlmClient llm;
+  final ProfessorRepository professorRepository;
 
   @override
   Future<Result<ComparisonReport>> compare({
-    required List<Professor> professors,
+    required List<String> professorIds,
   }) async {
-    final ids = professors.map((p) => p.id).toList();
+    final ids = professorIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (ids.length < 2 || ids.length > 3) {
+      return const Failure(
+        ValidationException('请选择 2-3 位导师进行对比'),
+      );
+    }
+
+    final professors = <Professor>[];
+    for (final id in ids) {
+      switch (await professorRepository.getProfessor(id)) {
+        case Success(:final data):
+          professors.add(data);
+        case Failure():
+          break;
+      }
+    }
+
+    if (professors.length < 2) {
+      return const Failure(
+        ValidationException('未能加载足够的导师信息，请返回重试'),
+      );
+    }
+
+    final orderedIds = professors.map((p) => p.id).toList();
     final result = await llm.complete(
       messages: [
         const LlmMessage('system', _systemPrompt),
@@ -29,11 +62,15 @@ class AiComparisonRepository implements ComparisonRepository {
 
     return switch (result) {
       Failure(:final error) => Failure(error),
-      Success(:final data) => _parseReport(data, ids),
+      Success(:final data) => _parseReport(data, orderedIds, professors),
     };
   }
 
-  Result<ComparisonReport> _parseReport(String data, List<String> ids) {
+  Result<ComparisonReport> _parseReport(
+    String data,
+    List<String> ids,
+    List<Professor> professors,
+  ) {
     try {
       final decoded = jsonDecode(data);
       if (decoded is! Map<String, dynamic>) {
@@ -78,6 +115,7 @@ class AiComparisonRepository implements ComparisonRepository {
       return Success(
         ComparisonReport(
           professorIds: ids,
+          professors: professors,
           rows: rows,
           summary: summary,
           suggestion: suggestion,
