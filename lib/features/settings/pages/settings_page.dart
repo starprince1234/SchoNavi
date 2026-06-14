@@ -13,7 +13,6 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(appConfigProvider);
-    final ctrl = ref.read(appConfigProvider.notifier);
     final configured = cfg.llm.isConfigured;
 
     return Scaffold(
@@ -41,21 +40,18 @@ class SettingsPage extends ConsumerWidget {
             padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: SectionHeader('数据源'),
           ),
-          SwitchListTile(
-            key: const Key('settings-ai-switch'),
-            title: const Text('使用真实大模型（AI）'),
+          ListTile(
+            key: const Key('settings-data-source'),
+            leading: const Icon(Icons.hub_outlined),
+            title: const Text('当前模式'),
             subtitle: Text(
-              configured
-                  ? '关闭则使用离线 Mock 演示数据'
-                  : '未配置 API Key，仅可使用 Mock（构建时 --dart-define=LLM_API_KEY=…）',
+              switch (cfg.dataSource) {
+                DataSource.llm => configured
+                    ? 'LLM 模式：推荐、解析与排序由大模型完成'
+                    : 'LLM 模式：未配置 LLM_API_KEY，请在构建时传入后重试',
+                DataSource.http => '真实后端模式：HTTP 仓储待接入',
+              },
             ),
-            value: cfg.dataSource == DataSource.ai,
-            onChanged: configured
-                ? (on) {
-                      Haptics.light();
-                      ctrl.setDataSource(on ? DataSource.ai : DataSource.mock);
-                    }
-                : null,
           ),
           ListTile(
             title: const Text('当前模型'),
@@ -73,7 +69,7 @@ class SettingsPage extends ConsumerWidget {
             value: cfg.featureFlags.showAiTrace,
             onChanged: (on) {
               Haptics.light();
-              ctrl.setShowAiTrace(on);
+              ref.read(appConfigProvider.notifier).setShowAiTrace(on);
             },
           ),
           const Divider(),
@@ -93,7 +89,7 @@ class SettingsPage extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('数据如何使用'),
-            subtitle: Text('资料仅保存在本机；AI 模式下会随请求发送给大模型用于解析与推荐。'),
+            subtitle: Text('资料仅保存在本机；LLM 模式下会随请求发送给大模型用于解析与推荐。'),
           ),
           const Divider(),
           const Padding(

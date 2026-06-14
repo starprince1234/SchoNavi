@@ -219,7 +219,7 @@ void _showDataUsage(BuildContext context) {
         '• 个性化导师推荐\n'
         '• 生成 outreach 邮件\n'
         '• 匹配度分析\n\n'
-        'AI 模式下，档案信息会随请求发送给大模型用于解析。'
+        'LLM 模式下，档案信息会随请求发送给大模型用于解析。'
         '你随时可以在「我的档案」中修改或删除数据。',
       ),
       actions: [

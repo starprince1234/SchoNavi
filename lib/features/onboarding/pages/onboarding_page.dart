@@ -42,7 +42,7 @@ const _pages = <_OnboardingData>[
   _OnboardingData(
     Icons.verified_outlined,
     '真实可信',
-    '事实接地于公开资料、不编造；离线 Mock 兜底，断网也能演示。',
+    '事实接地于公开资料、不编造；推荐理解与排序交由大模型或真实后端完成。',
   ),
 ];
 

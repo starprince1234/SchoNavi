@@ -75,7 +75,7 @@ void main() {
       overrides: [
         initialAppConfigProvider.overrideWithValue(
           const AppConfig(
-            dataSource: DataSource.ai,
+            dataSource: DataSource.llm,
             featureFlags: FeatureFlags(showAiTrace: true),
             llm: LlmConfig(apiKey: 'sk-test'),
           ),

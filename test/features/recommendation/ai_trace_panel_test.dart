@@ -78,7 +78,7 @@ Future<Widget> _wrap() async {
       profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
       initialAppConfigProvider.overrideWithValue(
         const AppConfig(
-          dataSource: DataSource.ai,
+          dataSource: DataSource.llm,
           featureFlags: FeatureFlags(showAiTrace: true),
           llm: LlmConfig(apiKey: 'sk-test'),
         ),

@@ -60,7 +60,7 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
   @override
   Widget build(BuildContext context) {
     final cfg = ref.watch(appConfigProvider);
-    final aiOn = cfg.dataSource == DataSource.mock || cfg.dataSource == DataSource.ai;
+    final aiOn = cfg.dataSource == DataSource.llm;
     final extraction = ref.watch(achievementsExtractionProvider);
 
     ref.listen(achievementsExtractionProvider, (prev, next) {
@@ -99,7 +99,7 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
                   }
                 : null,
             icon: const Icon(Icons.auto_awesome, size: 18),
-            label: Text(aiOn ? 'AI 整理成条目' : 'AI 整理（需开启 AI 模式）'),
+            label: Text(aiOn ? 'AI 整理成条目' : 'AI 整理（需切换到 LLM 模式）'),
           ),
         if (extraction.hasError)
           const Padding(

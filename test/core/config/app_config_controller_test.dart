@@ -7,33 +7,27 @@ ProviderContainer _c(AppConfig initial) => ProviderContainer(
 );
 
 void main() {
-  test('默认初值 → mock', () {
+  test('默认初值为 llm', () {
     final c = ProviderContainer();
     addTearDown(c.dispose);
-    expect(c.read(appConfigProvider).dataSource, DataSource.mock);
+    expect(c.read(appConfigProvider).dataSource, DataSource.llm);
   });
 
-  test('初值有 key → ai', () {
-    final c = _c(AppConfig.resolve(apiKey: 'sk-test'));
-    addTearDown(c.dispose);
-    expect(c.read(appConfigProvider).dataSource, DataSource.ai);
-  });
-
-  test('无 key 时切 ai 被拒（保持 mock）', () {
+  test('初值无 key 仍为 llm', () {
     final c = _c(AppConfig.resolve(apiKey: ''));
     addTearDown(c.dispose);
-    c.read(appConfigProvider.notifier).setDataSource(DataSource.ai);
-    expect(c.read(appConfigProvider).dataSource, DataSource.mock);
+    expect(c.read(appConfigProvider).dataSource, DataSource.llm);
+    expect(c.read(appConfigProvider).llm.isConfigured, isFalse);
   });
 
-  test('有 key 时可在 ai/mock 间切换', () {
+  test('可在 llm/http 间切换', () {
     final c = _c(AppConfig.resolve(apiKey: 'sk-test'));
     addTearDown(c.dispose);
     final ctrl = c.read(appConfigProvider.notifier);
-    ctrl.setDataSource(DataSource.mock);
-    expect(c.read(appConfigProvider).dataSource, DataSource.mock);
-    ctrl.setDataSource(DataSource.ai);
-    expect(c.read(appConfigProvider).dataSource, DataSource.ai);
+    ctrl.setDataSource(DataSource.http);
+    expect(c.read(appConfigProvider).dataSource, DataSource.http);
+    ctrl.setDataSource(DataSource.llm);
+    expect(c.read(appConfigProvider).dataSource, DataSource.llm);
   });
 
   test('setShowAiTrace 开关演示模式', () {

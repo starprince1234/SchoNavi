@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum DataSource { mock, ai, http }
+enum DataSource { llm, http }
 
 class FeatureFlags {
   const FeatureFlags({this.showMatchScore = false, this.showAiTrace = false});
@@ -31,7 +31,7 @@ class LlmConfig {
 
 class AppConfig {
   const AppConfig({
-    this.dataSource = DataSource.mock,
+    this.dataSource = DataSource.llm,
     this.appVersion = '0.1.0',
     this.featureFlags = const FeatureFlags(),
     this.llm = const LlmConfig(apiKey: ''),
@@ -62,7 +62,7 @@ class AppConfig {
   }) {
     final llm = LlmConfig(apiKey: apiKey, baseUrl: baseUrl, model: model);
     return AppConfig(
-      dataSource: llm.isConfigured ? DataSource.ai : DataSource.mock,
+      dataSource: DataSource.llm,
       appVersion: appVersion,
       llm: llm,
     );
@@ -78,9 +78,8 @@ class AppConfigController extends Notifier<AppConfig> {
   @override
   AppConfig build() => ref.watch(initialAppConfigProvider);
 
-  /// 切数据源；切 ai 仅在已配置 key 时允许（否则忽略，保持原值）。
+  /// 切数据源。LLM 配置缺失时仍允许进入 LLM 模式，由调用处显式失败。
   void setDataSource(DataSource ds) {
-    if (ds == DataSource.ai && !state.llm.isConfigured) return;
     state = state.copyWith(dataSource: ds);
   }
 

@@ -27,7 +27,7 @@ Future<Widget> _wrap({bool withHistory = false}) async {
   final container = ProviderContainer(
     overrides: [
       initialAppConfigProvider.overrideWithValue(
-        const AppConfig(dataSource: DataSource.ai),
+        const AppConfig(dataSource: DataSource.llm),
       ),
       sharedPreferencesProvider.overrideWithValue(prefs),
     ],

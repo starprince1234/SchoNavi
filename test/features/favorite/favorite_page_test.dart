@@ -37,7 +37,7 @@ Future<Widget> _wrap({
   final container = ProviderContainer(
     overrides: [
       initialAppConfigProvider.overrideWithValue(
-        const AppConfig(dataSource: DataSource.ai),
+        const AppConfig(dataSource: DataSource.llm),
       ),
       sharedPreferencesProvider.overrideWithValue(prefs),
       if (launcher != null) linkLauncherProvider.overrideWithValue(launcher),
