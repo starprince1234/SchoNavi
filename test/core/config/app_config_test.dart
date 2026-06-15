@@ -21,4 +21,15 @@ void main() {
     expect(cfg.llm.baseUrl, 'https://api.deepseek.com');
     expect(cfg.llm.model, 'deepseek-chat');
   });
+
+  test('api base url resolves to http mode and trims trailing slash', () {
+    final cfg = AppConfig.resolve(
+      apiKey: 'sk-x',
+      apiBaseUrl: 'https://api.example.com/',
+    );
+
+    expect(cfg.dataSource, DataSource.http);
+    expect(cfg.api.baseUrl, 'https://api.example.com');
+    expect(cfg.llm.apiKey, 'sk-x');
+  });
 }

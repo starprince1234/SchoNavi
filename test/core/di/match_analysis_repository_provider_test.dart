@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/data/ai/ai_match_analysis_repository.dart';
+import 'package:scho_navi/data/http/http_match_analysis_repository.dart';
 
 void main() {
   test('默认接 AiMatchAnalysisRepository', () {
@@ -28,6 +29,22 @@ void main() {
     expect(
       container.read(matchAnalysisRepositoryProvider),
       isA<AiMatchAnalysisRepository>(),
+    );
+  });
+
+  test('dataSource=http 接 HttpMatchAnalysisRepository', () {
+    final container = ProviderContainer(
+      overrides: [
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig.resolve(apiKey: '', apiBaseUrl: 'https://api.example.com'),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(
+      container.read(matchAnalysisRepositoryProvider),
+      isA<HttpMatchAnalysisRepository>(),
     );
   });
 }
