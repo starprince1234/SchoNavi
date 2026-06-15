@@ -12,12 +12,23 @@ import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/llm_recommendation_intent_classifier.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
+import '../../data/http/http_chat_repository.dart';
+import '../../data/http/http_comparison_repository.dart';
+import '../../data/http/http_competition_recommendation_repository.dart';
+import '../../data/http/http_favorite_repository.dart';
+import '../../data/http/http_history_repository.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
 import '../../data/http/http_home_prompt_repository.dart';
+import '../../data/http/http_match_analysis_repository.dart';
+import '../../data/http/http_outreach_email_repository.dart';
+import '../../data/http/http_professor_repository.dart';
+import '../../data/http/http_profile_extraction_repository.dart';
+import '../../data/http/http_profile_repository.dart';
+import '../../data/http/http_recommendation_repository.dart';
 import '../../data/mock/mock_home_prompt_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/home_prompt.dart';
@@ -47,7 +58,21 @@ import '../storage/shared_preferences_local_store.dart';
 
 final mockDbProvider = Provider<MockDb>((ref) => MockDb());
 
-final dioProvider = Provider<Dio>((ref) => Dio());
+final dioProvider = Provider<Dio>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  return Dio(
+    BaseOptions(
+      baseUrl: cfg.api.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 30),
+      sendTimeout: const Duration(seconds: 10),
+      headers: const {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    ),
+  );
+});
 
 final llmClientProvider = Provider<LlmClient>((ref) {
   final cfg = ref.watch(appConfigProvider);
@@ -91,8 +116,7 @@ final recommendationRepositoryProvider = Provider<RecommendationRepository>((
         candidates: ref.watch(professorCandidateSourceProvider),
       );
     case DataSource.http:
-      // V1.0：返回 HttpRecommendationRepository(ref.watch(dioClientProvider))
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpRecommendationRepository(ref.watch(dioProvider));
   }
 });
 
@@ -105,9 +129,7 @@ final competitionRecommendationRepositoryProvider =
             candidates: ref.watch(competitionCandidateSourceProvider),
           );
         case DataSource.http:
-          throw UnimplementedError(
-            'HTTP competition data source not wired until V1.0',
-          );
+          return HttpCompetitionRecommendationRepository(ref.watch(dioProvider));
       }
     });
 
@@ -117,7 +139,7 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
     case DataSource.llm:
       return MockProfessorRepository(ref.watch(mockDbProvider));
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpProfessorRepository(ref.watch(dioProvider));
   }
 });
 
@@ -130,7 +152,7 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
         db: ref.watch(mockDbProvider),
       );
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpChatRepository(ref.watch(dioProvider));
   }
 });
 
@@ -143,7 +165,7 @@ final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
         professorRepository: professorRepo,
       );
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpComparisonRepository(ref.watch(dioProvider));
   }
 });
 
@@ -154,7 +176,7 @@ final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
     case DataSource.llm:
       return AiMatchAnalysisRepository(ref.watch(llmClientProvider));
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpMatchAnalysisRepository(ref.watch(dioProvider));
   }
 });
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -163,7 +185,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
     case DataSource.llm:
       return LocalProfileRepository(ref.watch(localStoreProvider));
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpProfileRepository(ref.watch(dioProvider));
   }
 });
 
@@ -175,7 +197,7 @@ final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
     case DataSource.llm:
       return AiOutreachEmailRepository(ref.watch(llmClientProvider));
     case DataSource.http:
-      throw UnimplementedError('HTTP data source not wired until V1.0');
+      return HttpOutreachEmailRepository(ref.watch(dioProvider));
   }
 });
 
@@ -187,8 +209,8 @@ final profileExtractionRepositoryProvider =
         DataSource.llm => AiProfileExtractionRepository(
           ref.watch(llmClientProvider),
         ),
-        DataSource.http => throw UnimplementedError(
-          'HTTP data source not wired until V1.0',
+        DataSource.http => HttpProfileExtractionRepository(
+          ref.watch(dioProvider),
         ),
       };
     });
@@ -235,10 +257,14 @@ final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
   switch (cfg.dataSource) {
     case DataSource.llm:
     case DataSource.http:
-      repo = LocalFavoriteRepository(ref.watch(localStoreProvider));
+      repo = cfg.dataSource == DataSource.http
+          ? HttpFavoriteRepository(ref.watch(dioProvider))
+          : LocalFavoriteRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
     if (repo is LocalFavoriteRepository) {
+      repo.dispose();
+    } else if (repo is HttpFavoriteRepository) {
       repo.dispose();
     }
   });
@@ -265,10 +291,14 @@ final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
   switch (cfg.dataSource) {
     case DataSource.llm:
     case DataSource.http:
-      repo = LocalHistoryRepository(ref.watch(localStoreProvider));
+      repo = cfg.dataSource == DataSource.http
+          ? HttpHistoryRepository(ref.watch(dioProvider))
+          : LocalHistoryRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
     if (repo is LocalHistoryRepository) {
+      repo.dispose();
+    } else if (repo is HttpHistoryRepository) {
       repo.dispose();
     }
   });

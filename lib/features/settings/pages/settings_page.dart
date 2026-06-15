@@ -49,7 +49,9 @@ class SettingsPage extends ConsumerWidget {
                 DataSource.llm => configured
                     ? 'LLM 模式：推荐、解析与排序由大模型完成'
                     : 'LLM 模式：未配置 LLM_API_KEY，请在构建时传入后重试',
-                DataSource.http => '真实后端模式：HTTP 仓储待接入',
+                DataSource.http => cfg.api.isConfigured
+                    ? '真实后端模式：${cfg.api.baseUrl}'
+                    : '真实后端模式：未配置 API_BASE_URL',
               },
             ),
           ),

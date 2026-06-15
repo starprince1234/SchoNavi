@@ -15,6 +15,7 @@ const _model = String.fromEnvironment(
   'LLM_MODEL',
   defaultValue: 'deepseek-chat',
 );
+const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,12 @@ Future<void> main() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         initialAppConfigProvider.overrideWithValue(
-          AppConfig.resolve(apiKey: _apiKey, baseUrl: _baseUrl, model: _model),
+          AppConfig.resolve(
+            apiKey: _apiKey,
+            apiBaseUrl: _apiBaseUrl,
+            baseUrl: _baseUrl,
+            model: _model,
+          ),
         ),
       ],
       child: const SchoNaviApp(),

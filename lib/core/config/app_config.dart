@@ -29,43 +29,65 @@ class LlmConfig {
   bool get isConfigured => apiKey.isNotEmpty;
 }
 
+class ApiConfig {
+  const ApiConfig({this.baseUrl = ''});
+
+  final String baseUrl;
+
+  bool get isConfigured => baseUrl.isNotEmpty;
+}
+
 class AppConfig {
   const AppConfig({
     this.dataSource = DataSource.llm,
     this.appVersion = '0.1.0',
     this.featureFlags = const FeatureFlags(),
     this.llm = const LlmConfig(apiKey: ''),
+    this.api = const ApiConfig(),
   });
 
   final DataSource dataSource;
   final String appVersion;
   final FeatureFlags featureFlags;
   final LlmConfig llm;
+  final ApiConfig api;
 
   AppConfig copyWith({
     DataSource? dataSource,
     String? appVersion,
     FeatureFlags? featureFlags,
     LlmConfig? llm,
+    ApiConfig? api,
   }) => AppConfig(
     dataSource: dataSource ?? this.dataSource,
     appVersion: appVersion ?? this.appVersion,
     featureFlags: featureFlags ?? this.featureFlags,
     llm: llm ?? this.llm,
+    api: api ?? this.api,
   );
 
   factory AppConfig.resolve({
     required String apiKey,
+    String apiBaseUrl = '',
     String baseUrl = 'https://api.deepseek.com',
     String model = 'deepseek-chat',
     String appVersion = '0.1.0',
   }) {
     final llm = LlmConfig(apiKey: apiKey, baseUrl: baseUrl, model: model);
+    final api = ApiConfig(baseUrl: _trimTrailingSlash(apiBaseUrl));
     return AppConfig(
-      dataSource: DataSource.llm,
+      dataSource: api.isConfigured ? DataSource.http : DataSource.llm,
       appVersion: appVersion,
       llm: llm,
+      api: api,
     );
+  }
+
+  static String _trimTrailingSlash(String value) {
+    final trimmed = value.trim();
+    return trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
   }
 }
 
