@@ -1,0 +1,30 @@
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "session_id": "s_123",
+    "query_understanding": {
+      "research_interests": ["医学影像", "计算机视觉"],
+      "preferred_locations": ["上海"],
+      "preferred_universities": [],
+      "degree_stage": "硕士",
+      "uncertainties": ["未明确偏理论还是应用"]
+    },
+    "recommendations": [
+      {
+        "professor_id": "p_001",
+        "name": "张三",
+        "university": "上海交通大学",
+        "college": "电子信息与电气工程学院",
+        "title": "教授",
+        "research_fields": ["医学影像", "计算机视觉"],
+        "homepage_url": "https://example.edu.cn/zhangsan",
+        "match_level": "高",
+        "match_score": 0.92,
+        "reason": "研究方向与用户需求高度相关。",
+        "limitations": ["招生信息以学校官网为准"]
+      }
+    ],
+    "follow_up_questions": ["你更倾向理论研究还是应用研究？"]
+  }
+}

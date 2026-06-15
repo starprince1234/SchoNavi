@@ -1,0 +1,796 @@
+openapi: 3.1.0
+info:
+  title: SchoNavi API
+  version: 1.0.0
+  description: Contract-first API for the Flutter client.
+servers:
+  - url: /api/v1
+paths:
+  /home/prompts:
+    get:
+      summary: Fetch suggested home prompts.
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [mentor, competition]
+      responses:
+        '200':
+          description: Prompt list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomePromptsEnvelope'
+  /recommendations/mentors:
+    post:
+      summary: Get mentor recommendations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MentorRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MentorRecommendationEnvelope'
+  /recommendations/competitions:
+    post:
+      summary: Get competition recommendations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompetitionRecommendationRequest'
+      responses:
+        '200':
+          description: Competition recommendation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionRecommendationEnvelope'
+  /professors/{professor_id}:
+    get:
+      summary: Get professor detail.
+      parameters:
+        - $ref: '#/components/parameters/ProfessorId'
+      responses:
+        '200':
+          description: Professor detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessorEnvelope'
+  /chat/messages:
+    post:
+      summary: Send a non-streaming chat message.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageRequest'
+      responses:
+        '200':
+          description: Chat response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageEnvelope'
+  /chat/stream:
+    get:
+      summary: Stream chat reply through Server-Sent Events.
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: message
+          in: query
+          required: true
+          schema: { type: string }
+        - name: professor_id
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: SSE stream with delta, related_recommendations, done, and error events.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /professors/compare:
+    post:
+      summary: Compare professors.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [professor_ids]
+              properties:
+                professor_ids:
+                  type: array
+                  minItems: 2
+                  maxItems: 3
+                  items: { type: string }
+      responses:
+        '200':
+          description: Comparison report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonEnvelope'
+  /professors/{professor_id}/match-analysis:
+    post:
+      summary: Analyze profile-professor match.
+      parameters:
+        - $ref: '#/components/parameters/ProfessorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              properties:
+                profile:
+                  $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: Match analysis.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchAnalysisEnvelope'
+  /professors/{professor_id}/outreach-email:
+    post:
+      summary: Generate outreach email.
+      parameters:
+        - $ref: '#/components/parameters/ProfessorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile]
+              properties:
+                profile:
+                  $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: Email draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailDraftEnvelope'
+  /profile/achievements/extract:
+    post:
+      summary: Extract structured achievements.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [raw_text]
+              properties:
+                raw_text: { type: string }
+      responses:
+        '200':
+          description: Achievement draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementDraftEnvelope'
+  /profile:
+    get:
+      summary: Load current profile.
+      responses:
+        '200':
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileEnvelope'
+    put:
+      summary: Save current profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfile'
+      responses:
+        '200':
+          description: Saved profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileEnvelope'
+    delete:
+      summary: Clear current profile.
+      responses:
+        '200':
+          description: Clear result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearedEnvelope'
+  /favorites:
+    get:
+      summary: List favorites.
+      responses:
+        '200':
+          description: Favorites.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoritesEnvelope'
+  /favorites/{professor_id}:
+    put:
+      summary: Add favorite professor snapshot.
+      parameters:
+        - $ref: '#/components/parameters/ProfessorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteItem'
+      responses:
+        '200':
+          description: Favorite status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteStatusEnvelope'
+    delete:
+      summary: Remove favorite.
+      parameters:
+        - $ref: '#/components/parameters/ProfessorId'
+      responses:
+        '200':
+          description: Favorite status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteRemovedEnvelope'
+  /history:
+    get:
+      summary: List search history.
+      responses:
+        '200':
+          description: History.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryEnvelope'
+    post:
+      summary: Add search history entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchHistoryItem'
+      responses:
+        '200':
+          description: Saved history item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryItemEnvelope'
+    delete:
+      summary: Clear all search history.
+      responses:
+        '200':
+          description: Clear result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClearedEnvelope'
+  /history/{session_id}:
+    delete:
+      summary: Remove one search history item.
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Remove result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovedEnvelope'
+components:
+  parameters:
+    ProfessorId:
+      name: professor_id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    EnvelopeBase:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data: true
+    HomePrompt:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+    AcademicScore:
+      type: object
+      properties:
+        gpa: { type: number }
+        scale: { type: number }
+        rank: { type: string }
+    Competition:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        level: { type: string }
+        award: { type: string }
+        year: { type: string }
+    ResearchItem:
+      type: object
+      required: [type, title]
+      properties:
+        type:
+          type: string
+          enum: [paper, project, patent, other]
+        title: { type: string }
+        role: { type: string }
+        venue_or_status: { type: string }
+        year: { type: string }
+    UserProfile:
+      type: object
+      properties:
+        name: { type: string }
+        gender:
+          type: string
+          enum: [male, female, other, undisclosed]
+        degree_stage: { type: string }
+        target_degree: { type: string }
+        school: { type: string }
+        major: { type: string }
+        research_interests:
+          type: array
+          items: { type: string }
+        highlights: { type: string }
+        score:
+          $ref: '#/components/schemas/AcademicScore'
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competition'
+        research:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchItem'
+    QueryUnderstanding:
+      type: object
+      required: [research_interests, preferred_locations, preferred_universities, uncertainties]
+      properties:
+        research_interests:
+          type: array
+          items: { type: string }
+        preferred_locations:
+          type: array
+          items: { type: string }
+        preferred_universities:
+          type: array
+          items: { type: string }
+        degree_stage: { type: string }
+        uncertainties:
+          type: array
+          items: { type: string }
+    Recommendation:
+      type: object
+      required: [professor_id, name, university, college, title, research_fields, match_level, reason, limitations]
+      properties:
+        professor_id: { type: string }
+        name: { type: string }
+        university: { type: string }
+        college: { type: string }
+        title: { type: string }
+        research_fields:
+          type: array
+          items: { type: string }
+        homepage_url: { type: string }
+        match_level:
+          type: string
+          enum: [高, 中, 低]
+        match_score: { type: number, minimum: 0, maximum: 1 }
+        reason: { type: string }
+        limitations:
+          type: array
+          items: { type: string }
+    Professor:
+      type: object
+      required: [professor_id, name, university, college, title, research_fields]
+      properties:
+        professor_id: { type: string }
+        name: { type: string }
+        university: { type: string }
+        college: { type: string }
+        title: { type: string }
+        research_fields:
+          type: array
+          items: { type: string }
+        bio: { type: string }
+        homepage_url: { type: string }
+        source_url: { type: string }
+        updated_at: { type: string }
+        data_quality_score: { type: number }
+    MentorRecommendationRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string }
+        session_id: { type: string }
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+    RecommendationResult:
+      type: object
+      required: [session_id, query_understanding, recommendations, follow_up_questions]
+      properties:
+        session_id: { type: string }
+        query_understanding:
+          $ref: '#/components/schemas/QueryUnderstanding'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+        follow_up_questions:
+          type: array
+          items: { type: string }
+    CompetitionUnderstanding:
+      type: object
+      required: [directions, categories, timing_preferences, team_preferences, uncertainties]
+      properties:
+        directions:
+          type: array
+          items: { type: string }
+        categories:
+          type: array
+          items: { type: string }
+        timing_preferences:
+          type: array
+          items: { type: string }
+        team_preferences:
+          type: array
+          items: { type: string }
+        uncertainties:
+          type: array
+          items: { type: string }
+    RecommendedCompetition:
+      type: object
+      required: [id, name, category, level, tags, team_size, signup_time, contest_time, format, organizer, reason, preparation_tips, limitations, match_score]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        level: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        team_size: { type: string }
+        signup_time: { type: string }
+        contest_time: { type: string }
+        format: { type: string }
+        organizer: { type: string }
+        official_url: { type: string }
+        reason: { type: string }
+        preparation_tips:
+          type: array
+          items: { type: string }
+        limitations:
+          type: array
+          items: { type: string }
+        match_score: { type: number, minimum: 0, maximum: 1 }
+    CompetitionRecommendationRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string }
+        session_id: { type: string }
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+    CompetitionRecommendationResult:
+      type: object
+      required: [session_id, understanding, recommendations, follow_up_questions]
+      properties:
+        session_id: { type: string }
+        understanding:
+          $ref: '#/components/schemas/CompetitionUnderstanding'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendedCompetition'
+        follow_up_questions:
+          type: array
+          items: { type: string }
+    ChatMessageRequest:
+      type: object
+      required: [session_id, message]
+      properties:
+        session_id: { type: string }
+        message: { type: string }
+        professor_id: { type: string }
+    ChatMessageResponse:
+      type: object
+      required: [session_id, answer, related_recommendations]
+      properties:
+        session_id: { type: string }
+        answer: { type: string }
+        related_recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+    ComparisonRow:
+      type: object
+      required: [dimension, cells]
+      properties:
+        dimension: { type: string }
+        cells:
+          type: object
+          additionalProperties:
+            type: string
+    ComparisonReport:
+      type: object
+      required: [professor_ids, professors, rows, summary, suggestion]
+      properties:
+        professor_ids:
+          type: array
+          items: { type: string }
+        professors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Professor'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparisonRow'
+        summary: { type: string }
+        suggestion: { type: string }
+    MatchDimension:
+      type: object
+      required: [label, score, comment]
+      properties:
+        label: { type: string }
+        score: { type: integer, minimum: 0, maximum: 100 }
+        comment: { type: string }
+    MatchAnalysis:
+      type: object
+      required: [professor_id, summary, strengths, gaps, suggestions, dimensions]
+      properties:
+        professor_id: { type: string }
+        summary: { type: string }
+        strengths:
+          type: array
+          items: { type: string }
+        gaps:
+          type: array
+          items: { type: string }
+        suggestions:
+          type: array
+          items: { type: string }
+        dimensions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchDimension'
+    EmailDraft:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+    AchievementDraft:
+      type: object
+      required: [competitions, research]
+      properties:
+        competitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competition'
+        research:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResearchItem'
+    FavoriteItem:
+      type: object
+      required: [professor_id, name, university, college, title, research_fields, favorited_at]
+      properties:
+        professor_id: { type: string }
+        name: { type: string }
+        university: { type: string }
+        college: { type: string }
+        title: { type: string }
+        research_fields:
+          type: array
+          items: { type: string }
+        homepage_url: { type: string }
+        favorited_at: { type: string, format: date-time }
+    SearchHistoryItem:
+      type: object
+      required: [type, session_id, prompt, created_at, summary, research_interests, preferred_locations, recommendation_count]
+      properties:
+        type:
+          type: string
+          enum: [mentor, competition]
+        session_id: { type: string }
+        prompt: { type: string }
+        created_at: { type: string, format: date-time }
+        summary: { type: string }
+        research_interests:
+          type: array
+          items: { type: string }
+        preferred_locations:
+          type: array
+          items: { type: string }
+        recommendation_count: { type: integer }
+    ClearedResult:
+      type: object
+      required: [cleared]
+      properties:
+        cleared: { type: boolean }
+    RemovedResult:
+      type: object
+      required: [removed]
+      properties:
+        removed: { type: boolean }
+    FavoriteStatus:
+      type: object
+      required: [favorited, item]
+      properties:
+        favorited: { type: boolean }
+        item:
+          $ref: '#/components/schemas/FavoriteItem'
+    FavoriteRemovedStatus:
+      type: object
+      required: [favorited]
+      properties:
+        favorited: { type: boolean }
+    HomePromptsEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/HomePrompt'
+    MentorRecommendationEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RecommendationResult'
+    CompetitionRecommendationEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CompetitionRecommendationResult'
+    ProfessorEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Professor'
+    ChatMessageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ChatMessageResponse'
+    ComparisonEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ComparisonReport'
+    MatchAnalysisEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MatchAnalysis'
+    EmailDraftEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/EmailDraft'
+    AchievementDraftEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AchievementDraft'
+    UserProfileEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UserProfile'
+    FavoritesEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/FavoriteItem'
+    FavoriteStatusEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FavoriteStatus'
+    FavoriteRemovedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/FavoriteRemovedStatus'
+    HistoryEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SearchHistoryItem'
+    HistoryItemEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SearchHistoryItem'
+    ClearedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ClearedResult'
+    RemovedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RemovedResult'

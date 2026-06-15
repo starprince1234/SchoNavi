@@ -1,0 +1,21 @@
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "name": "王同学",
+    "gender": "undisclosed",
+    "degree_stage": "本科",
+    "target_degree": "申请硕士",
+    "school": "四川大学",
+    "major": "计算机科学与技术",
+    "research_interests": ["计算机视觉", "医学影像"],
+    "highlights": "有一段医学影像项目经历",
+    "score": { "gpa": 3.8, "scale": 4.0, "rank": "前 10%" },
+    "competitions": [
+      { "name": "中国大学生计算机设计大赛", "level": "国家级", "award": "二等奖", "year": "2025" }
+    ],
+    "research": [
+      { "type": "project", "title": "医学影像分割项目", "role": "负责人", "venue_or_status": "结题", "year": "2025" }
+    ]
+  }
+}

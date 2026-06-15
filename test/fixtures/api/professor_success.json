@@ -1,0 +1,17 @@
+{
+  "code": 0,
+  "message": "ok",
+  "data": {
+    "professor_id": "p_001",
+    "name": "张三",
+    "university": "上海交通大学",
+    "college": "电子信息与电气工程学院",
+    "title": "教授",
+    "research_fields": ["医学影像", "计算机视觉"],
+    "bio": "主要研究医学影像分析。",
+    "homepage_url": "https://example.edu.cn/zhangsan",
+    "source_url": "https://example.edu.cn/zhangsan/source",
+    "updated_at": "2026-06-01",
+    "data_quality_score": 0.87
+  }
+}
