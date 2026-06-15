@@ -82,7 +82,7 @@ void main() {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('竞赛推荐'));
+    await tester.tap(find.text('竞赛'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '我想参加蓝桥杯');
@@ -113,7 +113,7 @@ void main() {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('竞赛推荐'));
+    await tester.tap(find.text('竞赛'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('人工智能竞赛'));
@@ -146,7 +146,7 @@ void main() {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('竞赛推荐'));
+    await tester.tap(find.text('竞赛'));
     await tester.pumpAndSettle();
 
     expect(
@@ -163,10 +163,10 @@ void main() {
     await tester.enterText(find.byType(TextField), '保留输入');
     await tester.pump();
 
-    await tester.tap(find.text('竞赛推荐'));
+    await tester.tap(find.text('竞赛'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('导师推荐'));
+    await tester.tap(find.text('导师'));
     await tester.pumpAndSettle();
 
     final input = tester.widget<TextField>(find.byType(TextField));

@@ -17,6 +17,7 @@ void main() {
   testWidgets('App boots into home page', (tester) async {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
-    expect(find.text('用自然语言找到适合你的导师'), findsOneWidget);
+    expect(find.text('SchoNavi'), findsOneWidget);
+    expect(find.byTooltip('菜单'), findsOneWidget);
   });
 }
