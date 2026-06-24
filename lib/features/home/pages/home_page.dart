@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/inline_tag_input.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/home_prompt.dart';
@@ -31,10 +33,7 @@ enum _HomeTab { mentor, competition }
 const SubtitleAnimationStrategy _kSubtitleStrategy = TypewriterStrategy();
 
 class _TabConfig {
-  const _TabConfig({
-    required this.taglines,
-    required this.quickTags,
-  });
+  const _TabConfig({required this.taglines, required this.quickTags});
 
   final List<String> taglines;
   final List<String> quickTags;
@@ -118,17 +117,26 @@ class _HomePageState extends ConsumerState<HomePage> {
   Future<void> _submit() async {
     final prompt = _controller.plainText.trim();
     if (prompt.isEmpty || _submitting) return;
+    final config = ref.read(appConfigProvider);
+    if (_currentTab == _HomeTab.mentor &&
+        config.dataSource == DataSource.llm &&
+        !config.llm.isConfigured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(const MissingLlmConfigurationException().message),
+        ),
+      );
+      return;
+    }
     if (prompt.length < 6) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(
-        const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')),
-      );
+      ).showSnackBar(const SnackBar(content: Text('可补充研究方向或地区，描述更具体会更准哦')));
     }
 
     setState(() => _submitting = true);
     final path = switch (_currentTab) {
-      _HomeTab.mentor => '/recommendation',
+      _HomeTab.mentor => '/chat',
       _HomeTab.competition => '/competition-recommendation',
     };
     if (!mounted) return;
@@ -288,9 +296,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                             'SchoNavi',
                                             style: textTheme.headlineMedium
                                                 ?.copyWith(
-                                              color: AppColors.coral,
-                                              fontWeight: FontWeight.w800,
-                                            ),
+                                                  color: AppColors.coral,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
                                           ),
                                         ),
                                         const SizedBox(height: 16),
@@ -321,8 +329,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                               strategy: _kSubtitleStrategy,
                                               style: textTheme.bodyMedium
                                                   ?.copyWith(
-                                                color: AppColors.inkSoft,
-                                              ),
+                                                    color: AppColors.inkSoft,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -347,7 +355,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       );
                                     },
                                     loading: () => _buildPromptGridSkeleton(),
-                                    error: (e, st) => _buildPromptGridSkeleton(),
+                                    error: (e, st) =>
+                                        _buildPromptGridSkeleton(),
                                   ),
                                 ),
                                 const SizedBox(height: 24),
@@ -446,7 +455,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   scrollDirection: Axis.horizontal,
                                   physics: const BouncingScrollPhysics(),
                                   child: Row(
-                                    children: _currentConfig.quickTags.map((tag) {
+                                    children: _currentConfig.quickTags.map((
+                                      tag,
+                                    ) {
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: 8,

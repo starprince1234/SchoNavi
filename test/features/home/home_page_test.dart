@@ -3,15 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
 
-Future<Widget> _wrap() async {
+Future<Widget> _wrap({bool configured = true}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomePage()),
+      GoRoute(
+        path: '/chat',
+        builder: (_, s) => Text('chat-marker:${s.uri.queryParameters['q']}'),
+      ),
       GoRoute(
         path: '/recommendation',
         builder: (_, _) => const Text('mentor-marker'),
@@ -27,6 +32,9 @@ Future<Widget> _wrap() async {
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        AppConfig(llm: LlmConfig(apiKey: configured ? 'test-key' : '')),
+      ),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
@@ -93,7 +101,7 @@ void main() {
     expect(find.text('competition-marker'), findsOneWidget);
   });
 
-  testWidgets('mentor prompt still routes to mentor recommendation', (
+  testWidgets('mentor prompt routes to conversational chat with q param', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -104,7 +112,28 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    expect(find.text('mentor-marker'), findsOneWidget);
+    expect(find.textContaining('chat-marker:'), findsOneWidget);
+    expect(find.textContaining('医学影像'), findsOneWidget);
+  });
+
+  testWidgets('mentor prompt without LLM key stays home and shows error', (
+    tester,
+  ) async {
+    await tester.pumpWidget(await _wrap(configured: false));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomePage)),
+    );
+    expect(container.read(appConfigProvider).llm.isConfigured, isFalse);
+
+    await tester.enterText(find.byType(TextField), '我想找医学影像方向的导师');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.textContaining('未配置 LLM_API_KEY'), findsOneWidget);
+    expect(find.textContaining('chat-marker:'), findsNothing);
   });
 
   testWidgets('competition quick tag routes to competition recommendation', (
@@ -149,10 +178,7 @@ void main() {
     await tester.tap(find.text('竞赛'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('推荐近期可报名的人工智能竞赛。'),
-      findsOneWidget,
-    );
+    expect(find.text('推荐近期可报名的人工智能竞赛。'), findsOneWidget);
     expect(find.text('人工智能竞赛'), findsOneWidget);
   });
 
