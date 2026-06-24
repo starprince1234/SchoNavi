@@ -3,21 +3,60 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/app.dart';
+import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/shared/utils/recommendation_intent_router.dart';
+import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
 
 class _FakeIntentClassifier implements RecommendationIntentClassifier {
   @override
   Future<RecommendationIntent> classify(String prompt) async {
     return RecommendationIntent.mentor;
   }
+}
+
+/// 假对话仓储：推荐上下文注入为空实现。
+class _FakeChatRepo implements ChatRepository {
+  @override
+  Future<Result<ChatResult>> sendMessage({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) async => throw UnimplementedError();
+
+  @override
+  void seedRecommendationTurn({
+    required String sessionId,
+    required String userPrompt,
+    required RecommendationResult result,
+  }) {}
+
+  @override
+  Stream<String> streamReply({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) async* {
+    yield '可以左右滑动查看推荐的导师。';
+  }
+}
+
+class _FakeNeedClassifier implements RecommendationNeedClassifier {
+  const _FakeNeedClassifier();
+  @override
+  Future<bool> needRecommendations(
+    String followUp, {
+    RecommendationResult? lastResult,
+  }) async => false;
 }
 
 class _FakeRecommendationRepository implements RecommendationRepository {
@@ -58,21 +97,26 @@ class _FakeRecommendationRepository implements RecommendationRepository {
 }
 
 Future<ProviderScope> _wrap() async {
-  SharedPreferences.setMockInitialValues(
-    <String, Object>{
-      'seenOnboarding': true,
-      'profile_prompt_dismissed': true,
-    },
-  );
+  SharedPreferences.setMockInitialValues(<String, Object>{
+    'seenOnboarding': true,
+    'profile_prompt_dismissed': true,
+  });
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(llm: LlmConfig(apiKey: 'test-key')),
+      ),
       recommendationIntentClassifierProvider.overrideWithValue(
         _FakeIntentClassifier(),
       ),
       recommendationRepositoryProvider.overrideWithValue(
         _FakeRecommendationRepository(),
+      ),
+      chatRepositoryProvider.overrideWithValue(_FakeChatRepo()),
+      recommendationNeedClassifierProvider.overrideWithValue(
+        const _FakeNeedClassifier(),
       ),
     ],
     child: const SchoNaviApp(),
@@ -80,7 +124,7 @@ Future<ProviderScope> _wrap() async {
 }
 
 void main() {
-  testWidgets('input -> recommend -> favorite -> detail -> favorites/history', (
+  testWidgets('input -> 对话式推荐 -> favorite -> detail -> favorites/history', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -91,8 +135,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    expect(find.text('推荐结果'), findsOneWidget);
-    expect(find.byType(Card), findsWidgets);
+    // 对话式：进入对话页，助手气泡下出现横滑推荐卡片。
+    expect(find.text('继续追问'), findsWidgets);
+    expect(find.text('张三'), findsOneWidget);
 
     await tester.tap(find.byTooltip('收藏导师').first);
     await tester.pumpAndSettle();
