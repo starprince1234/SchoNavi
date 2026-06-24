@@ -79,8 +79,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => sharedAxisPage(
           state: state,
           child: ChatPage(
-            sessionId: state.uri.queryParameters['sid'] ?? '',
+            sessionId: state.uri.queryParameters['sid'],
             professorId: state.uri.queryParameters['pid'],
+            initialPrompt: state.uri.queryParameters['q'],
           ),
         ),
       ),

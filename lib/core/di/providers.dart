@@ -10,6 +10,7 @@ import '../../data/ai/ai_outreach_email_repository.dart';
 import '../../data/ai/ai_profile_extraction_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/llm_recommendation_intent_classifier.dart';
+import '../../data/ai/llm_recommendation_need_classifier.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
 import '../../data/http/http_chat_repository.dart';
@@ -46,6 +47,7 @@ import '../../domain/repositories/profile_repository.dart';
 import '../../domain/repositories/profile_extraction_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../../shared/utils/recommendation_intent_router.dart';
+import '../../shared/utils/recommendation_need_classifier.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
 import '../ai/llm_trace.dart';
@@ -95,14 +97,27 @@ final professorCandidateSourceProvider = Provider<ProfessorCandidateSource>(
   (ref) => MockDbCandidateSource(ref.watch(mockDbProvider)),
 );
 
-final competitionCandidateSourceProvider =
-    Provider<CompetitionCandidateSource>((ref) {
-      return const StaticCompetitionCandidateSource();
-    });
+final competitionCandidateSourceProvider = Provider<CompetitionCandidateSource>(
+  (ref) {
+    return const StaticCompetitionCandidateSource();
+  },
+);
 
 final recommendationIntentClassifierProvider =
     Provider<RecommendationIntentClassifier>((ref) {
       return LlmRecommendationIntentClassifier(ref.watch(llmClientProvider));
+    });
+
+/// 对话式推荐：用 LLM 判定追问是否需要新一轮推荐（产卡）。
+/// 失败降级为 false（不阻断对话）。见 spec §4.5。
+final recommendationNeedClassifierProvider =
+    Provider<RecommendationNeedClassifier>((ref) {
+      return switch (ref.watch(appConfigProvider).dataSource) {
+        DataSource.llm => LlmRecommendationNeedClassifier(
+          ref.watch(llmClientProvider),
+        ),
+        DataSource.http => const ConservativeRecommendationNeedClassifier(),
+      };
     });
 
 final recommendationRepositoryProvider = Provider<RecommendationRepository>((
@@ -129,7 +144,9 @@ final competitionRecommendationRepositoryProvider =
             candidates: ref.watch(competitionCandidateSourceProvider),
           );
         case DataSource.http:
-          return HttpCompetitionRecommendationRepository(ref.watch(dioProvider));
+          return HttpCompetitionRecommendationRepository(
+            ref.watch(dioProvider),
+          );
       }
     });
 
