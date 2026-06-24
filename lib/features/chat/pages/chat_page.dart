@@ -2,18 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/di/providers.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
+import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/recommendation.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/chat_message_bubble.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
-  const ChatPage({super.key, required this.sessionId, this.professorId});
+  const ChatPage({
+    super.key,
+    this.sessionId,
+    this.professorId,
+    this.initialPrompt,
+  });
 
-  final String sessionId;
+  /// 旧入口（从推荐页 FAB / 详情页「继续追问」）：携带已有会话 id 进纯追问。
+  final String? sessionId;
   final String? professorId;
+
+  /// 新入口（首页提交）：把提问作为首条用户消息，触发首轮推荐产卡。
+  /// 非空时走对话式推荐首轮，隐藏欢迎卡。
+  final String? initialPrompt;
 
   @override
   ConsumerState<ChatPage> createState() => _ChatPageState();
@@ -29,16 +45,32 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late final _provider = chatProvider(Object());
   int _messageCount = 0;
+
+  bool get _configurationBlocked {
+    final config = ref.read(appConfigProvider);
+    return config.dataSource == DataSource.llm && !config.llm.isConfigured;
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref
-          .read(chatProvider.notifier)
-          .start(sessionId: widget.sessionId, professorId: widget.professorId);
+      if (_configurationBlocked) return;
+      final notifier = ref.read(_provider.notifier);
+      final sessionId = widget.sessionId?.trim();
+      notifier.start(
+        sessionId: sessionId == null || sessionId.isEmpty
+            ? _newSessionId()
+            : sessionId,
+        professorId: widget.professorId,
+      );
+      if (widget.initialPrompt != null &&
+          widget.initialPrompt!.trim().isNotEmpty) {
+        notifier.bootstrapRecommendations(widget.initialPrompt!);
+      }
     });
   }
 
@@ -53,12 +85,33 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final value = text.trim();
     if (value.isEmpty) return;
     _controller.clear();
-    ref.read(chatProvider.notifier).send(value);
+    ref.read(_provider.notifier).send(value);
+  }
+
+  Future<void> _openHomepage(Recommendation recommendation) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await ref
+        .read(linkLauncherProvider)
+        .open(recommendation.homepageUrl);
+    switch (result) {
+      case LaunchResult.success:
+        return;
+      case LaunchResult.noUrl:
+        messenger.showSnackBar(const SnackBar(content: Text('暂无主页信息')));
+      case LaunchResult.failed:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('主页可能已失效，可通过学校官网确认')),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(chatProvider);
+    final config = ref.watch(appConfigProvider);
+    final blocked =
+        config.dataSource == DataSource.llm && !config.llm.isConfigured;
+    final state = ref.watch(_provider);
+    final showWelcome = widget.initialPrompt == null;
     if (state.messages.length != _messageCount) {
       _messageCount = state.messages.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,61 +134,82 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         actions: [
           IconButton(
             tooltip: '重新生成',
-            onPressed: state.isResponding
-                ? null
-                : () => ref.read(chatProvider.notifier).regenerate(),
+            onPressed: state.canRegenerate
+                ? () => ref.read(_provider.notifier).regenerate()
+                : null,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                itemCount: state.messages.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return const AnimatedEntrance(
-                      index: 0,
-                      slideOffset: Offset(0, 12),
-                      duration: Duration(milliseconds: 300),
-                      child: _WelcomeCard(),
-                    );
-                  }
-                  final messageIndex = index - 1;
-                  return AnimatedEntrance(
-                    index: index,
-                    slideOffset: const Offset(0, 12),
-                    duration: const Duration(milliseconds: 300),
-                    child: ChatMessageBubble(
-                      message: state.messages[messageIndex],
-                      onTapRecommendation: (id) => context.push('/professor/$id'),
-                      onRegenerate: (id) => ref.read(chatProvider.notifier).regenerateMessage(id),
-                      onFeedback: (id, feedback) => ref.read(chatProvider.notifier).setFeedback(id, feedback),
+      body: blocked
+          ? ErrorView(message: const MissingLlmConfigurationException().message)
+          : SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      itemCount: state.messages.length + (showWelcome ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (showWelcome && index == 0) {
+                          return const AnimatedEntrance(
+                            index: 0,
+                            slideOffset: Offset(0, 12),
+                            duration: Duration(milliseconds: 300),
+                            child: _WelcomeCard(),
+                          );
+                        }
+                        final messageIndex = showWelcome ? index - 1 : index;
+                        return AnimatedEntrance(
+                          index: index,
+                          slideOffset: const Offset(0, 12),
+                          duration: const Duration(milliseconds: 300),
+                          child: ChatMessageBubble(
+                            key: ValueKey(state.messages[messageIndex].id),
+                            message: state.messages[messageIndex],
+                            onTapRecommendation: (id) =>
+                                context.push('/professor/$id'),
+                            onOpenHomepage: _openHomepage,
+                            onRetryRecommendation: (id) => ref
+                                .read(_provider.notifier)
+                                .retryRecommendation(id),
+                            onRegenerate: (id) => ref
+                                .read(_provider.notifier)
+                                .regenerateMessage(id),
+                            onFeedback: (id, feedback) => ref
+                                .read(_provider.notifier)
+                                .setFeedback(id, feedback),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                  _QuickQuestions(
+                    questions: state.followUpQuestions.isEmpty
+                        ? _quickQuestions
+                        : state.followUpQuestions,
+                    enabled: !state.isBusy,
+                    onTap: _send,
+                  ),
+                  _InputBar(
+                    controller: _controller,
+                    isBusy: state.isBusy,
+                    canStop: state.activity == ChatActivity.streaming,
+                    onSubmit: _send,
+                    onStop: () => ref.read(_provider.notifier).stop(),
+                  ),
+                ],
               ),
             ),
-            _QuickQuestions(
-              questions: _quickQuestions,
-              enabled: !state.isResponding,
-              onTap: _send,
-            ),
-            _InputBar(
-              controller: _controller,
-              isResponding: state.isResponding,
-              onSubmit: _send,
-              onStop: () => ref.read(chatProvider.notifier).stop(),
-            ),
-          ],
-        ),
-      ),
     );
   }
+
+  String _newSessionId() =>
+      's_chat_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}';
 }
 
 class _WelcomeCard extends StatelessWidget {
@@ -155,7 +229,11 @@ class _WelcomeCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.chat_bubble_outline, color: AppColors.coral, size: 20),
+              const Icon(
+                Icons.chat_bubble_outline,
+                color: AppColors.coral,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Text('有什么想追问的？', style: textTheme.titleMedium),
             ],
@@ -220,10 +298,7 @@ class _QuickQuestions extends StatelessWidget {
                       size: 16,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      question,
-                      style: textTheme.labelSmall,
-                    ),
+                    Text(question, style: textTheme.labelSmall),
                   ],
                 ),
               ),
@@ -238,13 +313,15 @@ class _QuickQuestions extends StatelessWidget {
 class _InputBar extends StatefulWidget {
   const _InputBar({
     required this.controller,
-    required this.isResponding,
+    required this.isBusy,
+    required this.canStop,
     required this.onSubmit,
     required this.onStop,
   });
 
   final TextEditingController controller;
-  final bool isResponding;
+  final bool isBusy;
+  final bool canStop;
   final void Function(String) onSubmit;
   final VoidCallback onStop;
 
@@ -307,11 +384,11 @@ class _InputBarState extends State<_InputBar> {
                 child: TextField(
                   controller: widget.controller,
                   focusNode: _focusNode,
-                  enabled: !widget.isResponding,
+                  enabled: !widget.isBusy,
                   minLines: 1,
                   maxLines: 4,
                   textInputAction: TextInputAction.send,
-                  onSubmitted: widget.isResponding ? null : widget.onSubmit,
+                  onSubmitted: widget.isBusy ? null : widget.onSubmit,
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     filled: false,
@@ -325,7 +402,7 @@ class _InputBarState extends State<_InputBar> {
               ),
               Padding(
                 padding: const EdgeInsets.all(8),
-                child: widget.isResponding
+                child: widget.canStop
                     ? Tooltip(
                         message: '停止生成',
                         child: Material(
@@ -346,10 +423,21 @@ class _InputBarState extends State<_InputBar> {
                           ),
                         ),
                       )
+                    : widget.isBusy
+                    ? const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
                     : Tooltip(
                         message: '发送',
                         child: Material(
-                          color: _canSubmit ? AppColors.coral : scheme.surfaceContainer,
+                          color: _canSubmit
+                              ? AppColors.coral
+                              : scheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
@@ -364,7 +452,9 @@ class _InputBarState extends State<_InputBar> {
                               height: 40,
                               child: Icon(
                                 Icons.arrow_upward,
-                                color: _canSubmit ? Colors.white : AppColors.inkSoft,
+                                color: _canSubmit
+                                    ? Colors.white
+                                    : AppColors.inkSoft,
                                 size: 20,
                               ),
                             ),

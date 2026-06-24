@@ -7,22 +7,28 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/chat_message.dart';
-import '../../../shared/widgets/professor_card.dart';
+import '../../../domain/entities/recommendation.dart';
+import 'recommendation_carousel.dart';
 
-/// 单条对话气泡：用户右侧纯文本；助手左侧 Markdown；助手可嵌入推荐卡片。
+/// 单条对话气泡：用户右侧纯文本；助手左侧 Markdown；助手可嵌入横向滑动推荐卡片。
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
     super.key,
     required this.message,
     required this.onTapRecommendation,
+    this.onOpenHomepage,
+    this.onRetryRecommendation,
     this.onRegenerate,
     this.onFeedback,
   });
 
   final ChatMessage message;
   final void Function(String professorId) onTapRecommendation;
+  final void Function(Recommendation recommendation)? onOpenHomepage;
+  final void Function(String messageId)? onRetryRecommendation;
   final void Function(String messageId)? onRegenerate;
-  final void Function(String messageId, ChatMessageFeedback feedback)? onFeedback;
+  final void Function(String messageId, ChatMessageFeedback feedback)?
+  onFeedback;
 
   @override
   Widget build(BuildContext context) {
@@ -86,8 +92,9 @@ class ChatMessageBubble extends StatelessWidget {
             ],
           )
         : body;
-    final Widget selectableContent =
-        isUser ? content : SelectionArea(child: content);
+    final Widget selectableContent = isUser
+        ? content
+        : SelectionArea(child: content);
 
     return Column(
       crossAxisAlignment: isUser
@@ -104,10 +111,26 @@ class ChatMessageBubble extends StatelessWidget {
           ),
           child: selectableContent,
         ),
-        for (final recommendation in message.relatedRecommendations)
-          ProfessorCard(
-            recommendation: recommendation,
-            onTap: () => onTapRecommendation(recommendation.professorId),
+        if (message.relatedRecommendations.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: RecommendationCarousel(
+              key: ValueKey('recommendations-${message.id}'),
+              recommendations: message.relatedRecommendations,
+              onTap: onTapRecommendation,
+              onOpenHomepage: onOpenHomepage,
+            ),
+          ),
+        if (message.kind == ChatMessageKind.recommendation &&
+            message.status == ChatMessageStatus.error &&
+            onRetryRecommendation != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 2, bottom: 6),
+            child: FilledButton.icon(
+              onPressed: () => onRetryRecommendation!(message.id),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('重试推荐'),
+            ),
           ),
         if (_showActions)
           _MessageActions(
@@ -121,6 +144,7 @@ class ChatMessageBubble extends StatelessWidget {
 
   bool get _showActions =>
       message.role == ChatRole.assistant &&
+      message.kind == ChatMessageKind.conversation &&
       message.status == ChatMessageStatus.done &&
       (onRegenerate != null || onFeedback != null);
 }
@@ -134,7 +158,8 @@ class _MessageActions extends StatelessWidget {
 
   final ChatMessage message;
   final void Function(String messageId)? onRegenerate;
-  final void Function(String messageId, ChatMessageFeedback feedback)? onFeedback;
+  final void Function(String messageId, ChatMessageFeedback feedback)?
+  onFeedback;
 
   @override
   Widget build(BuildContext context) {
@@ -153,15 +178,15 @@ class _MessageActions extends StatelessWidget {
               try {
                 await Clipboard.setData(ClipboardData(text: message.content));
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('已复制')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('已复制')));
                 }
               } catch (_) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('复制失败')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('复制失败')));
                 }
               }
             },
@@ -184,11 +209,11 @@ class _MessageActions extends StatelessWidget {
             onPressed: onFeedback == null
                 ? null
                 : () => onFeedback!(
-                      message.id,
-                      message.feedback == ChatMessageFeedback.like
-                          ? ChatMessageFeedback.none
-                          : ChatMessageFeedback.like,
-                    ),
+                    message.id,
+                    message.feedback == ChatMessageFeedback.like
+                        ? ChatMessageFeedback.none
+                        : ChatMessageFeedback.like,
+                  ),
           ),
           _ActionButton(
             tooltip: '没用',
@@ -201,11 +226,11 @@ class _MessageActions extends StatelessWidget {
             onPressed: onFeedback == null
                 ? null
                 : () => onFeedback!(
-                      message.id,
-                      message.feedback == ChatMessageFeedback.dislike
-                          ? ChatMessageFeedback.none
-                          : ChatMessageFeedback.dislike,
-                    ),
+                    message.id,
+                    message.feedback == ChatMessageFeedback.dislike
+                        ? ChatMessageFeedback.none
+                        : ChatMessageFeedback.dislike,
+                  ),
           ),
         ],
       ),
