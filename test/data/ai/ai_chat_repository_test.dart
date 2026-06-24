@@ -7,6 +7,10 @@ import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
+import 'package:scho_navi/domain/entities/match_level.dart';
+import 'package:scho_navi/domain/entities/query_understanding.dart';
+import 'package:scho_navi/domain/entities/recommendation.dart';
+import 'package:scho_navi/domain/entities/recommendation_result.dart';
 
 class _RecordingLlm implements LlmClient {
   _RecordingLlm(this.reply);
@@ -136,11 +140,15 @@ void main() {
   group('streamReply', () {
     test('passes through deltas', () async {
       final repo = AiChatRepository(
-        llm: _QueueLlm([Stream.fromIterable(const ['你', '好'])]),
+        llm: _QueueLlm([
+          Stream.fromIterable(const ['你', '好']),
+        ]),
         db: MockDb(),
       );
 
-      final out = await repo.streamReply(sessionId: 's1', message: '在吗').toList();
+      final out = await repo
+          .streamReply(sessionId: 's1', message: '在吗')
+          .toList();
 
       expect(out, ['你', '好']);
     });
@@ -160,7 +168,9 @@ void main() {
     });
 
     test('professorId injects professor context into system prompt', () async {
-      final llm = _QueueLlm([Stream.fromIterable(const ['ok'])]);
+      final llm = _QueueLlm([
+        Stream.fromIterable(const ['ok']),
+      ]);
       final repo = AiChatRepository(llm: llm, db: MockDb());
 
       await repo
@@ -172,21 +182,24 @@ void main() {
       expect(system.content, contains('张三'));
     });
 
-    test('stream error passes through and partial answer is discarded', () async {
-      final llm = _QueueLlm([
-        Stream<String>.error(const ServerException()),
-        Stream.fromIterable(const ['好的']),
-      ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+    test(
+      'stream error passes through and partial answer is discarded',
+      () async {
+        final llm = _QueueLlm([
+          Stream<String>.error(const ServerException()),
+          Stream.fromIterable(const ['好的']),
+        ]);
+        final repo = AiChatRepository(llm: llm, db: MockDb());
 
-      await expectLater(
-        repo.streamReply(sessionId: 's1', message: '问题一'),
-        emitsError(isA<ServerException>()),
-      );
-      await repo.streamReply(sessionId: 's1', message: '问题二').toList();
+        await expectLater(
+          repo.streamReply(sessionId: 's1', message: '问题一'),
+          emitsError(isA<ServerException>()),
+        );
+        await repo.streamReply(sessionId: 's1', message: '问题二').toList();
 
-      expect(llm.calls.last.where((m) => m.role == 'assistant'), isEmpty);
-    });
+        expect(llm.calls.last.where((m) => m.role == 'assistant'), isEmpty);
+      },
+    );
 
     test('cancel keeps visible partial answer in history', () async {
       final controller = StreamController<String>();
@@ -198,7 +211,9 @@ void main() {
       final repo = AiChatRepository(llm: llm, db: MockDb());
 
       final got = <String>[];
-      final sub = repo.streamReply(sessionId: 's1', message: '问题一').listen(got.add);
+      final sub = repo
+          .streamReply(sessionId: 's1', message: '问题一')
+          .listen(got.add);
       controller.add('部分');
       controller.add('答案');
       await Future<void>.delayed(Duration.zero);
@@ -208,6 +223,78 @@ void main() {
       final contents = llm.calls.last.map((m) => m.content).toList();
       expect(got, ['部分', '答案']);
       expect(contents, containsAllInOrder(['问题一', '部分答案', '问题二']));
+    });
+  });
+
+  group('seedRecommendationTurn', () {
+    RecommendationResult resultWithRec() => RecommendationResult(
+      sessionId: 's1',
+      queryUnderstanding: const QueryUnderstanding(
+        researchInterests: ['计算机视觉'],
+        preferredLocations: ['北京'],
+        preferredUniversities: [],
+        degreeStage: null,
+        uncertainties: [],
+      ),
+      recommendations: const [
+        Recommendation(
+          professorId: 'p_001',
+          name: '张三',
+          university: '清华大学',
+          college: '计算机学院',
+          title: '教授',
+          researchFields: ['计算机视觉'],
+          matchLevel: MatchLevel.high,
+          reason: '方向高度契合',
+          limitations: [],
+        ),
+      ],
+      followUpQuestions: const [],
+    );
+
+    test('注入后后续 streamReply 的 LLM 调用能看到推荐摘要', () async {
+      final llm = _QueueLlm([
+        Stream.fromIterable(const ['好的']),
+      ]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      repo.seedRecommendationTurn(
+        sessionId: 's1',
+        userPrompt: '想做计算机视觉',
+        result: resultWithRec(),
+      );
+      await repo.streamReply(sessionId: 's1', message: '第一位的研究方向').toList();
+
+      final messages = llm.calls.last;
+      final contents = messages.map((m) => m.content).toList();
+      expect(contents, anyElement(contains('张三')));
+      expect(contents, anyElement(contains('计算机视觉')));
+      expect(
+        messages
+            .where((message) => message.role != 'system')
+            .map((message) => '${message.role}:${message.content}')
+            .toList(),
+        containsAllInOrder([
+          'user:想做计算机视觉',
+          contains('assistant:【上一轮已为用户推荐以下导师】'),
+          'user:第一位的研究方向',
+        ]),
+      );
+    });
+
+    test('未注入推荐轮时上下文不含推荐摘要（回归保护）', () async {
+      final llm = _QueueLlm([
+        Stream.fromIterable(const ['好的']),
+      ]);
+      final repo = AiChatRepository(llm: llm, db: MockDb());
+
+      await repo.streamReply(sessionId: 's1', message: '在吗').toList();
+
+      final assistantContents = llm.calls.last
+          .where((m) => m.role == 'assistant')
+          .map((m) => m.content)
+          .toList();
+      expect(assistantContents, isEmpty);
     });
   });
 }

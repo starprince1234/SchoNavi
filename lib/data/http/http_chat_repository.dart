@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import '../../core/error/app_exception.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_result.dart';
+import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../dto/api_envelope.dart';
 import '../dto/chat_dto.dart';
@@ -32,6 +33,15 @@ class HttpChatRepository implements ChatRepository {
       ),
       (data) => ChatMessageResponseDto.fromJson(asJsonObject(data)).toEntity(),
     );
+  }
+
+  @override
+  void seedRecommendationTurn({
+    required String sessionId,
+    required String userPrompt,
+    required RecommendationResult result,
+  }) {
+    // HTTP 透传后端：上下文由后端会话维护，客户端无需本地注入。
   }
 
   @override

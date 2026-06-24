@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_result.dart';
 import '../../domain/entities/recommendation.dart';
+import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
 import 'mock_db.dart';
 
@@ -66,6 +67,15 @@ class MockChatRepository implements ChatRepository {
     '具身智能',
     'SLAM',
   ];
+
+  @override
+  void seedRecommendationTurn({
+    required String sessionId,
+    required String userPrompt,
+    required RecommendationResult result,
+  }) {
+    // Mock 按消息关键词即时产卡，无需跨轮上下文注入；空实现满足接口契约。
+  }
 
   @override
   Future<Result<ChatResult>> sendMessage({

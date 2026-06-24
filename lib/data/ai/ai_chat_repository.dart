@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../core/ai/llm_client.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_result.dart';
+import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../mock/mock_db.dart';
 
@@ -123,7 +124,35 @@ class AiChatRepository implements ChatRepository {
     );
 
     return controller.stream;
-      }
+  }
+
+  @override
+  void seedRecommendationTurn({
+    required String sessionId,
+    required String userPrompt,
+    required RecommendationResult result,
+  }) {
+    final history = _history.putIfAbsent(sessionId, () => []);
+    history.add(LlmMessage('user', userPrompt));
+    history.add(LlmMessage('assistant', _summarizeRecommendations(result)));
+  }
+
+  String _summarizeRecommendations(RecommendationResult result) {
+    final recs = result.recommendations;
+    if (recs.isEmpty) return '【上一轮推荐】本轮未匹配到符合条件的导师。';
+    final lines = <String>['【上一轮已为用户推荐以下导师】'];
+    for (final r in recs.take(5)) {
+      lines.add(
+        '- ${r.name}（${r.university} ${r.college}，'
+        '职称：${r.title}，'
+        '研究方向：${r.researchFields.join('、')}，'
+        '匹配度：${r.matchLevel.name}）'
+        '推荐理由：${r.reason}',
+      );
+    }
+    lines.add('后续追问可基于以上导师作答；用户若要新推荐会另行触发。');
+    return lines.join('\n');
+  }
 
   String _systemPrompt(String? professorId) {
     const base = '''

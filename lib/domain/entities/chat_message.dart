@@ -6,6 +6,12 @@ enum ChatRole { user, assistant }
 /// 消息状态。streaming = 正在逐字接收；sending 保留为等待首个增量的思考态。
 enum ChatMessageStatus { sending, streaming, done, error }
 
+/// 助手消息所属的业务轮次。
+///
+/// 推荐轮由结构化推荐接口直接产出，不支持“重新生成文字”；普通聊天轮才允许
+/// 重新生成。
+enum ChatMessageKind { conversation, recommendation }
+
 /// 用户对助手消息的单条反馈。
 enum ChatMessageFeedback { none, like, dislike }
 
@@ -18,6 +24,7 @@ class ChatMessage {
     required this.createdAt,
     required this.relatedRecommendations,
     required this.status,
+    this.kind = ChatMessageKind.conversation,
     this.feedback = ChatMessageFeedback.none,
   });
 
@@ -27,6 +34,7 @@ class ChatMessage {
   final DateTime createdAt;
   final List<Recommendation> relatedRecommendations;
   final ChatMessageStatus status;
+  final ChatMessageKind kind;
   final ChatMessageFeedback feedback;
 
   ChatMessage copyWith({
@@ -36,15 +44,17 @@ class ChatMessage {
     DateTime? createdAt,
     List<Recommendation>? relatedRecommendations,
     ChatMessageStatus? status,
+    ChatMessageKind? kind,
     ChatMessageFeedback? feedback,
-  }) =>
-      ChatMessage(
-        id: id ?? this.id,
-        role: role ?? this.role,
-        content: content ?? this.content,
-        createdAt: createdAt ?? this.createdAt,
-        relatedRecommendations: relatedRecommendations ?? this.relatedRecommendations,
-        status: status ?? this.status,
-        feedback: feedback ?? this.feedback,
-      );
+  }) => ChatMessage(
+    id: id ?? this.id,
+    role: role ?? this.role,
+    content: content ?? this.content,
+    createdAt: createdAt ?? this.createdAt,
+    relatedRecommendations:
+        relatedRecommendations ?? this.relatedRecommendations,
+    status: status ?? this.status,
+    kind: kind ?? this.kind,
+    feedback: feedback ?? this.feedback,
+  );
 }
