@@ -1,65 +1,91 @@
-# 对话思考动画（大脑脉动）Implementation Plan
+# 对话思考动画（reasoning.svg + 渐变滑光）Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Rev2（2026-06-27）：** 视觉方案返工。Rev1 的「大脑脉动」(CustomPaint 手绘) 已实现但观感不佳，改为 `flutter_svg` 渲染 `assets/icons/reasoning.svg` + `ShaderMask` 渐变填充 + `_SweepPainter` 滑光扫过，**不脉动**。Task 1 完全重写；Task 2/3/4 的接入逻辑不变（`const ThinkingIndicator()` 公共 API 保留），但需重跑回归。
 
-**Goal:** 给「等后台」时刻统一一个 CustomPaint 手绘大脑脉动动画，覆盖推荐流程（新增）与流式追问首个 token 前（替换旧转圈）。
+**Goal:** 给「等后台」时刻统一一个 reasoning 原子图动画（svg 渲染 + 渐变 + 滑光），覆盖推荐流程（新增）与流式追问首个 token 前（替换旧转圈）。
 
-**Architecture:** 新建独立纯展示组件 `ThinkingIndicator`（`CustomPaint` 大脑 + `AnimatedBuilder` 呼吸），在 `ChatMessageBubble` 思考分支替换旧 `CircularProgressIndicator`；在 `ChatNotifier` 的 `send` / `bootstrapRecommendations` / `retryRecommendation` 推荐路径追加一条 `sending` 占位助手消息，`_requestRecommendations` 成功/失败按 id 替换占位（不新增状态枚举，沿用 `_isCurrent(token)` 竞态防护）。
+**Architecture:** 新建独立纯展示组件 `ThinkingIndicator`（`SvgPicture.asset` 渲染 `reasoning.svg`，外层 `ShaderMask` 注入 indigo→cyan 渐变，叠 `_SweepPainter` 画 SweepGradient 滑光扫过，`AnimatedBuilder` 驱动滑光旋转），在 `ChatMessageBubble` 思考分支替换旧 `CircularProgressIndicator`；在 `ChatNotifier` 的 `send` / `bootstrapRecommendations` / `retryRecommendation` 推荐路径追加一条 `sending` 占位助手消息，`_requestRecommendations` 成功/失败按 id 替换占位（不新增状态枚举，沿用 `_isCurrent(token)` 竞态防护）。
 
-**Tech Stack:** Flutter 3.x、Riverpod 3.2.1、`flutter_test`、项目既有 `AppColors`（indigo→cyan `brandGradient`）、CustomPaint（无 flutter_svg 依赖）。
+**Tech Stack:** Flutter 3.x、Riverpod 3.2.1、`flutter_svg`（**新引入**）、`flutter_test`、项目既有 `AppColors`（indigo→cyan `brandGradient`）。
 
 ## Global Constraints
 
-- **不引入 flutter_svg**：矢量图用 `CustomPaint` 手绘，与 [scho_navi_logo.dart](../../lib/shared/widgets/scho_navi_logo.dart)、[radar_chart.dart](../../lib/shared/widgets/radar_chart.dart) 一致。
-- **品牌色**：大脑填充用 `AppColors.brandGradient`（indigo `0xFF4F46E5` → cyan `0xFF0891B2`），暗纹用 `Colors.white @ 35% alpha`，高光 `Colors.white @ 18% alpha`。
+- **引入 flutter_svg**（Rev2 反转 Rev1）：用 `SvgPicture.asset` 渲染 `assets/icons/reasoning.svg`，不再手绘大脑。需在 `pubspec.yaml` 加依赖并在 `assets:` 段声明 `assets/icons/`。
+- **品牌色**：`ShaderMask` 用 `AppColors.brandGradient`（indigo `0xFF4F46E5` → cyan `0xFF0891B2`，横向）+ `BlendMode.srcIn` 染色。滑光用 `Colors.white @ 35% alpha`。
+- **动画**：`AnimationController` duration `2000ms`，`repeat()`（**不 reverse**），curve `Curves.linear`。只驱动 `_SweepPainter.progress`（0→2π）。**无 scale、无 opacity 动画（不脉动）**。
 - **文案单一**：所有思考态统一显示「正在思考…」，不改文案。
 - **不新增状态枚举**：复用 `ChatMessageStatus.sending`，占位消息 `kind = ChatMessageKind.recommendation`。
 - **替换语义**：`_requestRecommendations` 成功/失败均按 `placeholderId` 替换占位消息，不追加新条目。
 - **竞态防护**：沿用现有 `_isCurrent(token)` 机制，占位消息受同样保护，不新增防护。
-- **全量回归**：`flutter test` 必须全绿（当前 397+ 测试）。
-- **测试约定**：Widget 测试用 `MaterialApp(home: Scaffold(body: ...))`；涉及 Riverpod 用 `ProviderContainer` + `container.listen` + `container.pump()`；动画 `repeat` 测试不可用 `pumpAndSettle`，用 `pump(Duration)`。
+- **全量回归**：`flutter test` 必须全绿（当前 484 测试，Rev1 后基线）。
+- **测试约定**：Widget 测试用 `MaterialApp(home: Scaffold(body: ...))`；涉及 Riverpod 用 `ProviderContainer` + `container.listen` + `container.pump()`；动画 `repeat` 测试不可用 `pumpAndSettle`，用 `pump(Duration)`。`flutter_svg` 在 widget 测试中可直接读 asset，无需 mock（asset 已声明）。
 
 ---
 
 ## File Structure
 
-- **Create** `lib/shared/widgets/thinking_indicator.dart` — 独立纯展示组件。`ThinkingIndicator`（StatefulWidget，`SingleTickerProviderStateMixin`）+ 私有 `_BrainPainter`（CustomPainter）。职责：显示大脑脉动 + 「正在思考…」文案。依赖：`AppColors`。
-- **Create** `test/shared/widgets/thinking_indicator_test.dart` — `ThinkingIndicator` 的 widget 测试。
-- **Modify** `lib/features/chat/widgets/chat_message_bubble.dart:35-58` — 思考分支 `CircularProgressIndicator` 替换为 `ThinkingIndicator`。
-- **Modify** `test/features/chat/chat_message_bubble_test.dart:129-141, 190-202` — 两处 `CircularProgressIndicator` 断言改为 `ThinkingIndicator`。
-- **Modify** `lib/features/chat/providers/chat_provider.dart` — `_requestRecommendations` / `_appendRecommendationError` 加 `placeholderId` 参数并改为替换；`send` / `bootstrapRecommendations` / `retryRecommendation` 三处追加占位。
-- **Modify** `test/features/chat/chat_bootstrap_test.dart` — 新增/调整推荐占位与替换断言。
-- **Modify** `test/features/chat/chat_provider_test.dart` — 调整可能受 in-flight 占位影响的断言（若有）。
+- **Modify** `pubspec.yaml` — 加 `flutter_svg` 依赖（`flutter pub add flutter_svg`），在 `assets:` 段加 `- assets/icons/`。
+- **Modify** `lib/shared/widgets/thinking_indicator.dart` — **重写**（Rev1 的 `_BrainPainter` 删除）：`SvgPicture.asset` + `ShaderMask` 渐变 + `_SweepPainter` 滑光 + 文案。公共 API `const ThinkingIndicator({super.key})` 保留不变。
+- **Modify** `test/shared/widgets/thinking_indicator_test.dart` — 断言 `find.byType(SvgPicture)` 替换 `find.byType(CustomPaint)`（保留 CustomPaint 因为 `_SweepPainter` 仍是 CustomPaint；改为断言 `SvgPicture` 存在 + `CircularProgressIndicator` 不存在）。
+- **Modify** `lib/features/chat/widgets/chat_message_bubble.dart` — 无需改动（Rev1 已接入 `const ThinkingIndicator()`，API 不变）。仅回归验证。
+- **Modify** `test/features/chat/chat_message_bubble_test.dart` — 无需改动（断言已是 `ThinkingIndicator`）。仅回归验证。
+- **Modify** `lib/features/chat/providers/chat_provider.dart` — 无需改动（Rev1 已实现占位替换）。仅回归验证。
+- **Modify** `test/features/chat/chat_bootstrap_test.dart` — 无需改动。仅回归验证。
+
+> **注意**：Rev2 只改 `ThinkingIndicator` 内部实现 + pubspec/assets。Tasks 2/3 的代码不动，但必须重跑全量回归确认 svg/依赖切换未破坏 ChatMessageBubble 渲染（svg asset 在测试环境能加载）。
 
 ---
 
-## Task 1: ThinkingIndicator 组件 + 测试（TDD）
+## Task 1: ThinkingIndicator 重写为 svg + 渐变 + 滑光（TDD，Rev2）
 
 **Files:**
-- Create: `lib/shared/widgets/thinking_indicator.dart`
-- Test: `test/shared/widgets/thinking_indicator_test.dart`
+- Modify: `pubspec.yaml`（加 `flutter_svg` 依赖 + `assets/icons/` 声明）
+- Modify: `lib/shared/widgets/thinking_indicator.dart`（重写，删除 `_BrainPainter`）
+- Modify: `test/shared/widgets/thinking_indicator_test.dart`（断言改 `SvgPicture`）
+- Asset: `assets/icons/reasoning.svg`（已存在，用户放入）
 
 **Interfaces:**
-- Produces: `class ThinkingIndicator extends StatefulWidget`，构造 `const ThinkingIndicator({super.key})`，无入参，渲染一个左对齐的 Row：`CustomPaint(大脑 18×18) + SizedBox(width:8) + Text('正在思考…')`，外层 `Align(centerLeft) + Padding(sym vertical 8, horizontal 4)`。
+- Produces: `class ThinkingIndicator extends StatefulWidget`，构造 `const ThinkingIndicator({super.key})`，无入参，渲染一个左对齐的 Row：`[图标 20×20: ShaderMask(SvgPicture(reasoning.svg)) + _SweepPainter 滑光] + SizedBox(width:8) + Text('正在思考…')`，外层 `Align(centerLeft) + Padding(sym vertical 8, horizontal 4)`。**公共 API 与 Rev1 完全一致**，故 Task 2/3 代码无需改动。
+
+- [ ] **Step 0: 加 flutter_svg 依赖 + 声明 assets**
+
+在项目根目录运行：
+
+```bash
+flutter pub add flutter_svg
+```
+
+确认 `pubspec.yaml` 的 `assets:` 段包含 `assets/icons/`：
+
+```yaml
+  assets:
+    - assets/fonts/
+    - assets/icons/
+```
+
+（`assets/icons/reasoning.svg` 已由用户放入该目录。）
 
 - [ ] **Step 1: 写失败的 widget 测试**
 
-创建 `test/shared/widgets/thinking_indicator_test.dart`：
+替换 `test/shared/widgets/thinking_indicator_test.dart` 全文：
 
 ```dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 
 void main() {
-  testWidgets('渲染大脑画笔与「正在思考…」文案，不渲染旧转圈', (tester) async {
+  testWidgets('渲染 svg 图标与「正在思考…」文案，不渲染旧转圈', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: ThinkingIndicator()),
       ),
     );
 
-    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byType(SvgPicture), findsOneWidget);
     expect(find.text('正在思考…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
@@ -86,25 +112,27 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: 运行测试，确认失败（类不存在）**
+- [ ] **Step 2: 运行测试，确认失败**
 
 Run: `flutter test test/shared/widgets/thinking_indicator_test.dart`
-Expected: FAIL，报 `thinking_indicator.dart` 不存在 / `ThinkingIndicator` 未定义。
+Expected: FAIL —— `find.byType(SvgPicture)` 找不到（Rev1 实现是 CustomPaint，没有 SvgPicture）。
 
-- [ ] **Step 3: 实现 `ThinkingIndicator` + `_BrainPainter`**
+- [ ] **Step 3: 重写 `ThinkingIndicator`（删 `_BrainPainter`，改 svg + 渐变 + 滑光）**
 
-创建 `lib/shared/widgets/thinking_indicator.dart`：
+替换 `lib/shared/widgets/thinking_indicator.dart` 全文：
 
 ```dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// 「正在思考…」加载气泡：CustomPaint 手绘大脑（indigo→cyan 渐变）+
-/// scale/opacity 呼吸动画。纯展示组件，不感知业务状态，不依赖 Riverpod。
+/// 「正在思考…」加载气泡：`reasoning.svg` 原子图 + indigo→cyan 渐变填充 +
+/// 沿圆周扫过的滑光（SweepGradient，匀速 2s/圈）。纯展示组件，不感知业务
+/// 状态，不依赖 Riverpod。
 ///
-/// 沿用项目矢量风格（CustomPaint 等价 SVG，依赖无关），与 scho_navi_logo、
-/// radar_chart 一致。用于 ChatMessageBubble 思考分支与推荐流程的占位气泡。
+/// 用于 ChatMessageBubble 思考分支与推荐流程的占位气泡。**不脉动**（无 scale
+/// /opacity 动画），只有滑光匀速扫过。
 class ThinkingIndicator extends StatefulWidget {
   const ThinkingIndicator({super.key});
 
@@ -115,19 +143,14 @@ class ThinkingIndicator extends StatefulWidget {
 class _ThinkingIndicatorState extends State<ThinkingIndicator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _scale;
-  late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    _scale = Tween<double>(begin: 0.92, end: 1.08).animate(curve);
-    _opacity = Tween<double>(begin: 0.55, end: 1.0).animate(curve);
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(); // 单向，不 reverse；匀速扫光
   }
 
   @override
@@ -142,97 +165,76 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
       alignment: Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            return Opacity(
-              opacity: _opacity.value,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: Stack(
                 children: [
-                  Transform.scale(
-                    scale: _scale.value,
-                    child: const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CustomPaint(
-                        size: Size.square(18),
-                        painter: _BrainPainter(),
-                      ),
+                  // 底层：svg 染品牌渐变（indigo→cyan，横向）。
+                  ShaderMask(
+                    shaderCallback: (bounds) =>
+                        AppColors.brandGradient.createShader(bounds),
+                    blendMode: BlendMode.srcIn,
+                    child: SvgPicture.asset(
+                      'assets/icons/reasoning.svg',
+                      size: const Size.square(20),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Text('正在思考…'),
+                  // 上层：沿圆周扫过的滑光，匀速旋转。
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) {
+                      // controller.value ∈ [0,1] → progress ∈ [0, 2π]
+                      final progress = _controller.value * 2 * 3.141592653589793;
+                      return CustomPaint(
+                        size: const Size.square(20),
+                        painter: _SweepPainter(progress: progress),
+                      );
+                    },
+                  ),
                 ],
               ),
-            );
-          },
+            ),
+            const SizedBox(width: 8),
+            const Text('正在思考…'),
+          ],
         ),
       ),
     );
   }
 }
 
-/// 大脑俯视剪影：两半球 + 沟回暗纹 + 顶部高光，indigo→cyan 渐变填充。
-/// shouldRepaint = false：笔触静态，脉动靠外层 Transform.scale / Opacity。
-class _BrainPainter extends CustomPainter {
+/// 沿圆周扫过的亮带：SweepGradient（透明 → 白 35% → 透明），起点由 [progress]
+/// 控制，匀速旋转。叠在 svg 之上，营造「光绕原子图扫过」的效果。
+class _SweepPainter extends CustomPainter {
+  _SweepPainter({required this.progress});
+
+  final double progress;
+
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.shortestSide;
     final rect = Offset.zero & Size.square(s);
-
-    // 大脑 Path：两半球俯视剪影，中线 0.50，顶部 0.18，底部 0.82。
-    final brain = Path()
-      ..moveTo(s * 0.50, s * 0.18)
-      // 右半球：顶 → 右下 → 底中
-      ..cubicTo(s * 0.86, s * 0.20, s * 0.92, s * 0.58, s * 0.74, s * 0.82)
-      ..cubicTo(s * 0.62, s * 0.88, s * 0.54, s * 0.80, s * 0.50, s * 0.78)
-      // 左半球：底中 → 左下 → 顶（闭合）
-      ..cubicTo(s * 0.46, s * 0.80, s * 0.38, s * 0.88, s * 0.26, s * 0.82)
-      ..cubicTo(s * 0.08, s * 0.58, s * 0.14, s * 0.20, s * 0.50, s * 0.18)
-      ..close();
-
-    // 渐变填充：indigo → cyan（横向）。
-    final fill = Paint()
-      ..shader = AppColors.brandGradient.createShader(rect);
-    canvas.drawPath(brain, fill);
-
-    // 沟回暗纹：两半球各一道浅沟，白色 35% 描边。
-    final sulci = Paint()
-      ..color = Colors.white.withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.035
-      ..strokeCap = StrokeCap.round;
-    final leftSulcus = Path()
-      ..moveTo(s * 0.40, s * 0.30)
-      ..quadraticBezierTo(s * 0.30, s * 0.48, s * 0.36, s * 0.66);
-    final rightSulcus = Path()
-      ..moveTo(s * 0.60, s * 0.30)
-      ..quadraticBezierTo(s * 0.70, s * 0.48, s * 0.64, s * 0.66);
-    canvas.drawPath(leftSulcus, sulci);
-    canvas.drawPath(rightSulcus, sulci);
-
-    // 顶部高光：白色 18% 弧，模拟环境光折射。
-    final highlight = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.06
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      Rect.fromCenter(
-        center: Offset(s * 0.50, s * 0.30),
-        width: s * 0.50,
-        height: s * 0.30,
-      ),
-      3.6,
-      1.9,
-      false,
-      highlight,
-    );
+    final paint = Paint()
+      ..shader = SweepGradient(
+        center: Alignment.center,
+        startAngle: progress,
+        colors: const [
+          Color(0x00FFFFFF), // 透明
+          Color(0x59FFFFFF), // 白 35%
+          Color(0x00FFFFFF), // 透明
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
+    canvas.drawCircle(Offset(s / 2, s / 2), s / 2, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _BrainPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _SweepPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 ```
 
@@ -241,16 +243,23 @@ class _BrainPainter extends CustomPainter {
 Run: `flutter test test/shared/widgets/thinking_indicator_test.dart`
 Expected: PASS（2 个测试）。
 
-- [ ] **Step 5: 提交**
+- [ ] **Step 5: 运行 analyze**
+
+Run: `flutter analyze lib/shared/widgets/thinking_indicator.dart test/shared/widgets/thinking_indicator_test.dart`
+Expected: No issues found.
+
+- [ ] **Step 6: 提交**
 
 ```bash
-git add lib/shared/widgets/thinking_indicator.dart test/shared/widgets/thinking_indicator_test.dart
-git commit -m "feat(chat): ThinkingIndicator 大脑脉动加载组件"
+git add pubspec.yaml pubspec.lock lib/shared/widgets/thinking_indicator.dart test/shared/widgets/thinking_indicator_test.dart
+git commit -m "refactor(chat): ThinkingIndicator 改用 reasoning.svg + 渐变 + 滑光"
 ```
 
 ---
 
 ## Task 2: 接入 ChatMessageBubble 思考分支
+
+> **Rev2：** 本任务在 Rev1 已完成并提交（`24b0447`）。`const ThinkingIndicator()` 公共 API 未变，故本任务代码**无需改动**，只需在 Task 4 全量回归中确认 `ChatMessageBubble` 仍渲染 `ThinkingIndicator`、测试仍绿。以下保留 Rev1 原文供参考。
 
 **Files:**
 - Modify: `lib/features/chat/widgets/chat_message_bubble.dart:35-58`
@@ -327,6 +336,8 @@ git commit -m "refactor(chat): 思考气泡换用 ThinkingIndicator"
 ---
 
 ## Task 3: ChatNotifier 推荐占位 + 替换（send / bootstrap / retry 三处统一）
+
+> **Rev2：** 本任务在 Rev1 已完成并提交（`f8eba5b`）。占位/替换逻辑与 `ThinkingIndicator` 内部实现无关，故本任务代码**无需改动**，只需在 Task 4 全量回归中确认 `chat_bootstrap_test.dart` 仍 13/13 绿。以下保留 Rev1 原文供参考。
 
 **Files:**
 - Modify: `lib/features/chat/providers/chat_provider.dart`
@@ -714,6 +725,8 @@ git commit -m "feat(chat): 推荐流程追加思考占位消息并按 id 替换"
 ---
 
 ## Task 4: 全量回归与残留断言核对
+
+> **Rev2 重点：** Rev1 的 Task 1 重写后，`ThinkingIndicator` 内部从 CustomPaint 变成 svg+ShaderMask+CustomPaint(Stack)。需确认：(1) `ThinkingIndicator` 自身测试通过；(2) `ChatMessageBubble` 测试在引入 `flutter_svg` 后仍能 pump（svg asset 在测试环境加载正常，无 mock 需求）；(3) 全量 484 测试不退化。本任务基线从 484（Rev1 完成态）出发，Rev2 不新增测试用例数（ThinkingIndicator 测试仍是 2 个，断言类型变了）。
 
 **Files:**
 - Possibly Modify: `test/features/chat/chat_provider_test.dart`、`test/features/chat/chat_notifier_test.dart`、`test/features/chat/chat_page_test.dart`、`test/features/home/home_page_conversation_test.dart`（仅在断言失败时改）
