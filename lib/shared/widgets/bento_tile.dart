@@ -28,6 +28,7 @@ class BentoTile extends StatefulWidget {
     this.width,
     this.haptic,
     this.frosted = false,
+    this.minTapTarget = true,
   });
 
   final Widget child;
@@ -56,6 +57,14 @@ class BentoTile extends StatefulWidget {
 
   /// 启用毛玻璃模糊。滚动列表内条目保持 false 以保性能与可读性。
   final bool frosted;
+
+  /// 是否对齐无障碍触摸目标，强制 [GestureDetector] 命中区 ≥48×48。
+  ///
+  /// 默认 true，适配卡片、列表项等大尺寸可点击块。仅当本组件作为内在
+  /// 高度小于 48 的小型 chip 使用时置 false——否则 `minHeight:48` 会把
+  /// chip 沿垂直方向撑高，配合 `borderRadius` 渲染成又圆又胖的 stadium。
+  /// 关闭后点击仍可用，调用方应确保 chip 间距/行高足以容纳手指点按。
+  final bool minTapTarget;
 
   @override
   State<BentoTile> createState() => _BentoTileState();
@@ -104,22 +113,25 @@ class _BentoTileState extends State<BentoTile> {
 
     if (widget.onTap == null) return content;
 
+    final gesture = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: () {
+        (widget.haptic ?? Haptics.light)();
+        widget.onTap!();
+      },
+      child: content,
+    );
+    if (!widget.minTapTarget) return gesture;
+
     return ConstrainedBox(
       constraints: const BoxConstraints(
         minWidth: 48,
         minHeight: 48,
       ),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _down = true),
-        onTapCancel: () => setState(() => _down = false),
-        onTapUp: (_) => setState(() => _down = false),
-        onTap: () {
-          (widget.haptic ?? Haptics.light)();
-          widget.onTap!();
-        },
-        child: content,
-      ),
+      child: gesture,
     );
   }
 }
