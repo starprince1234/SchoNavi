@@ -9,6 +9,7 @@ import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/query_understanding.dart';
 import '../../../domain/entities/recommendation_result.dart';
 import '../../profile/providers/profile_provider.dart';
+import '../widgets/chat_quick_actions.dart' show defaultChatQuickActions;
 
 enum ChatActivity { idle, recommending, classifying, streaming }
 
@@ -86,7 +87,7 @@ class ChatNotifier extends Notifier<ChatState> {
     if (state.sessionId == sessionId && state.professorId == professorId) {
       return;
     }
-    _operation++;
+    final token = _beginOperation();
     final sub = _sub;
     _sub = null;
     _activeAssistantId = null;
@@ -101,6 +102,7 @@ class ChatNotifier extends Notifier<ChatState> {
       activity: ChatActivity.idle,
       followUpQuestions: const [],
     );
+    unawaited(_refreshQuickActions(followUp: '', token: token));
   }
 
   Future<void> bootstrapRecommendations(String initialPrompt) async {
@@ -221,6 +223,26 @@ class ChatNotifier extends Notifier<ChatState> {
 
     messages[i] = message.copyWith(feedback: feedback);
     state = state.copyWith(messages: messages);
+  }
+
+  /// 向后端拉取快捷操作 chip 并写入 state。失败降级到 [defaultChatQuickActions]，
+  /// 成功空不显示，成功非空直接写入（widget 显示时仍归一化过滤问句/cap 4/去重）。
+  /// 过期 token 的回调直接丢弃，防止旧轮覆盖新 state。
+  Future<void> _refreshQuickActions({
+    required String followUp,
+    required int token,
+  }) async {
+    final result = await ref.read(quickActionsSourceProvider).fetch(
+      followUp: followUp,
+      lastResult: _lastRecommendationResult(),
+    );
+    if (!_isCurrent(token)) return; // 过期请求丢弃
+    final actions = result is Success<List<String>> && result.data.isNotEmpty
+        ? result.data
+        : (result is Failure<List<String>>
+            ? defaultChatQuickActions
+            : const <String>[]);
+    state = state.copyWith(followUpQuestions: actions);
   }
 
   Future<void> _requestRecommendations(
@@ -365,6 +387,9 @@ class ChatNotifier extends Notifier<ChatState> {
                   ChatMessageStatus.done,
                 );
                 state = state.copyWith(activity: ChatActivity.idle);
+                unawaited(
+                  _refreshQuickActions(followUp: content, token: token),
+                );
               }
               _clearActiveTurn(turn: turn, assistantId: assistantId);
             },
