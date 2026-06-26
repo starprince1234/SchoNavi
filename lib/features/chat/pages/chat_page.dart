@@ -38,8 +38,6 @@ class ChatPage extends ConsumerStatefulWidget {
 }
 
 class _ChatPageState extends ConsumerState<ChatPage> {
-  static const List<String> _quickActions = ['解释理由', '换一批', '只看北京', '适合硕士'];
-
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final _provider = chatProvider(Object());
@@ -196,7 +194,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   ),
                   ChatQuickActions(
                     actions: state.followUpQuestions,
-                    fallback: _quickActions,
                     enabled: !state.isBusy,
                     onTap: _send,
                   ),

@@ -532,7 +532,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         ChatQuickActions(
           actions: state.followUpQuestions,
-          fallback: _quickActions,
           enabled: !state.isBusy,
           onTap: _sendFollowUp,
         ),
@@ -681,9 +680,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 }
-
-/// 对话态快捷操作回退（与 ChatPage 默认操作一致）。
-const List<String> _quickActions = ['解释理由', '换一批', '只看北京', '适合硕士'];
 
 class _HomeMenuButton extends StatelessWidget {
   const _HomeMenuButton();
