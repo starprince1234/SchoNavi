@@ -636,16 +636,27 @@ import 'package:scho_navi/domain/entities/academic_score.dart';
 import 'package:scho_navi/features/profile/widgets/rank_field.dart';
 
 void main() {
+  // 受控 widget 测试脚手架：用 StatefulBuilder 把 onChanged 回调的值回喂为新的 value，
+  // 否则切 chip 后父级不重建、value.rankMode 不变、输入区不会挂载，enterText 找不到框。
   Future<void> pumpRank(
     WidgetTester tester, {
     required AcademicScore value,
     required ValueChanged<AcademicScore> onChanged,
   }) async {
+    AcademicScore current = value;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: RankField(value: value, onChanged: onChanged),
+            child: StatefulBuilder(
+              builder: (context, setState) => RankField(
+                value: current,
+                onChanged: (s) {
+                  setState(() => current = s);
+                  onChanged(s);
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -1107,13 +1118,21 @@ git commit -m "feat(profile): RankField 结构化排名输入 + 即时校验"
 
   testWidgets('排名输入后 GPA 保留', (tester) async {
     AcademicScore? out;
+    AcademicScore current = const AcademicScore(gpa: 3.8, scale: 4.0);
+    // 受控 widget：用 StatefulBuilder 把 onChanged 回喂为新的 value，
+    // 否则切 chip 后父级不重建、rankMode 不变、百分制输入区不挂载。
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: GpaField(
-              value: const AcademicScore(gpa: 3.8, scale: 4.0),
-              onChanged: (s) => out = s,
+            child: StatefulBuilder(
+              builder: (context, setState) => GpaField(
+                value: current,
+                onChanged: (s) {
+                  setState(() => current = s);
+                  out = s;
+                },
+              ),
             ),
           ),
         ),
