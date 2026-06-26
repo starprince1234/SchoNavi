@@ -11,6 +11,7 @@ import '../../data/ai/ai_profile_extraction_repository.dart';
 import '../../data/ai/ai_recommendation_repository.dart';
 import '../../data/ai/llm_recommendation_intent_classifier.dart';
 import '../../data/ai/llm_recommendation_need_classifier.dart';
+import '../../data/ai/llm_quick_actions_source.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
 import '../../data/http/http_chat_repository.dart';
@@ -29,6 +30,7 @@ import '../../data/http/http_outreach_email_repository.dart';
 import '../../data/http/http_professor_repository.dart';
 import '../../data/http/http_profile_extraction_repository.dart';
 import '../../data/http/http_profile_repository.dart';
+import '../../data/http/http_quick_actions_source.dart';
 import '../../data/http/http_recommendation_need_classifier.dart';
 import '../../data/http/http_recommendation_repository.dart';
 import '../../data/mock/mock_home_prompt_repository.dart';
@@ -49,6 +51,7 @@ import '../../domain/repositories/profile_extraction_repository.dart';
 import '../../domain/repositories/recommendation_repository.dart';
 import '../../shared/utils/recommendation_intent_router.dart';
 import '../../shared/utils/recommendation_need_classifier.dart';
+import '../../shared/utils/quick_actions_source.dart';
 import '../ai/deepseek_llm_client.dart';
 import '../ai/llm_client.dart';
 import '../ai/llm_trace.dart';
@@ -122,6 +125,15 @@ final recommendationNeedClassifierProvider =
         ),
       };
     });
+
+/// 快捷操作 chip 的后端来源。失败返回 [Failure]（由 ChatNotifier 填硬编码
+/// 兜底常量），成功空返回 [Success] 空列表（不显示 chip）。见 spec §5。
+final quickActionsSourceProvider = Provider<QuickActionsSource>((ref) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm => LlmQuickActionsSource(ref.watch(llmClientProvider)),
+    DataSource.http => HttpQuickActionsSource(ref.watch(dioProvider)),
+  };
+});
 
 final recommendationRepositoryProvider = Provider<RecommendationRepository>((
   ref,
