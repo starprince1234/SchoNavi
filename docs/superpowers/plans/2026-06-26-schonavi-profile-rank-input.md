@@ -690,15 +690,16 @@ void main() {
     expect(out?.rank, '前 5%');
   });
 
+  // 以下非法输入测试直接以目标模式起步（不切 chip），避免 chip tap 触发 onChanged
+  // 使 out 非空，从而能断言「非法输入不回调」。
+
   testWidgets('百分制输入 0 -> 标红不回调', (tester) async {
     AcademicScore? out;
     await pumpRank(
       tester,
-      value: const AcademicScore(),
+      value: const AcademicScore(rankMode: RankMode.percent),
       onChanged: (s) => out = s,
     );
-    await tester.tap(find.text('百分制'));
-    await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-percent')), '0');
     expect(out, isNull); // 不回调
     expect(find.text('请输入 1–100'), findsOneWidget);
@@ -708,11 +709,9 @@ void main() {
     AcademicScore? out;
     await pumpRank(
       tester,
-      value: const AcademicScore(),
+      value: const AcademicScore(rankMode: RankMode.percent),
       onChanged: (s) => out = s,
     );
-    await tester.tap(find.text('百分制'));
-    await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-percent')), '101');
     expect(out, isNull);
     expect(find.text('请输入 1–100'), findsOneWidget);
@@ -722,11 +721,9 @@ void main() {
     AcademicScore? out;
     await pumpRank(
       tester,
-      value: const AcademicScore(),
+      value: const AcademicScore(rankMode: RankMode.percent),
       onChanged: (s) => out = s,
     );
-    await tester.tap(find.text('百分制'));
-    await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-percent')), 'abc');
     expect(out, isNull);
   });
@@ -752,11 +749,9 @@ void main() {
     AcademicScore? out;
     await pumpRank(
       tester,
-      value: const AcademicScore(),
+      value: const AcademicScore(rankMode: RankMode.ordinal),
       onChanged: (s) => out = s,
     );
-    await tester.tap(find.text('名次'));
-    await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-position')), '3');
     expect(out, isNull);
     expect(find.text('请补全名次和总人数'), findsOneWidget);
@@ -766,11 +761,9 @@ void main() {
     AcademicScore? out;
     await pumpRank(
       tester,
-      value: const AcademicScore(),
+      value: const AcademicScore(rankMode: RankMode.ordinal),
       onChanged: (s) => out = s,
     );
-    await tester.tap(find.text('名次'));
-    await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-position')), '150');
     await tester.enterText(find.byKey(const Key('rank-total')), '120');
     expect(out, isNull);
@@ -901,15 +894,7 @@ class _PercentInput extends StatefulWidget {
 }
 
 class _PercentInputState extends State<_PercentInput> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.value.percent?.toString() ?? '');
   String? _error;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -920,6 +905,7 @@ class _PercentInputState extends State<_PercentInput> {
           child: LabeledTextField(
             fieldKey: const Key('rank-percent'),
             label: '前',
+            initialValue: widget.value.percent?.toString(),
             keyboardType: TextInputType.number,
             hintText: '1–100',
             errorText: _error,
@@ -957,19 +943,11 @@ class _OrdinalInput extends StatefulWidget {
 }
 
 class _OrdinalInputState extends State<_OrdinalInput> {
-  late final TextEditingController _posController =
-      TextEditingController(text: widget.value.rankPosition?.toString() ?? '');
-  late final TextEditingController _totalController =
-      TextEditingController(text: widget.value.rankTotal?.toString() ?? '');
+  // 跟踪两个框的当前文本（LabeledTextField 自管 controller，onChanged 回传字符串）。
+  late String _posText = widget.value.rankPosition?.toString() ?? '';
+  late String _totalText = widget.value.rankTotal?.toString() ?? '';
   String? _posError;
   String? _totalError;
-
-  @override
-  void dispose() {
-    _posController.dispose();
-    _totalController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -980,10 +958,14 @@ class _OrdinalInputState extends State<_OrdinalInput> {
           child: LabeledTextField(
             fieldKey: const Key('rank-position'),
             label: '第',
+            initialValue: _posText,
             keyboardType: TextInputType.number,
             hintText: '名次',
             errorText: _posError,
-            onChanged: (_) => _validate(),
+            onChanged: (v) {
+              _posText = v;
+              _validate();
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -991,10 +973,14 @@ class _OrdinalInputState extends State<_OrdinalInput> {
           child: LabeledTextField(
             fieldKey: const Key('rank-total'),
             label: '共',
+            initialValue: _totalText,
             keyboardType: TextInputType.number,
             hintText: '总人数',
             errorText: _totalError,
-            onChanged: (_) => _validate(),
+            onChanged: (v) {
+              _totalText = v;
+              _validate();
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -1007,8 +993,8 @@ class _OrdinalInputState extends State<_OrdinalInput> {
   }
 
   void _validate() {
-    final posText = _posController.text.trim();
-    final totalText = _totalController.text.trim();
+    final posText = _posText.trim();
+    final totalText = _totalText.trim();
     final pos = int.tryParse(posText);
     final total = int.tryParse(totalText);
 
