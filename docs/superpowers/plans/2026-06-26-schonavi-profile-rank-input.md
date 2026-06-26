@@ -1131,8 +1131,9 @@ git commit -m "feat(profile): RankField 结构化排名输入 + 即时校验"
         ),
       ),
     );
-    // 切百分制并输入 5
-    await tester.tap(find.text('百分制'));
+    // 切百分制并输入 5。注意：GPA 量纲 chip 组也有"百分制"(=100)，
+    // 与排名模式 chip 组的"百分制"重名，用 .last 定位排名那个（渲染在后）。
+    await tester.tap(find.text('百分制').last);
     await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-percent')), '5');
     expect(out?.gpa, 3.8);
