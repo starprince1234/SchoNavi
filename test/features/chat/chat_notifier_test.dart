@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
-import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
 import 'package:scho_navi/features/chat/widgets/chat_quick_actions.dart';
@@ -270,8 +270,7 @@ void main() {
       final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
       final src = _ScriptedQuickActionsSource()
         ..setNext(const Success(<String>[])); // 初始 fetch 消费
-      // 第二次 fetch（对话轮 onDone）返回新 chip
-      // 用 parkNext 让初始 fetch 先完成，再设 immediate 给对话轮
+      // 初始 fetch 用 setNext 返回空；对话轮 onDone 前再 setNext 返回新 chip
       final container = _container(repo, quickActions: src);
       addTearDown(container.dispose);
 
