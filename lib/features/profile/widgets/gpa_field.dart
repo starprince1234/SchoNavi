@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../domain/entities/academic_score.dart';
 import '../../../shared/widgets/choice_chip_group.dart';
 import '../../../shared/widgets/labeled_text_field.dart';
+import 'rank_field.dart';
 
 class GpaField extends StatelessWidget {
   const GpaField({super.key, required this.value, required this.onChanged});
@@ -31,11 +32,7 @@ class GpaField extends StatelessWidget {
           hintText: '例 3.8',
           onChanged: (v) {
             final parsed = double.tryParse(v.trim());
-            onChanged(AcademicScore(
-              gpa: parsed,
-              scale: value.scale,
-              rank: value.rank,
-            ));
+            onChanged(value.withGpa(parsed));
           },
         ),
         const SizedBox(height: 12),
@@ -47,23 +44,10 @@ class GpaField extends StatelessWidget {
         ChoiceChipGroup<double>(
           options: _scales,
           selected: value.scale,
-          onSelected: (s) => onChanged(AcademicScore(
-            gpa: value.gpa,
-            scale: s,
-            rank: value.rank,
-          )),
+          onSelected: (s) => onChanged(value.withScale(s)),
         ),
         const SizedBox(height: 12),
-        LabeledTextField(
-          label: '专业排名（可选）',
-          initialValue: value.rank,
-          hintText: '例 前 5% / 3/120',
-          onChanged: (v) => onChanged(AcademicScore(
-            gpa: value.gpa,
-            scale: value.scale,
-            rank: v.trim().isEmpty ? null : v.trim(),
-          )),
-        ),
+        RankField(value: value, onChanged: onChanged),
       ],
     );
   }
