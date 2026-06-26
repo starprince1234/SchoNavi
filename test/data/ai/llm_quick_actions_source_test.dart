@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
