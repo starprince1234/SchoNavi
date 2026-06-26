@@ -12,6 +12,7 @@ import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/repositories/favorite_repository.dart';
 import 'package:scho_navi/features/chat/widgets/chat_message_bubble.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
+import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 
 const _rec = Recommendation(
   professorId: 'p_001',
@@ -136,7 +137,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(ThinkingIndicator), findsOneWidget);
     expect(find.text('正在思考…'), findsOneWidget);
   });
 
@@ -197,7 +198,7 @@ void main() {
       ),
     );
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(ThinkingIndicator), findsOneWidget);
     expect(find.text('正在思考…'), findsOneWidget);
   });
 

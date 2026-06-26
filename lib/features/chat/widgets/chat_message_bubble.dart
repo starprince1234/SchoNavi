@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/recommendation.dart';
+import '../../../shared/widgets/thinking_indicator.dart';
 import 'recommendation_carousel.dart';
 
 /// 单条对话气泡：用户右侧纯文本；助手左侧 Markdown；助手可嵌入横向滑动推荐卡片。
@@ -37,24 +38,7 @@ class ChatMessageBubble extends StatelessWidget {
         (message.status == ChatMessageStatus.streaming &&
             message.content.isEmpty);
     if (isThinking) {
-      return const Align(
-        alignment: Alignment.centerLeft,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 8),
-              Text('正在思考…'),
-            ],
-          ),
-        ),
-      );
+      return const ThinkingIndicator();
     }
 
     final scheme = Theme.of(context).colorScheme;
