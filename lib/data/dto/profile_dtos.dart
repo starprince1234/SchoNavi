@@ -5,17 +5,30 @@ import '../../domain/entities/user_profile.dart';
 import 'api_envelope.dart';
 
 class AcademicScoreDto {
-  const AcademicScoreDto({this.gpa, this.scale, this.rank});
+  const AcademicScoreDto({
+    this.gpa,
+    this.scale,
+    this.rankMode,
+    this.percent,
+    this.rankPosition,
+    this.rankTotal,
+  });
 
   final double? gpa;
   final double? scale;
-  final String? rank;
+  final RankMode? rankMode;
+  final int? percent;
+  final int? rankPosition;
+  final int? rankTotal;
 
   factory AcademicScoreDto.fromJson(Map<String, dynamic> json) {
     return AcademicScoreDto(
       gpa: (json['gpa'] as num?)?.toDouble(),
       scale: (json['scale'] as num?)?.toDouble(),
-      rank: _optionalString(json['rank']),
+      rankMode: _rankModeFromDtoName(json['rank_mode']),
+      percent: (json['percent'] as num?)?.toInt(),
+      rankPosition: (json['rank_position'] as num?)?.toInt(),
+      rankTotal: (json['rank_total'] as num?)?.toInt(),
     );
   }
 
@@ -23,17 +36,38 @@ class AcademicScoreDto {
     return AcademicScoreDto(
       gpa: score.gpa,
       scale: score.scale,
-      rank: score.rank,
+      rankMode: score.rankMode,
+      percent: score.percent,
+      rankPosition: score.rankPosition,
+      rankTotal: score.rankTotal,
     );
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (gpa != null) 'gpa': gpa,
     if (scale != null) 'scale': scale,
-    if (rank != null) 'rank': rank,
+    if (rankMode != null && rankMode != RankMode.none) 'rank_mode': rankMode!.name,
+    if (percent != null) 'percent': percent,
+    if (rankPosition != null) 'rank_position': rankPosition,
+    if (rankTotal != null) 'rank_total': rankTotal,
   };
 
-  AcademicScore toEntity() => AcademicScore(gpa: gpa, scale: scale, rank: rank);
+  AcademicScore toEntity() => AcademicScore(
+    gpa: gpa,
+    scale: scale,
+    rankMode: rankMode ?? RankMode.none,
+    percent: percent,
+    rankPosition: rankPosition,
+    rankTotal: rankTotal,
+  );
+}
+
+RankMode? _rankModeFromDtoName(Object? raw) {
+  final name = raw?.toString();
+  for (final m in RankMode.values) {
+    if (m.name == name) return m;
+  }
+  return null;
 }
 
 class CompetitionDto {
