@@ -603,7 +603,7 @@ void main() {
         }),
       );
 
-      final result = await src.fetch('换一批', lastResult: _resultWith([_rec]));
+      final result = await src.fetch(followUp: '换一批', lastResult: _resultWith([_rec]));
 
       expect(captured!.path, '/api/v1/chat/quick-actions');
       expect(captured!.method, 'POST');
@@ -625,7 +625,7 @@ void main() {
         }),
       );
 
-      await src.fetch('换一批', lastResult: null);
+      await src.fetch(followUp: '换一批', lastResult: null);
 
       expect(
         (captured!.data as Map).containsKey('last_recommendations'),
@@ -656,7 +656,7 @@ void main() {
         }),
       );
 
-      await src.fetch('换一批', lastResult: _resultWith(recs));
+      await src.fetch(followUp: '换一批', lastResult: _resultWith(recs));
 
       expect(
         (captured!.data as Map)['last_recommendations'] as List,
@@ -675,7 +675,7 @@ void main() {
             )),
       );
 
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, ['换一批', '偏应用']);
@@ -692,7 +692,7 @@ void main() {
             )),
       );
 
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, isEmpty);
@@ -709,12 +709,12 @@ void main() {
             )),
       );
 
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
 
       expect(result, isA<Failure<List<String>>>());
     });
 
-    test('malformed success data returns Failure', () async {
+    test('malformed success data (bad field) decodes as Success empty', () async {
       final src = HttpQuickActionsSource(
         _dio((_) async => _jsonString(
               jsonEncode({
@@ -727,7 +727,7 @@ void main() {
 
       // quick_actions 缺省 → ResponseDto 返回空，但 guardApi 仍 Success([])。
       // 此 case 验证 data 是 Map（含 bad 字段）时 quick_actions 视为空 → Success([])。
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, isEmpty);
     });
@@ -742,7 +742,7 @@ void main() {
         }),
       );
 
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
 
       expect(result, isA<Failure<List<String>>>());
       expect((result as Failure<List<String>>).error, isA<TimeoutException>());
@@ -759,7 +759,7 @@ void main() {
       );
 
       // 接口契约要求降级返回 Failure，不得抛错阻断对话。
-      final result = await src.fetch('x', lastResult: null);
+      final result = await src.fetch(followUp: 'x', lastResult: null);
       expect(result, isA<Failure<List<String>>>());
     });
   });
@@ -779,7 +779,6 @@ Create `lib/data/http/http_quick_actions_source.dart`:
 import 'package:dio/dio.dart';
 
 import '../../core/result/result.dart';
-import '../../domain/entities/recommendation.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../shared/utils/quick_actions_source.dart';
 import '../dto/api_envelope.dart';
@@ -942,7 +941,7 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Success('{"quick_actions":["换一批","偏应用"]}')),
       );
-      final result = await src.fetch('换一批', lastResult: _resultWith());
+      final result = await src.fetch(followUp: '换一批', lastResult: _resultWith());
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, ['换一批', '偏应用']);
@@ -952,7 +951,7 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Success('{"intent":"other"}')),
       );
-      final result = await src.fetch('x', lastResult: _resultWith());
+      final result = await src.fetch(followUp: 'x', lastResult: _resultWith());
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, isEmpty);
@@ -962,7 +961,7 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Success('{"quick_actions":"not-a-list"}')),
       );
-      final result = await src.fetch('x', lastResult: _resultWith());
+      final result = await src.fetch(followUp: 'x', lastResult: _resultWith());
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, isEmpty);
@@ -972,7 +971,7 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Failure(NetworkException())),
       );
-      final result = await src.fetch('x', lastResult: _resultWith());
+      final result = await src.fetch(followUp: 'x', lastResult: _resultWith());
 
       expect(result, isA<Failure<List<String>>>());
       expect(
@@ -985,7 +984,7 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Success('{"quick_actions":["偏应用"]}')),
       );
-      final result = await src.fetch('继续', lastResult: null);
+      final result = await src.fetch(followUp: '继续', lastResult: null);
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, ['偏应用']);
@@ -999,7 +998,7 @@ void main() {
       );
       final src = LlmQuickActionsSource(llm);
 
-      await src.fetch('第一位的研究方向', lastResult: _resultWith(recs: [_rec]));
+      await src.fetch(followUp: '第一位的研究方向', lastResult: _resultWith(recs: [_rec]));
 
       expect(calls, hasLength(1));
       final userContent = calls.single
