@@ -210,7 +210,7 @@ RecommendationResult _recResult({String sessionId = 's_rec'}) =>
           limitations: [],
         ),
       ],
-      followUpQuestions: const ['只看北京的吗？', '有偏理论的吗？'],
+      followUpQuestions: const ['只看北京', '偏理论'],
     );
 
 ProviderContainer _container({
@@ -270,7 +270,7 @@ void main() {
     expect(chat.streamCalls, 0);
     expect(rec.calls, 1);
     expect(rec.lastSessionId, 'tmp');
-    expect(state.followUpQuestions, ['只看北京的吗？', '有偏理论的吗？']);
+    expect(state.followUpQuestions, ['只看北京', '偏理论']);
   });
 
   test('bootstrapRecommendations 守卫：messages 非空时不重复产卡', () async {

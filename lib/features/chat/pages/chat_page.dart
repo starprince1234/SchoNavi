@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/error/app_exception.dart';
-import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/recommendation.dart';
@@ -13,7 +12,9 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../providers/chat_provider.dart';
+import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_bubble.dart';
+import '../widgets/chat_quick_actions.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
@@ -36,12 +37,7 @@ class ChatPage extends ConsumerStatefulWidget {
 }
 
 class _ChatPageState extends ConsumerState<ChatPage> {
-  static const List<String> _quickQuestions = [
-    '为什么推荐这位导师？',
-    '有没有相似的导师？',
-    '只看北京的导师',
-    '适合硕士申请吗？',
-  ];
+  static const List<String> _quickActions = ['解释理由', '换一批', '只看北京', '适合硕士'];
 
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -111,6 +107,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final blocked =
         config.dataSource == DataSource.llm && !config.llm.isConfigured;
     final state = ref.watch(_provider);
+    // 首页带 initialPrompt 进来是新会话（对话式推荐首轮），不应显示「继续追问」
+    // 这种「延续旧会话」的语义——对齐 ChatGPT App：新对话就是新对话页。
+    final isNewSession = widget.initialPrompt != null;
     final showWelcome = widget.initialPrompt == null;
     if (state.messages.length != _messageCount) {
       _messageCount = state.messages.length;
@@ -130,7 +129,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        title: Text('继续追问', style: Theme.of(context).textTheme.titleLarge),
+        title: Text(
+          isNewSession ? '找导师' : '继续追问',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         actions: [
           IconButton(
             tooltip: '重新生成',
@@ -188,17 +190,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       },
                     ),
                   ),
-                  _QuickQuestions(
-                    questions: state.followUpQuestions.isEmpty
-                        ? _quickQuestions
-                        : state.followUpQuestions,
+                  ChatQuickActions(
+                    actions: state.followUpQuestions,
+                    fallback: _quickActions,
                     enabled: !state.isBusy,
                     onTap: _send,
                   ),
-                  _InputBar(
+                  ChatInputBar(
                     controller: _controller,
                     isBusy: state.isBusy,
                     canStop: state.activity == ChatActivity.streaming,
+                    isNewSession: isNewSession,
                     onSubmit: _send,
                     onStop: () => ref.read(_provider.notifier).stop(),
                   ),
@@ -244,227 +246,6 @@ class _WelcomeCard extends StatelessWidget {
             style: textTheme.bodyMedium,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _QuickQuestions extends StatelessWidget {
-  const _QuickQuestions({
-    required this.questions,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final List<String> questions;
-  final bool enabled;
-  final void Function(String) onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return SizedBox(
-      height: 48,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: questions.length,
-        itemBuilder: (context, index) {
-          final question = questions[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Center(
-              child: BentoTile(
-                onTap: enabled
-                    ? () {
-                        Haptics.selection();
-                        onTap(question);
-                      }
-                    : null,
-                color: scheme.surfaceContainer,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                borderRadius: 20,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.lightbulb_outline,
-                      color: AppColors.coral,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(question, style: textTheme.labelSmall),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _InputBar extends StatefulWidget {
-  const _InputBar({
-    required this.controller,
-    required this.isBusy,
-    required this.canStop,
-    required this.onSubmit,
-    required this.onStop,
-  });
-
-  final TextEditingController controller;
-  final bool isBusy;
-  final bool canStop;
-  final void Function(String) onSubmit;
-  final VoidCallback onStop;
-
-  @override
-  State<_InputBar> createState() => _InputBarState();
-}
-
-class _InputBarState extends State<_InputBar> {
-  final FocusNode _focusNode = FocusNode();
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode.addListener(
-      () => setState(() => _focused = _focusNode.hasFocus),
-    );
-    widget.controller.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  bool get _canSubmit => widget.controller.text.trim().isNotEmpty;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: _focused
-                ? Border.all(color: AppColors.coral, width: 2)
-                : Border.all(
-                    color: scheme.outline.withValues(alpha: 0.4),
-                    width: 1,
-                  ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: _focusNode,
-                  enabled: !widget.isBusy,
-                  minLines: 1,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: widget.isBusy ? null : widget.onSubmit,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    filled: false,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    hintText: '输入你的追问…',
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: widget.canStop
-                    ? Tooltip(
-                        message: '停止生成',
-                        child: Material(
-                          color: AppColors.coral,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: widget.onStop,
-                            child: const SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: Icon(
-                                Icons.stop,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                    : widget.isBusy
-                    ? const SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: Padding(
-                          padding: EdgeInsets.all(10),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : Tooltip(
-                        message: '发送',
-                        child: Material(
-                          color: _canSubmit
-                              ? AppColors.coral
-                              : scheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: _canSubmit
-                                ? () {
-                                    Haptics.medium();
-                                    widget.onSubmit(widget.controller.text);
-                                  }
-                                : null,
-                            child: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: Icon(
-                                Icons.arrow_upward,
-                                color: _canSubmit
-                                    ? Colors.white
-                                    : AppColors.inkSoft,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

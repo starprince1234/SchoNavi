@@ -125,16 +125,16 @@ def _generate_follow_up_questions(intent: Dict[str, Any]) -> List[str]:
     if intent.get("intent") != "general_recommendation" and research_interests:
         return []
 
-    questions: List[str] = []
+    actions: List[str] = []
     if not research_interests:
-        questions.append("你更倾向于理论研究还是应用研究？")
+        actions.extend(["偏理论", "偏应用"])
     if not query_understanding.get("preferred_universities"):
-        questions.append("是否只考虑 985 高校？")
+        actions.append("只看985")
     if not query_understanding.get("degree_stage"):
-        questions.append("你计划申请硕士还是博士？")
+        actions.extend(["适合硕士", "适合博士"])
     if not query_understanding.get("preferred_locations"):
-        questions.append("你对地区有偏好吗？")
-    return questions
+        actions.append("限定地区")
+    return actions[:4]
 
 
 def _load_json_object(value: str | None) -> Dict[str, Any]:

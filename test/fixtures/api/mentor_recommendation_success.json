@@ -25,6 +25,6 @@
         "limitations": ["招生信息以学校官网为准"]
       }
     ],
-    "follow_up_questions": ["你更倾向理论研究还是应用研究？"]
+    "follow_up_questions": ["偏理论", "偏应用", "只看985", "适合硕士"]
   }
 }

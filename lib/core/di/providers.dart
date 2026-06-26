@@ -29,6 +29,7 @@ import '../../data/http/http_outreach_email_repository.dart';
 import '../../data/http/http_professor_repository.dart';
 import '../../data/http/http_profile_extraction_repository.dart';
 import '../../data/http/http_profile_repository.dart';
+import '../../data/http/http_recommendation_need_classifier.dart';
 import '../../data/http/http_recommendation_repository.dart';
 import '../../data/mock/mock_home_prompt_repository.dart';
 import '../../domain/entities/favorite_item.dart';
@@ -116,7 +117,9 @@ final recommendationNeedClassifierProvider =
         DataSource.llm => LlmRecommendationNeedClassifier(
           ref.watch(llmClientProvider),
         ),
-        DataSource.http => const ConservativeRecommendationNeedClassifier(),
+        DataSource.http => HttpRecommendationNeedClassifier(
+          ref.watch(dioProvider),
+        ),
       };
     });
 

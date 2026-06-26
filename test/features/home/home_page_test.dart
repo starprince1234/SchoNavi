@@ -5,7 +5,82 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/chat_result.dart';
+import 'package:scho_navi/domain/entities/match_level.dart';
+import 'package:scho_navi/domain/entities/query_understanding.dart';
+import 'package:scho_navi/domain/entities/recommendation.dart';
+import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/repositories/chat_repository.dart';
+import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
+import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
+import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
+
+final _recResult = RecommendationResult(
+  sessionId: 's_rec',
+  queryUnderstanding: const QueryUnderstanding(
+    researchInterests: ['医学影像'],
+    preferredLocations: ['上海'],
+    preferredUniversities: [],
+    degreeStage: null,
+    uncertainties: [],
+  ),
+  recommendations: const [
+    Recommendation(
+      professorId: 'p_001',
+      name: '张三',
+      university: '上海交通大学',
+      college: '电子信息与电气工程学院',
+      title: '教授',
+      researchFields: ['医学影像'],
+      matchLevel: MatchLevel.high,
+      reason: '方向相关。',
+      limitations: [],
+    ),
+  ],
+  followUpQuestions: const ['偏应用'],
+);
+
+class _FakeRecRepo implements RecommendationRepository {
+  @override
+  Future<Result<RecommendationResult>> getRecommendations({
+    required String prompt,
+    UserProfile? profile,
+    String? sessionId,
+  }) async => Success(_recResult);
+}
+
+class _StreamChatRepo implements ChatRepository {
+  @override
+  Future<Result<ChatResult>> sendMessage({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) async => throw UnimplementedError();
+  @override
+  void seedRecommendationTurn({
+    required String sessionId,
+    required String userPrompt,
+    required RecommendationResult result,
+  }) {}
+  @override
+  Stream<String> streamReply({
+    required String sessionId,
+    required String message,
+    String? professorId,
+  }) => Stream.fromIterable(const ['流式回答']);
+}
+
+class _FakeNeedClassifier implements RecommendationNeedClassifier {
+  const _FakeNeedClassifier();
+  @override
+  Future<bool> needRecommendations(
+    String followUp, {
+    RecommendationResult? lastResult,
+  }) async => false;
+}
 
 Future<Widget> _wrap({bool configured = true}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -25,6 +100,7 @@ Future<Widget> _wrap({bool configured = true}) async {
         path: '/competition-recommendation',
         builder: (_, _) => const Text('competition-marker'),
       ),
+      GoRoute(path: '/professor/:id', builder: (_, _) => const Placeholder()),
       GoRoute(path: '/profile/wizard', builder: (_, _) => const Text('wizard')),
       GoRoute(path: '/profile', builder: (_, _) => const Text('profile')),
     ],
@@ -34,6 +110,11 @@ Future<Widget> _wrap({bool configured = true}) async {
       sharedPreferencesProvider.overrideWithValue(prefs),
       initialAppConfigProvider.overrideWithValue(
         AppConfig(llm: LlmConfig(apiKey: configured ? 'test-key' : '')),
+      ),
+      recommendationRepositoryProvider.overrideWithValue(_FakeRecRepo()),
+      chatRepositoryProvider.overrideWithValue(_StreamChatRepo()),
+      recommendationNeedClassifierProvider.overrideWithValue(
+        const _FakeNeedClassifier(),
       ),
     ],
     child: MaterialApp.router(routerConfig: router),
@@ -101,7 +182,7 @@ void main() {
     expect(find.text('competition-marker'), findsOneWidget);
   });
 
-  testWidgets('mentor prompt routes to conversational chat with q param', (
+  testWidgets('mentor prompt stays home and starts in-place conversation', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -112,8 +193,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('chat-marker:'), findsOneWidget);
-    expect(find.textContaining('医学影像'), findsOneWidget);
+    // 不跳路由：原地出现用户消息 + 横滑推荐卡片，无 /chat 路由 marker。
+    expect(find.textContaining('chat-marker:'), findsNothing);
+    expect(find.text('我想找医学影像方向的导师', skipOffstage: false), findsOneWidget);
+    expect(find.byType(SwipeRecommendationCard), findsOneWidget);
+    expect(find.text('张三'), findsOneWidget);
   });
 
   testWidgets('mentor prompt without LLM key stays home and shows error', (
@@ -133,7 +217,9 @@ void main() {
 
     expect(find.byType(SnackBar), findsOneWidget);
     expect(find.textContaining('未配置 LLM_API_KEY'), findsOneWidget);
+    // 未配置不进入对话态，仍停留在落地页。
     expect(find.textContaining('chat-marker:'), findsNothing);
+    expect(find.byType(SwipeRecommendationCard), findsNothing);
   });
 
   testWidgets('competition quick tag routes to competition recommendation', (

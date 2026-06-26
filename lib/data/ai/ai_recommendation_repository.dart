@@ -13,10 +13,7 @@ import '../../domain/repositories/recommendation_repository.dart';
 import 'professor_candidate_source.dart';
 
 class AiRecommendationRepository implements RecommendationRepository {
-  AiRecommendationRepository({
-    required this.llm,
-    required this.candidates,
-  });
+  AiRecommendationRepository({required this.llm, required this.candidates});
 
   final LlmClient llm;
   final ProfessorCandidateSource candidates;
@@ -186,10 +183,10 @@ class AiRecommendationRepository implements RecommendationRepository {
 4. limitations：只写诚实、通用的注意事项，如“招生信息以学校官网为准”，不要编造具体数字或事实。
 5. matchLevel 取值 high、medium、low 之一。
 6. queryUnderstanding：抽取研究兴趣/地区/学校/阶段；degreeStage 取“硕士”“博士”或 null；uncertainties 写未明确处。地区可据学校常识推断。
-7. followUpQuestions：1-3 个细化推荐的中文追问。
+7. followUpQuestions：1-4 个中文短快捷操作，每个不超过 8 个汉字，用于点击后继续追问；只能写操作短语，如“换一批”“只看北京”“偏应用”“适合博士”。不要写完整问句，不要包含问号，不要以“你/是否/请问/能否/除了”等提问措辞开头。
 8. 若提供【学生档案】，请结合其研究兴趣/成绩/竞赛/科研背景调整排序，并在 reason 中适当引用学生背景与导师的契合点；但仍只引用候选导师事实、不得编造。
 9. 候选中无相关导师时 recommendations 用空数组。
 输出格式：
-{"queryUnderstanding":{"researchInterests":["医学影像"],"preferredLocations":["上海"],"preferredUniversities":[],"degreeStage":"硕士","uncertainties":["未明确偏理论或应用"]},"recommendations":[{"professorId":"p_001","matchLevel":"high","reason":"……","limitations":["……"]}],"followUpQuestions":["……"]}
+{"queryUnderstanding":{"researchInterests":["医学影像"],"preferredLocations":["上海"],"preferredUniversities":[],"degreeStage":"硕士","uncertainties":["未明确偏理论或应用"]},"recommendations":[{"professorId":"p_001","matchLevel":"high","reason":"……","limitations":["……"]}],"followUpQuestions":["换一批","偏应用","只看北京","适合博士"]}
 ''';
 }

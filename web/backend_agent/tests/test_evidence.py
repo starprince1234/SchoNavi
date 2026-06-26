@@ -179,8 +179,8 @@ def test_generate_follow_up_questions_for_vague_query_understanding():
     }
 
     assert _generate_follow_up_questions(intent) == [
-        "你更倾向于理论研究还是应用研究？",
-        "是否只考虑 985 高校？",
-        "你计划申请硕士还是博士？",
-        "你对地区有偏好吗？",
+        "偏理论",
+        "偏应用",
+        "只看985",
+        "适合硕士",
     ]

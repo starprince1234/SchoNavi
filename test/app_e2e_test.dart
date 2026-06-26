@@ -135,8 +135,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    // 对话式：进入对话页，助手气泡下出现横滑推荐卡片。
-    expect(find.text('继续追问'), findsWidgets);
+    // 对话式：原地进入对话态（不跳路由），首页内出现用户消息 + 横滑推荐卡片。
+    expect(find.text('我想找医学影像和计算机视觉方向的导师，最好在上海', skipOffstage: false), findsOneWidget);
     expect(find.text('张三'), findsOneWidget);
 
     await tester.tap(find.byTooltip('收藏导师').first);
@@ -148,8 +148,8 @@ void main() {
     expect(find.text('导师详情'), findsOneWidget);
     expect(find.text('研究方向'), findsOneWidget);
 
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    // 仅 professor 路由在 /home 之上（对话态是首页原地，无独立 /chat 路由），
+    // 一次 pageBack 即回到首页对话态。
     await tester.pageBack();
     await tester.pumpAndSettle();
 

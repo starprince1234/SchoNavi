@@ -70,7 +70,10 @@ void main() {
     final mentorDto = SearchHistoryItemDto.fromJson(mentorJson);
     expect(mentorDto.toJson(), equals(mentorJson));
     expect(mentorDto.toEntity().type, SearchHistoryType.mentor);
-    expect(mentorDto.toEntity().createdAt.toUtc(), DateTime.utc(2026, 6, 15, 10));
+    expect(
+      mentorDto.toEntity().createdAt.toUtc(),
+      DateTime.utc(2026, 6, 15, 10),
+    );
 
     final item = SearchHistoryItem(
       type: SearchHistoryType.competition,
@@ -126,7 +129,7 @@ void main() {
           'match_score': 0.86,
         },
       ],
-      'follow_up_questions': ['你更偏算法赛还是作品赛？'],
+      'follow_up_questions': ['算法赛', '作品赛'],
     };
 
     final dto = CompetitionRecommendationResultDto.fromJson(json);
@@ -214,20 +217,22 @@ void main() {
     expect(dto.toEntity().research.single.title, '医学影像论文');
   });
 
-  test('HomePromptDto, ProfessorDto and RecommendationDto round-trip basics', () {
-    expect(
-      HomePromptDto.fromJson({'text': '推荐近期竞赛'}).toJson(),
-      {'text': '推荐近期竞赛'},
-    );
-    expect(
-      ProfessorDto.fromJson(_professorJson('p_001')).toJson(),
-      equals(_professorJson('p_001')),
-    );
-    expect(
-      RecommendationDto.fromJson(_recommendationJson).toJson(),
-      equals(_recommendationJson),
-    );
-  });
+  test(
+    'HomePromptDto, ProfessorDto and RecommendationDto round-trip basics',
+    () {
+      expect(HomePromptDto.fromJson({'text': '推荐近期竞赛'}).toJson(), {
+        'text': '推荐近期竞赛',
+      });
+      expect(
+        ProfessorDto.fromJson(_professorJson('p_001')).toJson(),
+        equals(_professorJson('p_001')),
+      );
+      expect(
+        RecommendationDto.fromJson(_recommendationJson).toJson(),
+        equals(_recommendationJson),
+      );
+    },
+  );
 
   test('decodeEnvelope surfaces backend message for non-zero code', () {
     final fixture = _fixture('envelope_error.json');

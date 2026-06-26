@@ -106,6 +106,22 @@ paths:
             text/event-stream:
               schema:
                 type: string
+  /chat/route:
+    post:
+      summary: Decide whether a follow-up needs a new round of recommendations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRouteRequest'
+      responses:
+        '200':
+          description: Routing decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatRouteEnvelope'
   /professors/compare:
     post:
       summary: Compare professors.
@@ -460,6 +476,7 @@ components:
           items:
             $ref: '#/components/schemas/Recommendation'
         follow_up_questions:
+          description: Short quick-action labels for follow-up chips; keep each item concise and non-question-like.
           type: array
           items: { type: string }
     CompetitionUnderstanding:
@@ -526,6 +543,7 @@ components:
           items:
             $ref: '#/components/schemas/RecommendedCompetition'
         follow_up_questions:
+          description: Short quick-action labels for follow-up chips; keep each item concise and non-question-like.
           type: array
           items: { type: string }
     ChatMessageRequest:
@@ -545,6 +563,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Recommendation'
+    RecommendationRecap:
+      type: object
+      required: [professor_id, name, university, research_fields]
+      properties:
+        professor_id: { type: string }
+        name: { type: string }
+        university: { type: string }
+        research_fields:
+          type: array
+          items: { type: string }
+    ChatRouteRequest:
+      type: object
+      required: [follow_up]
+      properties:
+        follow_up: { type: string }
+        session_id: { type: string }
+        last_recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationRecap'
+    ChatRouteResult:
+      type: object
+      required: [need]
+      properties:
+        need: { type: boolean }
     ComparisonRow:
       type: object
       required: [dimension, cells]
@@ -706,6 +749,13 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ChatMessageResponse'
+    ChatRouteEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ChatRouteResult'
     ComparisonEnvelope:
       allOf:
         - $ref: '#/components/schemas/EnvelopeBase'

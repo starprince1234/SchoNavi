@@ -132,7 +132,7 @@ def _map_recommendation_response(
     understanding = _map_query_understanding(data.get("query_understanding"))
     follow_up_questions = _string_list(data.get("follow_up_questions"))
     if not follow_up_questions and _needs_follow_up(understanding):
-        follow_up_questions = ["你更倾向理论研究还是应用研究？", "是否只考虑 985 / 双一流高校？"]
+        follow_up_questions = ["偏理论", "偏应用", "只看985", "适合硕士"]
     return RecommendationResponse(
         session_id=session_id,
         query_understanding=understanding,

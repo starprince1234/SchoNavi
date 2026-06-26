@@ -24,6 +24,7 @@ def test_recommendations_shape_and_mock_fallback() -> None:
     assert payload["session_id"]
     assert "query_understanding" in payload
     assert payload["recommendations"]
+    assert payload["follow_up_questions"] == ["偏理论", "偏应用", "只看985", "适合硕士"]
     recommendation = payload["recommendations"][0]
     assert {"professor_id", "name", "research_fields", "reason", "limitations"} <= set(recommendation)
 

@@ -68,8 +68,10 @@ def mock_recommendations(prompt: str, session_id: str | None = None) -> Recommen
         query_understanding=understood,
         recommendations=recommendations,
         follow_up_questions=[
-            "你更倾向理论研究还是应用研究？",
-            "是否只考虑 985 / 双一流高校？",
+            "偏理论",
+            "偏应用",
+            "只看985",
+            "适合硕士",
         ],
     )
 

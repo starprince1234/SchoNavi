@@ -136,9 +136,12 @@ Response data:
     "uncertainties": ["未明确偏理论还是应用"]
   },
   "recommendations": [],
-  "follow_up_questions": ["你更倾向理论研究还是应用研究？"]
+  "follow_up_questions": ["偏理论", "偏应用", "只看985", "适合硕士"]
 }
 ```
+
+`follow_up_questions` is a legacy field name. Values should be short quick-action
+labels for UI chips, not full questions.
 
 ### POST `/recommendations/competitions`
 
@@ -183,9 +186,12 @@ Response data:
       "match_score": 0.86
     }
   ],
-  "follow_up_questions": ["你更偏算法赛还是作品赛？"]
+  "follow_up_questions": ["算法赛", "作品赛", "团队赛", "近期可报"]
 }
 ```
+
+`follow_up_questions` is a legacy field name. Values should be short quick-action
+labels for UI chips, not full questions.
 
 ### GET `/professors/{professor_id}`
 
@@ -253,6 +259,51 @@ data: {"session_id":"s_123"}
 
 event: error
 data: {"code":50001,"message":"服务异常，请稍后重试"}
+```
+
+### POST `/chat/route`
+
+Decide whether a follow-up message needs a new round of recommendations (produce cards) or is a plain question about already-recommended mentors.
+
+Request:
+
+```json
+{
+  "follow_up": "只看上海的导师",
+  "session_id": "s_123",
+  "last_recommendations": [
+    {
+      "professor_id": "p_001",
+      "name": "张三",
+      "university": "上海交通大学",
+      "research_fields": ["医学影像", "计算机视觉"]
+    }
+  ]
+}
+```
+
+`follow_up` is required. `session_id` and `last_recommendations` are optional;
+omit `last_recommendations` on the first turn (no prior recommendation). The
+recap carries only routing-relevant fields — see `RecommendationRecap`.
+
+Response data:
+
+```json
+{ "need": true }
+```
+
+`need` is a JSON boolean. The client degrades to `false` on any failure (non-zero
+code, malformed `data`, network/timeout) — "宁可少产卡，不阻断对话".
+
+`RecommendationRecap`:
+
+```json
+{
+  "professor_id": "p_001",
+  "name": "张三",
+  "university": "上海交通大学",
+  "research_fields": ["医学影像", "计算机视觉"]
+}
 ```
 
 ### POST `/professors/compare`

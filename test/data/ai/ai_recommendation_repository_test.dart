@@ -75,7 +75,7 @@ void main() {
           'limitations': ['以学校官网为准'],
         },
       ],
-      'followUpQuestions': ['偏理论还是应用？'],
+      'followUpQuestions': ['偏理论', '偏应用'],
     });
     final repo = AiRecommendationRepository(
       llm: _FakeLlm(Success(content)),
@@ -93,7 +93,7 @@ void main() {
     expect(rec.reason, '方向高度相关');
     expect(rec.matchScore, isNull);
     expect(data.queryUnderstanding.degreeStage, '硕士');
-    expect(data.followUpQuestions, contains('偏理论还是应用？'));
+    expect(data.followUpQuestions, contains('偏理论'));
   });
 
   test('uses JSON mode', () async {

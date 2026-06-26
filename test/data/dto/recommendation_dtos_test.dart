@@ -27,7 +27,7 @@ void main() {
         'limitations': ['公开资料中未明确招生信息'],
       },
     ],
-    'follow_up_questions': ['你更倾向理论还是应用？'],
+    'follow_up_questions': ['偏理论', '偏应用'],
   };
 
   test('RecommendationResultDto round-trips via toJson', () {
@@ -42,6 +42,6 @@ void main() {
     expect(result.queryUnderstanding.degreeStage, '硕士');
     expect(result.recommendations.single.matchLevel, MatchLevel.high);
     expect(result.recommendations.single.matchScore, 0.91);
-    expect(result.followUpQuestions, ['你更倾向理论还是应用？']);
+    expect(result.followUpQuestions, ['偏理论', '偏应用']);
   });
 }

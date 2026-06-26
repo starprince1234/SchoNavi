@@ -85,25 +85,25 @@ Widget _wrap(_StreamChatRepo repo) {
 }
 
 void main() {
-  testWidgets('挂载后显示标题与快捷问题', (tester) async {
+  testWidgets('挂载后显示标题与快捷操作', (tester) async {
     await tester.pumpWidget(
       _wrap(_StreamChatRepo(() => Stream.fromIterable(const ['x']))),
     );
     await tester.pumpAndSettle();
 
     expect(find.text('继续追问'), findsWidgets);
-    expect(find.text('有没有相似的导师？'), findsOneWidget);
+    expect(find.text('换一批'), findsOneWidget);
   });
 
-  testWidgets('点击快捷问题：用户消息上屏并流式返回回答', (tester) async {
+  testWidgets('点击快捷操作：用户消息上屏并流式返回回答', (tester) async {
     final repo = _StreamChatRepo(() => Stream.fromIterable(const ['流式', '回答']));
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('有没有相似的导师？'));
+    await tester.tap(find.text('换一批'));
     await tester.pumpAndSettle();
 
-    expect(find.text('有没有相似的导师？'), findsWidgets);
+    expect(find.text('换一批'), findsWidgets);
     expect(repo.streamCalls, 1);
     expect(find.byType(GptMarkdown), findsWidgets);
   });
@@ -114,7 +114,7 @@ void main() {
     await tester.pumpWidget(_wrap(_StreamChatRepo(() => controller.stream)));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pump();
     controller.add('部分答案');
     await tester.pump();
@@ -134,7 +134,7 @@ void main() {
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pumpAndSettle();
     expect(repo.streamCalls, 1);
 
@@ -153,7 +153,7 @@ void main() {
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('为什么推荐这位导师？'));
+    await tester.tap(find.text('解释理由'));
     await tester.pumpAndSettle();
 
     final bubble = find.byType(ChatMessageBubble).last;
@@ -180,7 +180,7 @@ void main() {
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pumpAndSettle();
 
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -211,7 +211,7 @@ void main() {
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pumpAndSettle();
 
     final bubble = find.byType(ChatMessageBubble).last;
@@ -245,7 +245,7 @@ void main() {
     await tester.pumpWidget(_wrap(repo));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pumpAndSettle();
     expect(repo.streamCalls, 1);
 
@@ -283,7 +283,7 @@ void main() {
           limitations: [],
         ),
       ],
-      followUpQuestions: const ['动态问题一', '动态问题二'],
+      followUpQuestions: const ['除了北京，你是否还考虑其他地方的导师？', '只看北京', '偏应用', '适合博士'],
     );
 
     Widget wrapConversational({required ChatRepository chatRepo}) {
@@ -329,7 +329,9 @@ void main() {
       // 助手横滑卡片出现。
       expect(find.byType(SwipeRecommendationCard), findsOneWidget);
       expect(find.text('张三'), findsOneWidget);
-      expect(find.text('动态问题一'), findsOneWidget);
+      expect(find.text('除了北京，你是否还考虑其他地方的导师？'), findsNothing);
+      expect(find.text('只看北京'), findsOneWidget);
+      expect(find.text('偏应用'), findsOneWidget);
       // initialPrompt 路径不显示欢迎卡。
       expect(find.text('有什么想追问的？', skipOffstage: false), findsNothing);
     });
@@ -393,7 +395,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('适合硕士申请吗？'));
+    await tester.tap(find.text('适合硕士'));
     await tester.pumpAndSettle();
     expect(find.text('答案'), findsOneWidget);
 
