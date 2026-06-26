@@ -110,6 +110,7 @@ class ChatNotifier extends Notifier<ChatState> {
     if (prompt.isEmpty || state.isBusy || state.messages.isNotEmpty) return;
 
     final token = _beginOperation();
+    final placeholderId = _nextId();
     state = state.copyWith(
       activity: ChatActivity.recommending,
       messages: [
@@ -121,9 +122,14 @@ class ChatNotifier extends Notifier<ChatState> {
           relatedRecommendations: const [],
           status: ChatMessageStatus.done,
         ),
+        _recommendationPlaceholder(placeholderId),
       ],
     );
-    await _requestRecommendations(prompt, token: token);
+    await _requestRecommendations(
+      prompt,
+      token: token,
+      placeholderId: placeholderId,
+    );
   }
 
   Future<void> send(String text) async {
@@ -163,8 +169,19 @@ class ChatNotifier extends Notifier<ChatState> {
     if (!_isCurrent(token)) return;
 
     if (needsRecommendations) {
-      state = state.copyWith(activity: ChatActivity.recommending);
-      await _requestRecommendations(content, token: token);
+      final placeholderId = _nextId();
+      state = state.copyWith(
+        activity: ChatActivity.recommending,
+        messages: [
+          ...state.messages,
+          _recommendationPlaceholder(placeholderId),
+        ],
+      );
+      await _requestRecommendations(
+        content,
+        token: token,
+        placeholderId: placeholderId,
+      );
       return;
     }
 
@@ -186,11 +203,19 @@ class ChatNotifier extends Notifier<ChatState> {
     }
 
     final token = _beginOperation();
+    final placeholderId = _nextId();
     state = state.copyWith(
-      messages: state.messages.sublist(0, assistantIndex),
+      messages: [
+        ...state.messages.sublist(0, assistantIndex),
+        _recommendationPlaceholder(placeholderId),
+      ],
       activity: ChatActivity.recommending,
     );
-    await _requestRecommendations(user.content, token: token);
+    await _requestRecommendations(
+      user.content,
+      token: token,
+      placeholderId: placeholderId,
+    );
   }
 
   Future<void> regenerate() async {
@@ -248,10 +273,15 @@ class ChatNotifier extends Notifier<ChatState> {
   Future<void> _requestRecommendations(
     String prompt, {
     required int token,
+    required String placeholderId,
   }) async {
     final sessionId = state.sessionId;
     if (sessionId == null || sessionId.isEmpty) {
-      _appendRecommendationError(token, const UnknownException().message);
+      _appendRecommendationError(
+        token,
+        const UnknownException().message,
+        placeholderId: placeholderId,
+      );
       return;
     }
 
@@ -277,21 +307,33 @@ class ChatNotifier extends Notifier<ChatState> {
                 userPrompt: prompt,
                 result: data,
               );
+          final placeholder = state.messages.firstWhere(
+            (m) => m.id == placeholderId,
+            orElse: () => ChatMessage(
+              id: placeholderId,
+              role: ChatRole.assistant,
+              content: '',
+              createdAt: DateTime.now(),
+              relatedRecommendations: const [],
+              status: ChatMessageStatus.done,
+              kind: ChatMessageKind.recommendation,
+            ),
+          );
           state = state.copyWith(
             sessionId: resolvedSessionId,
             activity: ChatActivity.idle,
             followUpQuestions: data.followUpQuestions,
             messages: [
-              ...state.messages,
-              ChatMessage(
-                id: _nextId(),
-                role: ChatRole.assistant,
-                content: _openingLine(data),
-                createdAt: DateTime.now(),
-                relatedRecommendations: data.recommendations,
-                status: ChatMessageStatus.done,
-                kind: ChatMessageKind.recommendation,
-              ),
+              for (final m in state.messages)
+                if (m.id == placeholderId)
+                  placeholder.copyWith(
+                    content: _openingLine(data),
+                    relatedRecommendations: data.recommendations,
+                    status: ChatMessageStatus.done,
+                    kind: ChatMessageKind.recommendation,
+                  )
+                else
+                  m,
             ],
           );
           unawaited(
@@ -300,28 +342,53 @@ class ChatNotifier extends Notifier<ChatState> {
                 .addFromResult(prompt: prompt, result: data),
           );
         case Failure<RecommendationResult>(:final error):
-          _appendRecommendationError(token, error.message);
+          _appendRecommendationError(
+            token,
+            error.message,
+            placeholderId: placeholderId,
+          );
       }
     } catch (error) {
-      _appendRecommendationError(token, _messageFor(error));
+      _appendRecommendationError(
+        token,
+        _messageFor(error),
+        placeholderId: placeholderId,
+      );
     }
   }
 
-  void _appendRecommendationError(int token, String message) {
+  ChatMessage _recommendationPlaceholder(String id) => ChatMessage(
+        id: id,
+        role: ChatRole.assistant,
+        content: '',
+        createdAt: DateTime.now(),
+        relatedRecommendations: const [],
+        status: ChatMessageStatus.sending,
+        kind: ChatMessageKind.recommendation,
+      );
+
+  void _appendRecommendationError(
+    int token,
+    String message, {
+    required String placeholderId,
+  }) {
     if (!_isCurrent(token)) return;
     state = state.copyWith(
       activity: ChatActivity.idle,
       messages: [
-        ...state.messages,
-        ChatMessage(
-          id: _nextId(),
-          role: ChatRole.assistant,
-          content: message,
-          createdAt: DateTime.now(),
-          relatedRecommendations: const [],
-          status: ChatMessageStatus.error,
-          kind: ChatMessageKind.recommendation,
-        ),
+        for (final m in state.messages)
+          if (m.id == placeholderId)
+            ChatMessage(
+              id: placeholderId,
+              role: ChatRole.assistant,
+              content: message,
+              createdAt: m.createdAt,
+              relatedRecommendations: const [],
+              status: ChatMessageStatus.error,
+              kind: ChatMessageKind.recommendation,
+            )
+          else
+            m,
       ],
     );
   }

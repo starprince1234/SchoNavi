@@ -422,7 +422,7 @@ void main() {
     await notifier.bootstrapRecommendations('第二次');
     await notifier.send('重复追问');
     expect(rec.calls, 1);
-    expect(container.read(_chatTestProvider).messages, hasLength(1));
+    expect(container.read(_chatTestProvider).messages, hasLength(2)); // user + 占位
 
     rec.completer.complete(Success(_recResult(sessionId: 's_unique')));
     await pending;
@@ -509,5 +509,92 @@ void main() {
     expect(rec.calls, 2);
     expect(state.messages, hasLength(2));
     expect(state.messages.last.relatedRecommendations, isNotEmpty);
+  });
+
+  test('bootstrap 进行中：末尾为 sending 占位助手消息', () async {
+    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final rec = _CompleterRecRepo();
+    final need = _FakeNeedClassifier(false);
+    final container = _container(
+      chatRepo: chat,
+      recRepo: rec,
+      needClassifier: need,
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(_chatTestProvider.notifier)
+      ..start(sessionId: 'tmp');
+    final pending = notifier.bootstrapRecommendations('想做CV');
+    await container.pump();
+
+    final msgs = container.read(_chatTestProvider).messages;
+    expect(msgs, hasLength(2)); // user + 占位
+    expect(msgs[0].role, ChatRole.user);
+    expect(msgs[1].role, ChatRole.assistant);
+    expect(msgs[1].status, ChatMessageStatus.sending);
+    expect(msgs[1].kind, ChatMessageKind.recommendation);
+    expect(msgs[1].content, '');
+    expect(msgs[1].relatedRecommendations, isEmpty);
+
+    rec.completer.complete(Success(_recResult()));
+    await pending;
+    await container.pump();
+    // 完成后占位被替换为结果消息，仍是 2 条。
+    final done = container.read(_chatTestProvider).messages;
+    expect(done, hasLength(2));
+    expect(done[1].status, ChatMessageStatus.done);
+    expect(done[1].relatedRecommendations, hasLength(2));
+  });
+
+  test('send 推荐命中：占位替换为结果，不追加第三条', () async {
+    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final rec = _FakeRecRepo(Success(_recResult()));
+    final need = _FakeNeedClassifier(true); // 追问命中产卡
+    final container = _container(
+      chatRepo: chat,
+      recRepo: rec,
+      needClassifier: need,
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(_chatTestProvider.notifier)
+      ..start(sessionId: 'tmp');
+    await notifier.bootstrapRecommendations('想做CV'); // 首轮 2 条
+    await container.pump();
+
+    await notifier.send('只看北京的');
+    await container.pump();
+
+    final msgs = container.read(_chatTestProvider).messages;
+    expect(msgs, hasLength(4)); // user, assistant(首轮), user(追问), assistant(追问)
+    expect(msgs.last.role, ChatRole.assistant);
+    expect(msgs.last.status, ChatMessageStatus.done);
+    expect(msgs.last.kind, ChatMessageKind.recommendation);
+    expect(msgs.last.relatedRecommendations, hasLength(2));
+  });
+
+  test('send 推荐失败：占位替换为 error，不追加第三条', () async {
+    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final rec = _FakeRecRepo(const Failure(ServerException()));
+    final need = _FakeNeedClassifier(true); // 命中产卡但推荐失败
+    final container = _container(
+      chatRepo: chat,
+      recRepo: rec,
+      needClassifier: need,
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(_chatTestProvider.notifier)
+      ..start(sessionId: 'tmp');
+    await notifier.bootstrapRecommendations('想做CV');
+    await container.pump();
+
+    await notifier.send('只看北京的');
+    await container.pump();
+
+    final msgs = container.read(_chatTestProvider).messages;
+    expect(msgs, hasLength(4));
+    expect(msgs.last.status, ChatMessageStatus.error);
+    expect(msgs.last.kind, ChatMessageKind.recommendation);
   });
 }
