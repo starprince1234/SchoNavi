@@ -701,6 +701,7 @@ void main() {
       onChanged: (s) => out = s,
     );
     await tester.enterText(find.byKey(const Key('rank-percent')), '0');
+    await tester.pump(); // 刷新 setState 触发的 errorText 重建
     expect(out, isNull); // 不回调
     expect(find.text('请输入 1–100'), findsOneWidget);
   });
@@ -713,6 +714,7 @@ void main() {
       onChanged: (s) => out = s,
     );
     await tester.enterText(find.byKey(const Key('rank-percent')), '101');
+    await tester.pump();
     expect(out, isNull);
     expect(find.text('请输入 1–100'), findsOneWidget);
   });
@@ -725,7 +727,9 @@ void main() {
       onChanged: (s) => out = s,
     );
     await tester.enterText(find.byKey(const Key('rank-percent')), 'abc');
+    await tester.pump();
     expect(out, isNull);
+    expect(find.text('请输入 1–100'), findsOneWidget);
   });
 
   testWidgets('切到名次并输入 3/120 -> 回调 ordinal', (tester) async {
@@ -739,6 +743,7 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byKey(const Key('rank-position')), '3');
     await tester.enterText(find.byKey(const Key('rank-total')), '120');
+    await tester.pump();
     expect(out?.rankMode, RankMode.ordinal);
     expect(out?.rankPosition, 3);
     expect(out?.rankTotal, 120);
@@ -753,6 +758,7 @@ void main() {
       onChanged: (s) => out = s,
     );
     await tester.enterText(find.byKey(const Key('rank-position')), '3');
+    await tester.pump();
     expect(out, isNull);
     expect(find.text('请补全名次和总人数'), findsOneWidget);
   });
@@ -766,6 +772,7 @@ void main() {
     );
     await tester.enterText(find.byKey(const Key('rank-position')), '150');
     await tester.enterText(find.byKey(const Key('rank-total')), '120');
+    await tester.pump();
     expect(out, isNull);
     expect(find.text('名次不能大于总人数'), findsOneWidget);
   });
