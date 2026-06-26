@@ -180,7 +180,8 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
                     blendMode: BlendMode.srcIn,
                     child: SvgPicture.asset(
                       'assets/icons/reasoning.svg',
-                      size: const Size.square(20),
+                      width: 20,
+                      height: 20,
                     ),
                   ),
                   // 上层：沿圆周扫过的滑光，匀速旋转。
