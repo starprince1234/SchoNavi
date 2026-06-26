@@ -67,7 +67,7 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
             );
           }
           return RefreshIndicator(
-            color: AppColors.coral,
+            color: AppColors.indigo,
             onRefresh: () async {
               ref.invalidate(recommendationProvider(widget.prompt));
               await ref.read(recommendationProvider(widget.prompt).future);

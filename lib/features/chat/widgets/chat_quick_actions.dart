@@ -110,7 +110,7 @@ class ChatQuickActions extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.bolt_outlined,
-                      color: AppColors.coral,
+                      color: AppColors.indigo,
                       size: 16,
                     ),
                     const SizedBox(width: 6),

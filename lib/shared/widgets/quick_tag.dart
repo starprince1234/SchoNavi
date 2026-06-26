@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/theme/app_colors.dart';
 
 /// A compact, tappable tag used for quick filters or shortcuts.
 ///
@@ -41,13 +42,7 @@ class _QuickTagState extends State<QuickTag> {
         decoration: BoxDecoration(
           color: widget.color ?? scheme.surface,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
+          boxShadow: const [AppColors.shadowCool],
         ),
         child: Text(
           widget.label,

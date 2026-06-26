@@ -88,7 +88,7 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
             return const EmptyView(message: '还没有收藏导师');
           }
           return RefreshIndicator(
-            color: AppColors.coral,
+            color: AppColors.indigo,
             onRefresh: () async {
               ref.invalidate(favoritesProvider);
               await ref.read(favoritesProvider.future);

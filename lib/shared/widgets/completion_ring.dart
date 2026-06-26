@@ -7,9 +7,9 @@ class CompletionRing extends StatelessWidget {
     super.key,
     required this.value,
     this.size = 56,
-    this.ringColor = AppColors.lime,
+    this.ringColor = AppColors.cyanBright,
     this.trackColor = const Color(0x33FFFFFF),
-    this.textColor = AppColors.lime,
+    this.textColor = AppColors.cyanBright,
   });
 
   final double value;

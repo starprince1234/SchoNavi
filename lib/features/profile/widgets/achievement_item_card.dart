@@ -29,7 +29,7 @@ class AchievementItemCard extends StatelessWidget {
       shadow: null,
       child: Row(
         children: [
-          Icon(icon, size: 20, color: AppColors.coral),
+          Icon(icon, size: 20, color: AppColors.indigo),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

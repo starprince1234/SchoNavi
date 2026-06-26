@@ -47,7 +47,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(width: 4, color: AppColors.coral),
+              Container(width: 4, color: AppColors.indigo),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),

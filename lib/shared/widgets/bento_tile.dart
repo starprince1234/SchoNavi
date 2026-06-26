@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../core/haptics/haptics.dart';
+import '../../core/theme/app_colors.dart';
+import 'glass_surface.dart';
 
 /// Bento tile with press feedback and optional tap behavior.
 ///
 /// When [onTap] is provided, the gesture area is constrained to a minimum
 /// of 48x48 logical pixels to meet accessibility tap-target guidelines.
+///
+/// 冷调玻璃拟态：默认实心冷面（长列表友好、性能优），[frosted] 开启毛玻璃
+/// （用于浮层/输入条/hero 等固定区）。按下态用浅冷叠层而非纯黑。左侧强调条
+/// 仍由调用方在 `padding: EdgeInsets.zero` 的内部 Row 中自行绘制，本组件不
+/// 重构子树布局。
 class BentoTile extends StatefulWidget {
   const BentoTile({
     super.key,
@@ -14,16 +21,13 @@ class BentoTile extends StatefulWidget {
     this.color,
     this.padding = const EdgeInsets.all(14),
     this.border,
-    this.shadow = const BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 8,
-      offset: Offset(0, 2),
-    ),
+    this.shadow = AppColors.shadowCool,
     this.gradient,
     this.borderRadius = 18,
     this.height,
     this.width,
     this.haptic,
+    this.frosted = false,
   });
 
   final Widget child;
@@ -50,6 +54,9 @@ class BentoTile extends StatefulWidget {
   /// Optional custom haptic feedback. Defaults to [Haptics.light].
   final VoidCallback? haptic;
 
+  /// 启用毛玻璃模糊。滚动列表内条目保持 false 以保性能与可读性。
+  final bool frosted;
+
   @override
   State<BentoTile> createState() => _BentoTileState();
 }
@@ -60,29 +67,35 @@ class _BentoTileState extends State<BentoTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final solid =
+        !widget.frosted && widget.gradient == null
+            ? (widget.color ?? scheme.surface)
+            : null;
 
     Widget content = AnimatedScale(
       scale: _down ? 0.97 : 1,
       duration: const Duration(milliseconds: 90),
-      child: Container(
+      child: SizedBox(
         height: widget.height,
         width: widget.width,
-        padding: widget.padding,
-        decoration: BoxDecoration(
-          color: widget.gradient == null ? (widget.color ?? scheme.surface) : null,
-          gradient: widget.gradient,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: _TileSurface(
+          frosted: widget.frosted,
+          radius: widget.borderRadius,
+          padding: widget.padding,
           border: widget.border,
-          boxShadow: widget.shadow != null ? [widget.shadow!] : null,
+          shadow: widget.shadow,
+          gradient: widget.gradient,
+          solidColor: solid,
+          child: widget.child,
         ),
-        child: widget.child,
       ),
     );
 
     if (_down) {
       content = ColorFiltered(
-        colorFilter: const ColorFilter.mode(
-          Color(0x1A000000),
+        colorFilter: ColorFilter.mode(
+          // 冷调按下叠层：ink @ 8%。
+          scheme.onSurface.withValues(alpha: 0.08),
           BlendMode.srcATop,
         ),
         child: content,
@@ -107,6 +120,56 @@ class _BentoTileState extends State<BentoTile> {
         },
         child: content,
       ),
+    );
+  }
+}
+
+/// 实心面或玻璃面二选一，不重构子树布局。
+class _TileSurface extends StatelessWidget {
+  const _TileSurface({
+    required this.child,
+    required this.frosted,
+    required this.radius,
+    required this.padding,
+    required this.border,
+    required this.shadow,
+    required this.gradient,
+    required this.solidColor,
+  });
+
+  final Widget child;
+  final bool frosted;
+  final double radius;
+  final EdgeInsetsGeometry padding;
+  final BoxBorder? border;
+  final BoxShadow? shadow;
+  final Gradient? gradient;
+  final Color? solidColor;
+
+  @override
+  Widget build(BuildContext context) {
+    // 实心面：DecoratedBox 直接画底色 + 描边 + 阴影（无模糊开销）。
+    if (solidColor != null) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: solidColor,
+          borderRadius: BorderRadius.circular(radius),
+          border: border,
+          boxShadow: shadow != null ? [shadow!] : null,
+        ),
+        child: Padding(padding: padding, child: child),
+      );
+    }
+
+    // 玻璃面 / 渐变面：复用 GlassSurface。
+    return GlassSurface(
+      frosted: frosted,
+      radius: radius,
+      padding: padding,
+      border: border,
+      shadow: shadow,
+      gradient: gradient,
+      child: child,
     );
   }
 }

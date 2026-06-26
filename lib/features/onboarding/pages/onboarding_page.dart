@@ -9,6 +9,7 @@ import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/cool_scaffold_background.dart';
 
 /// 首启引导：可滑动 PageView 介绍"AI 选导师"卖点 + 圆点指示 + 跳过；
 /// 末页「开始使用」或随时「跳过」→ 写 seenOnboarding 后进首页。
@@ -90,22 +91,25 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: TextButton(
-                  onPressed: () {
-                    Haptics.light();
-                    _finish();
-                  },
-                  child: const Text('跳过'),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: CoolScaffoldBackground()),
+          SafeArea(
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: TextButton(
+                      onPressed: () {
+                        Haptics.light();
+                        _finish();
+                      },
+                      child: const Text('跳过'),
+                    ),
+                  ),
                 ),
-              ),
-            ),
             Expanded(
               child: PageView.builder(
                 controller: _controller,
@@ -120,7 +124,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         key: ValueKey(i),
                         slideOffset: const Offset(0, 24),
                         child: BentoTile(
-                          color: scheme.surfaceContainerLowest,
+                          frosted: true,
                           padding: const EdgeInsets.all(32),
                           width: min(
                             320,
@@ -132,7 +136,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                               Icon(
                                 p.icon,
                                 size: 48,
-                                color: AppColors.coral,
+                                color: AppColors.indigo,
                               ),
                               const SizedBox(height: 24),
                               Text(
@@ -191,6 +195,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           ],
         ),
       ),
+          ],
+        ),
     );
   }
 }

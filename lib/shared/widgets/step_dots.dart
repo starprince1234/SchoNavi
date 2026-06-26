@@ -20,7 +20,7 @@ class StepDots extends StatelessWidget {
             width: i == index ? 24 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: i == index ? AppColors.coral : AppColors.line,
+              color: i == index ? AppColors.indigo : AppColors.line,
               borderRadius: BorderRadius.circular(4),
             ),
           ),

@@ -40,7 +40,7 @@ class _ProfessorCardState extends State<ProfessorCard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(width: 4, color: AppColors.coral),
+            Container(width: 4, color: AppColors.indigo),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(14),

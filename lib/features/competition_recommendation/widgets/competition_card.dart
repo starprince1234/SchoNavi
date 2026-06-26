@@ -36,12 +36,12 @@ class CompetitionCard extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: AppColors.coralSoft,
+                      color: AppColors.indigoSoft,
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.emoji_events_outlined,
-                      color: AppColors.coral,
+                      color: AppColors.indigo,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -145,13 +145,13 @@ class _MatchScoreChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.matchSoft,
+        color: AppColors.cyanSoft,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: AppColors.match,
+          color: AppColors.cyan,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),

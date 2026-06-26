@@ -19,8 +19,14 @@ class ProfileSummaryHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.ink,
+        // 冷调深色 hero：slate-900 → indigo 深渐变，承载 cyan 完成度环。
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F172A), Color(0xFF312E81)],
+        ),
         borderRadius: BorderRadius.circular(18),
+        boxShadow: const [AppColors.shadowGlow],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,13 +41,13 @@ class ProfileSummaryHeader extends StatelessWidget {
                   children: [
                     const Text(
                       '档案完成度',
-                      style: TextStyle(color: AppColors.paper, fontSize: 13),
+                      style: TextStyle(color: AppColors.inkDark, fontSize: 13),
                     ),
                     const SizedBox(height: 2),
-                    Text(
+                    const Text(
                       '越完整 · 推荐越准',
-                      style: const TextStyle(
-                        color: AppColors.lime,
+                      style: TextStyle(
+                        color: AppColors.cyanBright,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),

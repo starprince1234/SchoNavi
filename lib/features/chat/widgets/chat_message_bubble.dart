@@ -164,7 +164,7 @@ class _MessageActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inactiveColor = AppColors.inkSoft;
-    final activeColor = AppColors.coral;
+    final activeColor = AppColors.indigo;
 
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 2, bottom: 6),

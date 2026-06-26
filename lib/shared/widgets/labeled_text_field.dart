@@ -73,7 +73,7 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.coral, width: 2),
+              borderSide: const BorderSide(color: AppColors.indigo, width: 2),
             ),
           ),
         ),

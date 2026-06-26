@@ -232,7 +232,7 @@ class _TypewriterTextState extends State<_TypewriterText> {
           if (!done)
             const TextSpan(
               text: '▏',
-              style: TextStyle(color: AppColors.coral),
+              style: TextStyle(color: AppColors.indigo),
             ),
         ],
       ),

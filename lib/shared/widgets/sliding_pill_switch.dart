@@ -78,8 +78,9 @@ class SlidingPillSwitch<T> extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
                   decoration: BoxDecoration(
-                    color: AppColors.coral,
+                    gradient: AppColors.brandGradient,
                     borderRadius: BorderRadius.circular(15),
+                    boxShadow: const [AppColors.shadowGlow],
                   ),
                 ),
               ),

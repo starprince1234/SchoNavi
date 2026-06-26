@@ -51,10 +51,10 @@ class _Chip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: active ? AppColors.ink : AppColors.surface,
+          color: active ? AppColors.indigo : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: active ? AppColors.ink : AppColors.line,
+            color: active ? AppColors.indigo : AppColors.line,
             width: active ? 2 : 1,
           ),
         ),
@@ -63,7 +63,7 @@ class _Chip extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: active ? AppColors.paper : AppColors.ink,
+            color: active ? Colors.white : AppColors.ink,
           ),
         ),
       ),

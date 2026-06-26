@@ -111,10 +111,10 @@ class _ProfileHeader extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: AppColors.coralSoft,
+              backgroundColor: AppColors.indigoSoft,
               child: Icon(
                 Icons.person,
-                color: AppColors.coral,
+                color: AppColors.indigo,
                 size: 26,
               ),
             ),

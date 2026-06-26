@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/cool_scaffold_background.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/chat_input_bar.dart';
@@ -143,16 +144,19 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           ),
         ],
       ),
-      body: blocked
-          ? ErrorView(message: const MissingLlmConfigurationException().message)
-          : SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: CoolScaffoldBackground()),
+          blocked
+              ? ErrorView(message: const MissingLlmConfigurationException().message)
+              : SafeArea(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
                         vertical: 12,
                       ),
                       itemCount: state.messages.length + (showWelcome ? 1 : 0),
@@ -207,6 +211,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ],
               ),
             ),
+        ],
+      ),
     );
   }
 
@@ -220,9 +226,8 @@ class _WelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
     return BentoTile(
-      color: scheme.surfaceContainerLowest,
+      frosted: true,
       borderRadius: 16,
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -233,7 +238,7 @@ class _WelcomeCard extends StatelessWidget {
             children: [
               const Icon(
                 Icons.chat_bubble_outline,
-                color: AppColors.coral,
+                color: AppColors.indigo,
                 size: 20,
               ),
               const SizedBox(width: 8),

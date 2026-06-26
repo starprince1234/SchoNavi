@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/glass_surface.dart';
 
 /// 对话页底部的输入条：外层 [AnimatedContainer] 画圆角聚焦边框，内层
 /// [TextField] 显式置空全部边框状态（避免主题 `focusedBorder` 叠加渲染出
@@ -59,30 +60,20 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final focusBorder = Border.all(
+      color: _focused ? AppColors.indigo : scheme.outline.withValues(alpha: 0.4),
+      width: _focused ? 2 : 1,
+    );
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          decoration: BoxDecoration(
-            color: scheme.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: _focused
-                ? Border.all(color: AppColors.coral, width: 2)
-                : Border.all(
-                    color: scheme.outline.withValues(alpha: 0.4),
-                    width: 1,
-                  ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
+        child: GlassSurface(
+          frosted: true,
+          radius: 24,
+          padding: EdgeInsets.zero,
+          border: focusBorder,
+          shadow: AppColors.shadowElevated,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -122,7 +113,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     ? Tooltip(
                         message: '停止生成',
                         child: Material(
-                          color: AppColors.coral,
+                          color: AppColors.indigo,
                           borderRadius: BorderRadius.circular(16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
@@ -152,7 +143,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         message: '发送',
                         child: Material(
                           color: _canSubmit
-                              ? AppColors.coral
+                              ? AppColors.indigo
                               : scheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(16),
                           child: InkWell(

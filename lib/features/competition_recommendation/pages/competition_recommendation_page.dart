@@ -55,7 +55,7 @@ class _CompetitionRecommendationPageState
             );
           }
           return RefreshIndicator(
-            color: AppColors.coral,
+            color: AppColors.indigo,
             onRefresh: () async {
               ref.invalidate(competitionRecommendationProvider(widget.prompt));
               await ref.read(

@@ -133,7 +133,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               else
                 Expanded(
                   child: RefreshIndicator(
-                    color: AppColors.coral,
+                    color: AppColors.indigo,
                     onRefresh: () async {
                       ref.invalidate(searchHistoryProvider);
                       await ref.read(searchHistoryProvider.future);

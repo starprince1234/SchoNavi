@@ -67,8 +67,8 @@ class _RadarChartState extends State<RadarChart>
                   dimensions: dims,
                   progress: Curves.easeOutCubic.transform(_controller.value),
                   grid: AppColors.line,
-                  fill: AppColors.coral.withValues(alpha: 0.20),
-                  stroke: AppColors.coral,
+                  fill: AppColors.cyan.withValues(alpha: 0.22),
+                  stroke: AppColors.cyan,
                 ),
               ),
               for (var i = 0; i < dims.length; i++)
@@ -115,7 +115,7 @@ class _RadarChartState extends State<RadarChart>
             Text(
               '${dimension.score}',
               style: theme.textTheme.labelLarge?.copyWith(
-                color: AppColors.coral,
+                color: AppColors.cyan,
               ),
             ),
           ],

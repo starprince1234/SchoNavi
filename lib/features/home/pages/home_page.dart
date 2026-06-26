@@ -19,9 +19,12 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/cool_scaffold_background.dart';
+import '../../../shared/widgets/glass_surface.dart';
 import '../../../shared/widgets/quick_tag.dart';
 import '../../../shared/widgets/right_edge_open_drawer.dart';
 import '../../../shared/widgets/rotating_subtitle.dart';
+import '../../../shared/widgets/scho_navi_logo.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/sliding_pill_switch.dart';
 
@@ -242,24 +245,24 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Color _tagColor(String tag, ColorScheme scheme) {
     if (tag == '北京' || tag == '上海' || tag == '江浙沪') {
-      return AppColors.matchSoft;
+      return AppColors.cyanSoft;
     }
     if (tag == '博士申请' || tag == '硕士申请') {
-      return AppColors.coralSoft;
+      return AppColors.indigoSoft;
     }
     if (tag == '计算机视觉' ||
         tag == '自然语言处理' ||
         tag == '机器人' ||
         tag == '人工智能' ||
         tag == '推荐系统') {
-      return AppColors.coralSoft;
+      return AppColors.indigoSoft;
     }
     if (tag.contains('竞赛') ||
         tag == '挑战杯' ||
         tag == '互联网+' ||
         tag == '蓝桥杯' ||
         tag == '近期可报名') {
-      return AppColors.coralSoft;
+      return AppColors.indigoSoft;
     }
     return scheme.surfaceContainer;
   }
@@ -273,7 +276,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           selection: TextSelection.collapsed(offset: prompt.text.length),
         );
       },
-      color: Theme.of(context).colorScheme.surface,
+      frosted: true,
       height: 120,
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -290,7 +293,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             alignment: Alignment.bottomRight,
             child: Icon(
               Icons.lightbulb_outline,
-              color: AppColors.coral,
+              color: AppColors.indigo,
               size: 18,
             ),
           ),
@@ -308,7 +311,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       children: List.generate(
         4,
         (_) => BentoTile(
-          color: Theme.of(context).colorScheme.surface,
+          frosted: true,
           height: 120,
           padding: const EdgeInsets.all(16),
           child: const Column(
@@ -340,6 +343,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         builder: (context) {
           return Stack(
             children: [
+              // 冷调渐变底：玻璃面在其上折射出层次。
+              const Positioned.fill(child: CoolScaffoldBackground()),
               SafeArea(
                 child: Center(
                   child: ConstrainedBox(
@@ -425,15 +430,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Column(
                 children: [
-                  // 品牌字标，居中 Hero。
+                  // 品牌标，居中 Hero：矢量 logo + indigo→cyan 渐变字标。
                   FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      'SchoNavi',
-                      style: textTheme.headlineMedium?.copyWith(
-                        color: AppColors.coral,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: SchoNaviLogo(
+                      size: 44,
+                      withWordmark: true,
+                      wordmarkStyle: textTheme.headlineMedium,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -544,6 +547,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isBusy = chatState?.isBusy ?? false;
     final canStop = chatState?.activity == ChatActivity.streaming;
     final hint = _inConversation ? '继续描述你的需求…' : '给 SchoNavi 发送消息';
+    final focusBorder = Border.all(
+      color: _focused ? AppColors.indigo : scheme.outline.withValues(alpha: 0.4),
+      width: _focused ? 2 : 1,
+    );
     return AnimatedEntrance(
       index: 2,
       child: Padding(
@@ -552,26 +559,12 @@ class _HomePageState extends ConsumerState<HomePage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              decoration: BoxDecoration(
-                color: scheme.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: _focused
-                    ? Border.all(color: AppColors.coral, width: 2)
-                    : Border.all(
-                        color: scheme.outline.withValues(alpha: 0.4),
-                        width: 1,
-                      ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0A000000),
-                    blurRadius: 16,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
+            GlassSurface(
+              frosted: true,
+              radius: 24,
+              padding: EdgeInsets.zero,
+              border: focusBorder,
+              shadow: AppColors.shadowElevated,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -637,7 +630,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       return Tooltip(
         message: '停止生成',
         child: Material(
-          color: AppColors.coral,
+          color: AppColors.indigo,
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
@@ -664,7 +657,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     return Tooltip(
       message: '发送',
       child: Material(
-        color: _canSubmit ? AppColors.coral : scheme.surfaceContainer,
+        color: _canSubmit ? AppColors.indigo : scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),

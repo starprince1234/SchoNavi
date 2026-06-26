@@ -131,7 +131,7 @@ class _RecommendationCarouselState
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: active
-                      ? AppColors.coral
+                      ? AppColors.indigo
                       : scheme.outline.withValues(alpha: 0.4),
                 ),
               );
