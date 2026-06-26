@@ -3,24 +3,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/shared/widgets/labeled_text_field.dart';
 
 void main() {
-  testWidgets('显示 label 与初值，输入触发 onChanged', (tester) async {
-    String? changed;
+  testWidgets('无 errorText 时正常渲染', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
+        home: Scaffold(
+          body: LabeledTextField(label: '字段', onChanged: _noop),
+        ),
+      ),
+    );
+    expect(find.text('字段'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
+  testWidgets('errorText 非空时显示错误文本', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
         home: Scaffold(
           body: LabeledTextField(
-            label: '姓名',
-            initialValue: '张三',
-            onChanged: (v) => changed = v,
+            label: '字段', onChanged: _noop, errorText: '不能为空',
           ),
         ),
       ),
     );
+    expect(find.text('不能为空'), findsOneWidget);
+  });
 
-    expect(find.text('姓名'), findsOneWidget);
-    expect(find.text('张三'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), '李四');
-    expect(changed, '李四');
+  testWidgets('输入触发 onChanged', (tester) async {
+    String? captured;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LabeledTextField(label: '字段', onChanged: (v) => captured = v),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'hello');
+    expect(captured, 'hello');
   });
 }
+
+void _noop(String _) {}

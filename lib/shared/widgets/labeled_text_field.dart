@@ -12,6 +12,7 @@ class LabeledTextField extends StatefulWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.fieldKey,
+    this.errorText,
   });
 
   final String label;
@@ -21,6 +22,7 @@ class LabeledTextField extends StatefulWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final Key? fieldKey;
+  final String? errorText;
 
   @override
   State<LabeledTextField> createState() => _LabeledTextFieldState();
@@ -60,6 +62,7 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
           keyboardType: widget.keyboardType,
           decoration: InputDecoration(
             hintText: widget.hintText,
+            errorText: widget.errorText,
             filled: true,
             fillColor: AppColors.surface,
             isDense: true,
