@@ -57,7 +57,9 @@ void main() {
         name: '王五',
         gender: Gender.female,
         targetDegree: '申请博士',
-        score: AcademicScore(gpa: 3.8, scale: 4.0, rank: '前 5%'),
+        score: AcademicScore(
+          gpa: 3.8, scale: 4.0, rankMode: RankMode.percent, percent: 5,
+        ),
         competitions: [
           Competition(name: 'ACM 区域赛', level: '国家级', award: '银牌', year: '2024'),
         ],
@@ -79,9 +81,29 @@ void main() {
     expect(p.score?.gpa, 3.8);
     expect(p.score?.scale, 4.0);
     expect(p.score?.rank, '前 5%');
+    expect(p.score?.percent, 5);
     expect(p.competitions.single.award, '银牌');
     expect(p.research.single.type, ResearchType.paper);
     expect(p.research.single.role, '第一作者');
+  });
+
+  test('排名名次模式往返', () async {
+    await repo.save(
+      const UserProfile(
+        name: '赵六',
+        score: AcademicScore(
+          gpa: 3.5,
+          rankMode: RankMode.ordinal,
+          rankPosition: 3,
+          rankTotal: 120,
+        ),
+      ),
+    );
+    final p = repo.load();
+    expect(p.score?.rankMode, RankMode.ordinal);
+    expect(p.score?.rankPosition, 3);
+    expect(p.score?.rankTotal, 120);
+    expect(p.score?.rank, '3/120');
   });
 
   test('旧版仅含基础字段的 JSON 仍可加载（向后兼容）', () async {

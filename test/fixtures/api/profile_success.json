@@ -10,7 +10,7 @@
     "major": "计算机科学与技术",
     "research_interests": ["计算机视觉", "医学影像"],
     "highlights": "有一段医学影像项目经历",
-    "score": { "gpa": 3.8, "scale": 4.0, "rank": "前 10%" },
+    "score": { "gpa": 3.8, "scale": 4.0, "rank_mode": "percent", "percent": 10 },
     "competitions": [
       { "name": "中国大学生计算机设计大赛", "level": "国家级", "award": "二等奖", "year": "2025" }
     ],
