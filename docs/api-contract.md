@@ -306,6 +306,38 @@ code, malformed `data`, network/timeout) — "宁可少产卡，不阻断对话"
 }
 ```
 
+### POST `/chat/quick-actions`
+
+Generate short quick-action chip labels for the input bar above the composer. Called on conversation start and after each conversational turn's stream completes (recommendation turns already carry `follow_up_questions` in their result).
+
+Request:
+
+```json
+{
+  "follow_up": "只看上海的导师",
+  "last_recommendations": [
+    {
+      "professor_id": "p_001",
+      "name": "张三",
+      "university": "清华大学",
+      "research_fields": ["计算机视觉", "医学影像"]
+    }
+  ]
+}
+```
+
+`follow_up` is required (empty string on conversation start). `last_recommendations` is optional; omit on the first turn (no prior recommendation). The recap carries only routing-relevant fields — see `RecommendationRecap` (same shape as `/chat/route`), capped to 5 entries by the client.
+
+Response data:
+
+```json
+{
+  "quick_actions": ["换一批", "偏应用", "只看985", "适合博士"]
+}
+```
+
+`quick_actions` should be 1-4 short action labels (≤8 CJK chars each), operation phrases only — no full questions, no question marks, no interrogative prefixes like "你/是否/请问". On empty/missing `quick_actions`, the client hides the chips for that turn. On transport failure, the client falls back to a hardcoded default set.
+
 ### POST `/professors/compare`
 
 Request:
