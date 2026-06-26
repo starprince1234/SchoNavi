@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 
 void main() {
-  testWidgets('渲染大脑画笔与「正在思考…」文案，不渲染旧转圈', (tester) async {
+  testWidgets('渲染 svg 图标与「正在思考…」文案，不渲染旧转圈', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: ThinkingIndicator()),
       ),
     );
 
-    expect(find.byType(CustomPaint), findsWidgets);
+    expect(find.byType(SvgPicture), findsOneWidget);
     expect(find.text('正在思考…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
