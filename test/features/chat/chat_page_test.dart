@@ -26,6 +26,7 @@ import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/chat/pages/chat_page.dart';
 import 'package:scho_navi/features/chat/widgets/chat_message_bubble.dart';
+import 'package:scho_navi/shared/utils/quick_actions_source.dart';
 import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 
@@ -78,6 +79,9 @@ Widget _wrap(_StreamChatRepo repo) {
       chatRepositoryProvider.overrideWithValue(repo),
       recommendationNeedClassifierProvider.overrideWithValue(
         const _FakeNeedClassifier(false),
+      ),
+      quickActionsSourceProvider.overrideWithValue(
+        const _FailingQuickActionsSource(),
       ),
     ],
     child: MaterialApp.router(routerConfig: router),
@@ -311,6 +315,9 @@ void main() {
           recommendationNeedClassifierProvider.overrideWithValue(
             _FakeNeedClassifier(false),
           ),
+          quickActionsSourceProvider.overrideWithValue(
+            const _FailingQuickActionsSource(),
+          ),
           profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
           historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
           favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
@@ -389,6 +396,9 @@ void main() {
           recommendationNeedClassifierProvider.overrideWithValue(
             const _FakeNeedClassifier(false),
           ),
+          quickActionsSourceProvider.overrideWithValue(
+            const _FailingQuickActionsSource(),
+          ),
         ],
         child: MaterialApp.router(routerConfig: router),
       ),
@@ -442,6 +452,16 @@ class _FakeNeedClassifier implements RecommendationNeedClassifier {
     String followUp, {
     RecommendationResult? lastResult,
   }) async => _value;
+}
+
+class _FailingQuickActionsSource implements QuickActionsSource {
+  const _FailingQuickActionsSource();
+
+  @override
+  Future<Result<List<String>>> fetch({
+    required String followUp,
+    RecommendationResult? lastResult,
+  }) async => const Failure(NetworkException());
 }
 
 class _FakeProfileRepo implements ProfileRepository {

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
@@ -18,6 +19,7 @@ import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
+import 'package:scho_navi/shared/utils/quick_actions_source.dart';
 import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 
@@ -103,6 +105,16 @@ class _ScriptedNeedClassifier implements RecommendationNeedClassifier {
   }
 }
 
+class _FailingQuickActionsSource implements QuickActionsSource {
+  const _FailingQuickActionsSource();
+
+  @override
+  Future<Result<List<String>>> fetch({
+    required String followUp,
+    RecommendationResult? lastResult,
+  }) async => const Failure(NetworkException());
+}
+
 Future<Widget> _wrap({
   required _ControllableChatRepo chatRepo,
   required RecommendationNeedClassifier classifier,
@@ -125,6 +137,9 @@ Future<Widget> _wrap({
       recommendationRepositoryProvider.overrideWithValue(_FakeRecRepo()),
       chatRepositoryProvider.overrideWithValue(chatRepo),
       recommendationNeedClassifierProvider.overrideWithValue(classifier),
+      quickActionsSourceProvider.overrideWithValue(
+        const _FailingQuickActionsSource(),
+      ),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
