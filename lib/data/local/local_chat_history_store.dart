@@ -19,9 +19,19 @@ class LocalChatHistoryStore implements ChatHistoryStore {
     if (raw == null) return null;
     var i = 0;
     return raw
-        .map((e) =>
-            ChatMessageDto.fromJson(e as Map<String, dynamic>).toEntity('m${i++}'))
+        .map((e) => _parseMessage(e, i++))
+        .whereType<ChatMessage>()
         .toList();
+  }
+
+  ChatMessage? _parseMessage(Object? entry, int index) {
+    if (entry is! Map) return null;
+    try {
+      return ChatMessageDto.fromJson(Map<String, dynamic>.from(entry))
+          .toEntity('m$index');
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -34,9 +44,7 @@ class LocalChatHistoryStore implements ChatHistoryStore {
 
   List<ForkRef> _readAllForks() {
     final raw = _store.getJsonList(_forksKey) ?? const [];
-    return raw
-        .map((e) => _forkFromJson(e as Map<String, dynamic>))
-        .toList();
+    return raw.map(_forkFromJson).whereType<ForkRef>().toList();
   }
 
   Future<void> _writeAllForks(List<ForkRef> forks) async {
@@ -93,7 +101,11 @@ class LocalChatHistoryStore implements ChatHistoryStore {
         'created_at': f.createdAt.toIso8601String(),
       };
 
-  ForkRef _forkFromJson(Map<String, dynamic> json) => ForkRef(
+  ForkRef? _forkFromJson(Object? entry) {
+    if (entry is! Map) return null;
+    final json = Map<String, dynamic>.from(entry);
+    try {
+      return ForkRef(
         forkId: json['fork_id'] as String? ?? '',
         mainSessionId: json['main_session_id'] as String? ?? '',
         professorId: json['professor_id'] as String? ?? '',
@@ -104,4 +116,8 @@ class LocalChatHistoryStore implements ChatHistoryStore {
             DateTime.tryParse(json['created_at'] as String? ?? '') ??
                 DateTime.now(),
       );
+    } catch (_) {
+      return null;
+    }
+  }
 }

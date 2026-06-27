@@ -69,6 +69,46 @@ void main() {
       expect(await store.load('nope'), isNull);
     });
 
+    test('load 跳过损坏条目并保留合法消息', () async {
+      backing._m['chat_history_s1'] = [
+        {
+          'role': 'assistant',
+          'content': 'hello',
+          'created_at': '2026-06-27T00:00:00.000',
+          'status': 'done',
+          'kind': 'conversation',
+          'feedback': 'none',
+          'related_recommendations': <Map<String, dynamic>>[],
+        },
+        'garbage',
+        {
+          'role': 'user',
+          'content': 'world',
+          'created_at': '2026-06-27T00:00:01.000',
+          'status': 'done',
+          'kind': 'conversation',
+          'feedback': 'none',
+          'related_recommendations': <Map<String, dynamic>>[],
+        },
+        {
+          'role': 'assistant',
+          'content': 'bad inner list',
+          'created_at': '2026-06-27T00:00:02.000',
+          'status': 'done',
+          'kind': 'conversation',
+          'feedback': 'none',
+          'related_recommendations': [
+            {'professor_id': 123}, // cast String 会抛
+          ],
+        },
+      ];
+      final loaded = await store.load('s1');
+      expect(loaded, isNotNull);
+      expect(loaded!.length, 2);
+      expect(loaded[0].content, 'hello');
+      expect(loaded[1].content, 'world');
+    });
+
     test('save 覆盖旧内容', () async {
       await store.save('s1', [_msg('m1', 'old')]);
       await store.save('s1', [_msg('m1', 'new')]);
@@ -137,6 +177,38 @@ void main() {
       ));
       expect((await store.listForks('s1')).length, 1);
       expect((await store.listForks('s2')).length, 1);
+    });
+
+    test('listForks 跳过损坏的 fork 条目', () async {
+      backing._m['chat_forks'] = [
+        {
+          'fork_id': 'f_s1_p1',
+          'main_session_id': 's1',
+          'professor_id': 'p1',
+          'professor_name': '李',
+          'university': '清华',
+          'college': null,
+          'created_at': '2026-06-27T10:00:00.000',
+        },
+        'garbage',
+        {
+          'fork_id': 123, // cast String? 会抛
+          'main_session_id': 's1',
+          'professor_id': 'p2',
+          'professor_name': '王',
+          'university': '北大',
+          'college': null,
+          'created_at': '2026-06-27T14:00:00.000',
+        },
+      ];
+      final forks = await store.listForks('s1');
+      expect(forks.length, 1);
+      expect(forks[0].forkId, 'f_s1_p1');
+    });
+
+    test('findFork 在 chat_forks 损坏时返回 null 不抛', () async {
+      backing._m['chat_forks'] = ['garbage'];
+      expect(await store.findFork('s1', 'p1'), isNull);
     });
 
     test('deleteFork 同时删除 fork 消息历史', () async {
