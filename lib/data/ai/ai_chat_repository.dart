@@ -24,6 +24,7 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
   @override
   final ChatHistoryStore historyStore;
   final Map<String, List<LlmMessage>> _history = {};
+  final Map<String, List<LlmMessage>> _systemContext = {};
 
   @override
   Future<Result<ChatResult>> sendMessage({
@@ -31,7 +32,7 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
     required String message,
     String? professorId,
   }) async {
-    await _ensureHistoryLoaded(sessionId);
+    _ensureHistoryLoaded(sessionId);
     final history = _history.putIfAbsent(sessionId, () => []);
     final isRegenerate =
         history.length >= 2 &&
@@ -46,14 +47,13 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
     }
 
     final res = await llm.complete(
-      messages: [LlmMessage('system', _systemPrompt(professorId)), ...history],
+      messages: _buildMessages(sessionId, professorId, history),
     );
 
     if (res is Failure<String>) return Failure(res.error);
 
     final answer = (res as Success<String>).data;
     history.add(LlmMessage('assistant', answer));
-    await _persistHistory(sessionId);
     return Success(
       ChatResult(
         sessionId: sessionId,
@@ -86,7 +86,7 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
     late final StreamController<String> controller;
     controller = StreamController<String>(
       onListen: () async {
-        await _ensureHistoryLoaded(sessionId);
+        _ensureHistoryLoaded(sessionId);
         final history = _history.putIfAbsent(sessionId, () => []);
         activeHistory = history;
         final isRegenerate =
@@ -104,10 +104,7 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
         try {
           sub = llm
               .stream(
-                messages: [
-                  LlmMessage('system', _systemPrompt(professorId)),
-                  ...history,
-                ],
+                messages: _buildMessages(sessionId, professorId, history),
               )
               .listen(
                 (delta) {
@@ -121,7 +118,6 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
                 },
                 onDone: () async {
                   persistIfNeeded();
-                  await _persistHistory(sessionId);
                   unawaited(controller.close());
                 },
                 cancelOnError: true,
@@ -134,7 +130,6 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
       },
       onCancel: () async {
         persistIfNeeded();
-        await _persistHistory(sessionId);
         await sub?.cancel();
       },
     );
@@ -148,43 +143,62 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
     required String userPrompt,
     required RecommendationResult result,
   }) async {
-    await _ensureHistoryLoaded(sessionId);
+    _ensureHistoryLoaded(sessionId);
     final history = _history.putIfAbsent(sessionId, () => []);
     history.add(LlmMessage('user', userPrompt));
-    history.add(LlmMessage('assistant', _summarizeRecommendations(result)));
-    await _persistHistory(sessionId);
+    // 推荐摘要以 system 角色注入后续 LLM 调用，不进可见消息流、不落盘。
+    final ctx = _systemContext.putIfAbsent(sessionId, () => []);
+    ctx
+      ..clear()
+      ..add(LlmMessage('system', _summarizeRecommendations(result)));
   }
 
-  // ---- persistence helpers ----
-
-  LlmMessage _toLlmMessage(ChatMessage m) =>
-      LlmMessage(m.role == ChatRole.user ? 'user' : 'assistant', m.content);
-
-  Future<void> _ensureHistoryLoaded(String sessionId) async {
-    if (_history.containsKey(sessionId)) return;
-    final msgs = await historyStore.load(sessionId) ?? const [];
-    _history[sessionId] = msgs.map(_toLlmMessage).toList();
-  }
-
-  Future<void> _persistHistory(String sessionId) async {
-    final history = _history[sessionId];
-    if (history == null) return;
-    final now = DateTime.now();
-    await historyStore.save(
-      sessionId,
-      history.indexed.map((entry) {
-        final (index, m) = entry;
-        return ChatMessage(
-          id: 'm$index',
-          role: m.role == 'user' ? ChatRole.user : ChatRole.assistant,
-          content: m.content,
-          createdAt: now,
-          relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-          kind: ChatMessageKind.conversation,
-        );
-      }).toList(),
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async {
+    final res = await super.forkSession(
+      sourceSessionId: sourceSessionId,
+      professorId: professorId,
     );
+    if (res is Success<String>) {
+      // 同进程内复制 LLM 上下文（纯内存），让 fork 内追问能延续对话与推荐摘要。
+      final forkId = res.data;
+      final srcHistory = _history[sourceSessionId];
+      _history[forkId] = srcHistory != null ? [...srcHistory] : [];
+      final srcCtx = _systemContext[sourceSessionId];
+      _systemContext[forkId] = srcCtx != null ? [...srcCtx] : [];
+    }
+    return res;
+  }
+
+  @override
+  Future<void> persistMessages(
+    String sessionId,
+    List<ChatMessage> messages,
+  ) async {
+    await historyStore.save(sessionId, messages);
+  }
+
+  // ---- helpers ----
+
+  /// 拼接发给 LLM 的完整消息序列：基础 system prompt + 推荐摘要（system）+ 对话历史。
+  List<LlmMessage> _buildMessages(
+    String sessionId,
+    String? professorId,
+    List<LlmMessage> history,
+  ) {
+    return [
+      LlmMessage('system', _systemPrompt(professorId)),
+      ...?_systemContext[sessionId],
+      ...history,
+    ];
+  }
+
+  void _ensureHistoryLoaded(String sessionId) {
+    // _history 纯内存：可见历史由 persistMessages 落盘，LLM 上下文不落盘。
+    _history.putIfAbsent(sessionId, () => []);
   }
 
   String _summarizeRecommendations(RecommendationResult result) {

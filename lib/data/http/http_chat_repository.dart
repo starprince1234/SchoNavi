@@ -47,6 +47,15 @@ class HttpChatRepository implements ChatRepository {
   }
 
   @override
+  Future<void> persistMessages(
+    String sessionId,
+    List<ChatMessage> messages,
+  ) async {
+    // HTTP 透传后端：可见历史由后端会话维护，客户端无需本地持久化。
+    // 未来对接可走 POST /api/v1/chat/sessions/{id}/messages。
+  }
+
+  @override
   Stream<String> streamReply({
     required String sessionId,
     required String message,
