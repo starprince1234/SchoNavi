@@ -138,7 +138,7 @@ void main() {
     );
 
     expect(find.byType(ThinkingIndicator), findsOneWidget);
-    expect(find.text('正在思考…'), findsOneWidget);
+    expect(find.text('正在思考'), findsOneWidget);
   });
 
   testWidgets('错误消息用纯文本展示文案', (tester) async {
@@ -199,7 +199,7 @@ void main() {
     );
 
     expect(find.byType(ThinkingIndicator), findsOneWidget);
-    expect(find.text('正在思考…'), findsOneWidget);
+    expect(find.text('正在思考'), findsOneWidget);
   });
 
   testWidgets('推荐失败显示重试按钮且不显示重新生成操作', (tester) async {
