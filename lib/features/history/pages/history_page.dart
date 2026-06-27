@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
+import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/fork_ref.dart';
 import '../../../domain/entities/search_history_item.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
-import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
@@ -55,6 +56,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             (location) => location.toLowerCase().contains(query),
           );
     }).toList();
+  }
+
+  Future<void> _deleteSession(SearchHistoryItem item) async {
+    final chat = ref.read(chatRepositoryProvider);
+    final forksRes = await chat.listForks(mainSessionId: item.sessionId);
+    if (forksRes is Success<List<ForkRef>>) {
+      for (final f in forksRes.data) {
+        await chat.deleteFork(forkId: f.forkId);
+      }
+    }
+    if (!mounted) return;
+    await ref.read(historyRepositoryProvider).remove(item.sessionId);
   }
 
   @override
@@ -157,12 +170,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                               padding: const EdgeInsets.only(right: 20),
                               child: const Icon(Icons.delete, color: Colors.white),
                             ),
-                            onDismissed: (_) {
+                            onDismissed: (_) async {
                               Haptics.medium();
-                              ref.read(historyRepositoryProvider).remove(item.sessionId);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已删除')),
-                              );
+                              await _deleteSession(item);
+                              if (mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  const SnackBar(content: Text('已删除')),
+                                );
+                              }
                             },
                             child: _HistoryTile(item: item),
                           ),
@@ -202,58 +217,162 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 }
 
-
-class _HistoryTile extends ConsumerWidget {
+class _HistoryTile extends ConsumerStatefulWidget {
   const _HistoryTile({required this.item});
 
   final SearchHistoryItem item;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HistoryTile> createState() => _HistoryTileState();
+}
+
+class _HistoryTileState extends ConsumerState<_HistoryTile> {
+  bool _expanded = false;
+  List<ForkRef>? _forks;
+  bool _loading = false;
+
+  Future<void> _toggle() async {
+    setState(() => _expanded = !_expanded);
+    if (_expanded && _forks == null && !_loading) {
+      setState(() => _loading = true);
+      final res = await ref
+          .read(chatRepositoryProvider)
+          .listForks(mainSessionId: widget.item.sessionId);
+      if (mounted) {
+        setState(() {
+          _forks = res is Success<List<ForkRef>> ? res.data : const [];
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Card(
-      child: InkWell(
-        onTap: () => context.push(_historyRoute(item)),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: _toggle,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      item.prompt,
+                      widget.item.prompt,
                       style: textTheme.titleMedium,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  IconButton(
-                    tooltip: '删除历史',
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => ref
-                        .read(historyRepositoryProvider)
-                        .remove(item.sessionId),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.add,
+                      size: 16,
+                      color: Color(0xFF6A6385),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(item.summary, style: textTheme.bodyMedium),
-              if (item.researchInterests.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                FieldChips(fields: item.researchInterests),
-              ],
-              const SizedBox(height: 8),
-              Text(
-                '${_formatDateTime(item.createdAt)} · '
-                '${item.recommendationCount} ${_historyCountUnit(item.type)}',
-                style: textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState:
+                _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: _buildForks(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForks(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(14),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    final forks = _forks ?? const <ForkRef>[];
+    if (forks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        child: Text('暂无追问历史',
+            style: Theme.of(context).textTheme.bodySmall),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1),
+          for (final f in forks) _ForkSubTile(fork: f, item: widget.item),
+        ],
+      ),
+    );
+  }
+}
+
+class _ForkSubTile extends ConsumerWidget {
+  const _ForkSubTile({required this.fork, required this.item});
+
+  final ForkRef fork;
+  final SearchHistoryItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final subtitle = (fork.college == null || fork.college!.isEmpty)
+        ? fork.university
+        : '${fork.university} · ${fork.college}';
+    return Dismissible(
+      key: ValueKey(fork.forkId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Theme.of(context).colorScheme.error,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) async {
+        await ref.read(chatRepositoryProvider).deleteFork(forkId: fork.forkId);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('已删除追问')),
+          );
+        }
+      },
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: CircleAvatar(
+          radius: 15,
+          backgroundColor: AppColors.indigo,
+          child: Text(
+            fork.avatarLabel,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        title: Text(
+          fork.professorName,
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(subtitle, style: textTheme.bodySmall),
+        trailing: Text(_formatTime(fork.createdAt), style: textTheme.bodySmall),
+        onTap: () => context.push(
+          '/chat?fork=true&fid=${Uri.encodeComponent(fork.forkId)}',
         ),
       ),
     );
@@ -268,24 +387,13 @@ class _HistoryTileSkeleton extends StatelessWidget {
     return const Card(
       child: Padding(
         padding: EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: ShimmerSkeleton(height: 16, width: double.infinity),
-                ),
-                SizedBox(width: 8),
-                ShimmerSkeleton(height: 24, width: 24),
-              ],
+            Expanded(
+              child: ShimmerSkeleton(height: 16, width: double.infinity),
             ),
-            SizedBox(height: 6),
-            ShimmerSkeleton(height: 14, width: double.infinity),
-            SizedBox(height: 8),
-            ShimmerSkeleton(height: 12, width: 120),
-            SizedBox(height: 8),
-            ShimmerSkeleton(height: 12, width: 200),
+            SizedBox(width: 8),
+            ShimmerSkeleton(height: 16, width: 16),
           ],
         ),
       ),
@@ -293,24 +401,10 @@ class _HistoryTileSkeleton extends StatelessWidget {
   }
 }
 
-String _formatDateTime(DateTime value) {
-  String two(int v) => v.toString().padLeft(2, '0');
-  return '${value.year}-${two(value.month)}-${two(value.day)} '
-      '${two(value.hour)}:${two(value.minute)}';
+String _formatTime(DateTime v) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(v.hour)}:${two(v.minute)}';
 }
-
-String _historyRoute(SearchHistoryItem item) {
-  final path = switch (item.type) {
-    SearchHistoryType.competition => '/competition-recommendation',
-    SearchHistoryType.mentor => '/recommendation',
-  };
-  return '$path?q=${Uri.encodeComponent(item.prompt)}';
-}
-
-String _historyCountUnit(SearchHistoryType type) => switch (type) {
-  SearchHistoryType.competition => '项竞赛',
-  SearchHistoryType.mentor => '位导师',
-};
 
 String _historyTypeLabel(SearchHistoryType type) => switch (type) {
   SearchHistoryType.competition => '竞赛',

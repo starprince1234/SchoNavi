@@ -124,38 +124,41 @@ void main() {
     expect(find.text('暂无搜索历史'), findsOneWidget);
   });
 
-  testWidgets('tap history item reruns recommendation with prompt', (
+  testWidgets('mentor history item expands to show empty fork state', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap(withHistory: true));
     await tester.pumpAndSettle();
 
+    expect(find.text('医学影像 上海'), findsOneWidget);
+    expect(find.textContaining('位导师'), findsNothing);
+
     await tester.tap(find.text('医学影像 上海'));
     await tester.pumpAndSettle();
 
-    expect(find.text('重推：医学影像 上海'), findsOneWidget);
+    expect(find.text('暂无追问历史'), findsOneWidget);
   });
 
-  testWidgets('tap competition history item reruns competition page', (
+  testWidgets('competition history item expands to show empty fork state', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap(withCompetition: true));
     await tester.pumpAndSettle();
 
     expect(find.text('数学建模 团队赛'), findsOneWidget);
-    expect(find.textContaining('项竞赛'), findsWidgets);
+    expect(find.textContaining('项竞赛'), findsNothing);
 
     await tester.tap(find.text('数学建模 团队赛'));
     await tester.pumpAndSettle();
 
-    expect(find.text('竞赛重推：数学建模 团队赛'), findsOneWidget);
+    expect(find.text('暂无追问历史'), findsOneWidget);
   });
 
   testWidgets('delete one history updates page to empty state', (tester) async {
     await tester.pumpWidget(await _wrap(withHistory: true));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('删除历史'));
+    await tester.drag(find.text('医学影像 上海'), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(find.text('暂无搜索历史'), findsOneWidget);
@@ -196,7 +199,6 @@ void main() {
 
     expect(find.text('数学建模 团队赛'), findsOneWidget);
     expect(find.text('医学影像 上海'), findsNothing);
-    expect(find.textContaining('项竞赛'), findsWidgets);
   });
 
   testWidgets('clear history asks confirmation and clears list', (tester) async {
