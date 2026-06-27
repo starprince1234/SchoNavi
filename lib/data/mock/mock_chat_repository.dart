@@ -69,11 +69,11 @@ class MockChatRepository implements ChatRepository {
   ];
 
   @override
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {
+  }) async {
     // Mock 按消息关键词即时产卡，无需跨轮上下文注入；空实现满足接口契约。
   }
 

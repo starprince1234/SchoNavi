@@ -261,7 +261,7 @@ void main() {
       ]);
       final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
-      repo.seedRecommendationTurn(
+      await repo.seedRecommendationTurn(
         sessionId: 's1',
         userPrompt: '想做计算机视觉',
         result: resultWithRec(),

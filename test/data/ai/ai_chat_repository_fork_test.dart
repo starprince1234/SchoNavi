@@ -5,6 +5,10 @@ import 'package:scho_navi/core/storage/local_store.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
 import 'package:scho_navi/data/local/local_chat_history_store.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
+import 'package:scho_navi/domain/entities/match_level.dart';
+import 'package:scho_navi/domain/entities/query_understanding.dart';
+import 'package:scho_navi/domain/entities/recommendation.dart';
+import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _StubLlm implements LlmClient {
@@ -62,7 +66,10 @@ void main() {
       ).last;
       // 模拟新进程：新建 repo（内存 _history 空），再 streamReply 时应从 store 回填
       final repo2 = AiChatRepository(
-          llm: _StubLlm('回答2'), db: db, historyStore: store);
+        llm: _StubLlm('回答2'),
+        db: db,
+        historyStore: store,
+      );
       await repo2.streamReply(
         sessionId: 's1',
         message: '问2',
@@ -72,6 +79,65 @@ void main() {
       // 含「问1」回填 + 「问2」追加
       expect(saved!.any((m) => m.content == '问1'), isTrue);
       expect(saved.any((m) => m.content == '问2'), isTrue);
+    });
+
+    test('seedRecommendationTurn 前会先回填持久化历史，避免覆盖', () async {
+      // 1. 已有持久化历史
+      await repo.streamReply(
+        sessionId: 's1',
+        message: '问 A',
+        professorId: null,
+      ).last;
+
+      // 2. 模拟新进程：内存 _history 为空
+      final repo2 = AiChatRepository(
+        llm: _StubLlm('回答2'),
+        db: db,
+        historyStore: store,
+      );
+
+      const result = RecommendationResult(
+        sessionId: 's1',
+        queryUnderstanding: QueryUnderstanding(
+          researchInterests: ['AI'],
+          preferredLocations: [],
+          preferredUniversities: [],
+          uncertainties: [],
+        ),
+        recommendations: [
+          Recommendation(
+            professorId: 'p1',
+            name: '张教授',
+            university: '清华',
+            college: '计算机',
+            title: '教授',
+            researchFields: ['AI'],
+            matchLevel: MatchLevel.high,
+            reason: '方向匹配',
+            limitations: [],
+          ),
+        ],
+        followUpQuestions: [],
+      );
+
+      await repo2.seedRecommendationTurn(
+        sessionId: 's1',
+        userPrompt: '帮我推荐导师',
+        result: result,
+      );
+
+      final saved = await store.load('s1');
+      expect(saved, isNotNull);
+      final contents = saved!.map((m) => m.content).toList();
+      // 既有历史与新 seed 都应保留
+      expect(
+        contents,
+        contains('问 A'),
+        reason: '既有 persistent history 不应被 seedRecommendationTurn 覆盖',
+      );
+      expect(contents, contains('帮我推荐导师'));
+      expect(contents.any((c) => c.contains('张教授')), isTrue);
+      expect(contents.length, greaterThanOrEqualTo(4));
     });
   });
 }

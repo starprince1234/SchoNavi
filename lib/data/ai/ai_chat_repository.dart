@@ -140,15 +140,16 @@ class AiChatRepository implements ChatRepository {
   }
 
   @override
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {
+  }) async {
+    await _ensureHistoryLoaded(sessionId);
     final history = _history.putIfAbsent(sessionId, () => []);
     history.add(LlmMessage('user', userPrompt));
     history.add(LlmMessage('assistant', _summarizeRecommendations(result)));
-    unawaited(_persistHistory(sessionId));
+    await _persistHistory(sessionId);
   }
 
   // ---- persistence helpers ----

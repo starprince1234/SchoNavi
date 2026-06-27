@@ -300,7 +300,7 @@ class ChatNotifier extends Notifier<ChatState> {
           final resolvedSessionId = data.sessionId.isEmpty
               ? sessionId
               : data.sessionId;
-          ref
+          await ref
               .read(chatRepositoryProvider)
               .seedRecommendationTurn(
                 sessionId: resolvedSessionId,

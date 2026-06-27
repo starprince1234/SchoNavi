@@ -36,11 +36,11 @@ class HttpChatRepository implements ChatRepository {
   }
 
   @override
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {
+  }) async {
     // HTTP 透传后端：上下文由后端会话维护，客户端无需本地注入。
   }
 

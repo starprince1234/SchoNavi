@@ -36,11 +36,11 @@ class _FakeChatRepo implements ChatRepository {
   }) async => throw UnimplementedError();
 
   @override
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {}
+  }) async {}
 
   @override
   Stream<String> streamReply({

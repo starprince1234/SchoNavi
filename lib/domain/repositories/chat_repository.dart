@@ -27,12 +27,14 @@ abstract class ChatRepository {
 
   /// 把一次完整推荐轮按“用户需求 → 推荐摘要”的顺序写入会话历史。
   ///
+  /// 返回的 [Future] 在持久化完成后完成，避免新实例在未读取既有历史的情况下
+  /// 覆盖本地 store。
   /// 默认空实现适用于由服务端维护会话历史的 HTTP 实现，以及无需历史的 mock。
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {}
+  }) async {}
 
   /// 从源会话 fork 出一个新会话：复制源的全部历史到新 forkId，
   /// 绑定 professorId。同主session+同professorId 复用已有 fork（不新建）。

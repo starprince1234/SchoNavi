@@ -42,11 +42,11 @@ class _StreamChatRepo implements ChatRepository {
   }) async => throw UnimplementedError();
 
   @override
-  void seedRecommendationTurn({
+  Future<void> seedRecommendationTurn({
     required String sessionId,
     required String userPrompt,
     required RecommendationResult result,
-  }) {
+  }) async {
     seedCalls++;
     lastSeedSessionId = sessionId;
     lastSeedResult = result;
