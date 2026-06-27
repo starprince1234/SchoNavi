@@ -22,13 +22,15 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(const Duration(seconds: 3));
 
     router.go('/chat?sid=s_x');
     await tester.pumpAndSettle();
 
     // ChatPage 不再有 AppBar；改为断言悬浮按钮存在，验证路由仍落地 ChatPage。
+    // /chat?sid= 是旧会话追问入口（推荐页/详情页「继续追问」push 进来），
+    // 左上为「返回」而非「新对话」。
     expect(find.byType(ChatPage), findsOneWidget);
-    expect(find.byTooltip('新对话'), findsOneWidget);
+    expect(find.byTooltip('返回'), findsOneWidget);
   });
 }

@@ -16,6 +16,7 @@ import '../../features/profile/pages/privacy_agreement_page.dart';
 import '../../features/profile/pages/profile_intro_page.dart';
 import '../../features/profile/pages/profile_page.dart';
 import '../../features/profile/pages/profile_wizard_page.dart';
+import '../../features/splash/pages/splash_page.dart';
 import '../../features/settings/pages/settings_page.dart';
 
 import '../di/providers.dart';
@@ -23,8 +24,11 @@ import '../motion/page_transition.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      // splash 豁免：动画页不参与 onboarding 重定向，否则未读引导用户会被
+      // 直接跳走、动画无法播放。
+      if (state.matchedLocation == '/splash') return null;
       final seen =
           ref.read(localStoreProvider).getBool(OnboardingPage.seenKey) ?? false;
       final atOnboarding = state.matchedLocation == '/onboarding';
@@ -33,6 +37,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: '/splash', builder: (_, _) => const SplashPage()),
       GoRoute(path: '/home', builder: (_, _) => const HomePage()),
       GoRoute(
         path: '/profile',
