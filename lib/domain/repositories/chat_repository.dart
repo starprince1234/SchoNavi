@@ -1,5 +1,7 @@
 import '../../core/result/result.dart';
+import '../entities/chat_message.dart';
 import '../entities/chat_result.dart';
+import '../entities/fork_ref.dart';
 import '../entities/recommendation_result.dart';
 
 /// 对话仓储。
@@ -31,4 +33,29 @@ abstract class ChatRepository {
     required String userPrompt,
     required RecommendationResult result,
   }) {}
+
+  /// 从源会话 fork 出一个新会话：复制源的全部历史到新 forkId，
+  /// 绑定 professorId。同主session+同professorId 复用已有 fork（不新建）。
+  /// 返回 forkId 供后续追问/恢复。
+  /// 生产对接：POST /chat/fork {source_session_id, professor_id}
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  });
+
+  /// 拉取某个会话（主或 fork）的全部消息历史，供页面恢复。
+  /// 生产对接：GET /chat/{id}/history
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  });
+
+  /// 列出某主 session 下的所有 fork（按 createdAt 倒序），供历史页展开。
+  /// 生产对接：GET /chat/sessions/{id}/forks
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  });
+
+  /// 删除某个 fork（子项左滑删除）。主 session 不受影响。
+  /// 生产对接：DELETE /chat/forks/{forkId}
+  Future<Result<void>> deleteFork({required String forkId});
 }
