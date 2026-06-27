@@ -1,15 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// 「正在思考…」加载气泡：`reasoning.svg` 原子图 + indigo→cyan 渐变填充 +
-/// 沿圆周扫过的滑光（SweepGradient，匀速 2s/圈）。文案「正在思考…」同享
+/// 「正在思考」加载气泡：`reasoning.svg` 原子图 + indigo→cyan 渐变填充 +
+/// 沿圆周扫过的滑光（SweepGradient，匀速 2s/圈）。文案「正在思考」同享
 /// 渐变填充与横向掠过的亮纹（LinearGradient 平移），与图标视觉语言一致。
+/// 尾部三个独立圆点用品牌渐变填充并错峰上下跳跃（波浪式），暗示「思考中」。
 /// 纯展示组件，不感知业务状态，不依赖 Riverpod。
 ///
-/// 用于 ChatMessageBubble 思考分支与推荐流程的占位气泡。**不脉动**（无 scale
-/// /opacity 动画），只有滑光匀速扫过。
+/// 用于 ChatMessageBubble 思考分支与推荐流程的占位气泡。
 class ThinkingIndicator extends StatefulWidget {
   const ThinkingIndicator({super.key});
 
@@ -34,6 +36,17 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 第 i 个圆点的纵向偏移（px，向上为负）。由 `_controller.value`（记为 v）
+  /// 派生：2s controller 内每点跑 2 个周期（每秒约 1 跳），三点错峰 0.2 形
+  /// 成波浪；每周期 60% 活跃（sin 半波）、40% 静止。
+  double _dotOffset(int i) {
+    final v = _controller.value;
+    final t = (v * 2 + i * 0.2) % 1.0;
+    if (t > 0.6) return 0.0;
+    final u = t / 0.6;
+    return -math.sin(u * math.pi) * 5;
   }
 
   @override
@@ -94,8 +107,38 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
                 shaderCallback: (bounds) =>
                     AppColors.brandGradient.createShader(bounds),
                 blendMode: BlendMode.srcIn,
-                child: const Text('正在思考…'),
+                child: const Text('正在思考'),
               ),
+            ),
+            const SizedBox(width: 3),
+            // 尾三点：品牌渐变填充，错峰上下跳跃（波浪式）。仅 translate，
+            // 不改布局、无 scale/opacity。
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < 3; i++)
+                      Padding(
+                        padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
+                        child: Transform.translate(
+                          offset: Offset(0, _dotOffset(i)),
+                          child: SizedBox(
+                            key: ValueKey<int>(i),
+                            child: const DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: AppColors.brandGradient,
+                                shape: BoxShape.circle,
+                              ),
+                              child: SizedBox(width: 5, height: 5),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ],
         ),
