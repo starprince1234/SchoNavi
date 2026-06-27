@@ -36,6 +36,35 @@
 - Quality: async post-frame callback correctly awaits async notifier calls; sticky bar uses `SafeArea`.
 - Discipline: no extra routes, no unrelated changes. `lib/shared/widgets/glass_surface.dart` was already modified before this task and was left untouched.
 
-## Concerns
+## Fix: /professor msid pass-through
 
-- ProfessorPage `mainSessionId` param: The brief showed passing `mainSessionId: state.uri.queryParameters['msid']` to `ProfessorPage`, but the page does not yet accept that param (Task 11). I left `/professor/:id` unchanged; the `msid` query remains available in the URI and can be wired to `ProfessorPage` when Task 11 adds the parameter.
+Implemented 2026-06-27 to close code-review finding on Task 10.
+
+### Changes
+
+- `lib/features/professor/pages/professor_page.dart`
+  - Added optional `String? mainSessionId` constructor parameter and stored it as a public field.
+  - Left FAB unchanged for Task 11.
+
+- `lib/core/router/app_router.dart`
+  - `/professor/:id` route now passes `mainSessionId: state.uri.queryParameters['msid']` to `ProfessorPage`.
+
+- `lib/features/chat/pages/chat_page.dart`
+  - `ProfessorAnchorBar` onTap now pushes `/professor/${state.forkAnchor!.professorId}?msid=${Uri.encodeComponent(state.forkAnchor!.mainSessionId)}` so fork's `mainSessionId` is preserved.
+
+- Tests
+  - Added `test/core/router/professor_route_test.dart` verifying `/professor/:id?msid=someMainSid` passes `mainSessionId` to `ProfessorPage`, and that absence of `msid` yields `null`.
+  - Extended `test/features/chat/chat_page_fork_test.dart` to assert the anchor bar tap navigates to a route whose URI contains `msid=`.
+
+### Verification
+
+```bash
+$ flutter test test/core/router/ test/features/chat/ test/features/professor/
+...
++95: All tests passed!
+
+$ flutter analyze lib/core/router/app_router.dart lib/features/chat/pages/chat_page.dart lib/features/professor/pages/professor_page.dart
+No issues found!
+```
+
+Commit: `8518e9f fix(chat/professor): /professor/:id 保留 msid 透传`
