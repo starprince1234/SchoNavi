@@ -5,11 +5,37 @@ import 'package:scho_navi/core/storage/local_store.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
 import 'package:scho_navi/data/local/local_chat_history_store.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _RecordingLlm implements LlmClient {
+  _RecordingLlm(this.reply);
+  final String reply;
+  final List<List<LlmMessage>> calls = [];
+
+  @override
+  Future<Result<String>> complete({
+    required List<LlmMessage> messages,
+    bool jsonMode = false,
+    double temperature = 0.7,
+  }) async {
+    calls.add(messages);
+    return Success(reply);
+  }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) async* {
+    calls.add(messages);
+    yield reply;
+  }
+}
 
 class _StubLlm implements LlmClient {
   _StubLlm(this.reply);
@@ -33,7 +59,6 @@ class _StubLlm implements LlmClient {
 }
 
 void main() {
-  late AiChatRepository repo;
   late LocalChatHistoryStore store;
   late MockDb db;
 
@@ -41,60 +66,25 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     db = MockDb();
     store = LocalChatHistoryStore(_MemStore());
-    repo = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
   });
 
-  group('AiChatRepository 持久化改造（fork 4 方法见 Task 6 mixin）', () {
-    test('streamReply 完成后历史写入 store', () async {
-      await repo.streamReply(
-        sessionId: 's1',
-        message: '为什么推荐他',
-        professorId: null,
-      ).last;
-      final saved = await store.load('s1');
-      expect(saved, isNotNull);
-      expect(saved!.length, greaterThanOrEqualTo(2)); // user + assistant
-      expect(saved.any((m) => m.content == '回答'), isTrue);
+  group('AiChatRepository 内存上下文（_history/_systemContext 不落盘）', () {
+    test('streamReply 在同进程内累积对话历史，供后续轮 LLM 调用看到', () async {
+      final llm = _RecordingLlm('回答');
+      final r = AiChatRepository(llm: llm, db: db, historyStore: store);
+      await r.streamReply(sessionId: 's1', message: '为什么推荐他').last;
+      await r.streamReply(sessionId: 's1', message: '追问').last;
+
+      // 第二次调用的 LLM 消息应含第一轮的 user + assistant。
+      final contents = llm.calls.last.map((m) => '${m.role}:${m.content}').toList();
+      expect(contents, containsAllInOrder(['user:为什么推荐他', 'assistant:回答', 'user:追问']));
+      // repo 不再写 store（可见历史由 chat_provider 经 persistMessages 落盘）。
+      expect(await store.load('s1'), isNull);
     });
 
-    test('新进程读 store 回填内存历史（_ensureHistoryLoaded）', () async {
-      // 先一个 repo 写入
-      await repo.streamReply(
-        sessionId: 's1',
-        message: '问1',
-        professorId: null,
-      ).last;
-      // 模拟新进程：新建 repo（内存 _history 空），再 streamReply 时应从 store 回填
-      final repo2 = AiChatRepository(
-        llm: _StubLlm('回答2'),
-        db: db,
-        historyStore: store,
-      );
-      await repo2.streamReply(
-        sessionId: 's1',
-        message: '问2',
-        professorId: null,
-      ).last;
-      final saved = await store.load('s1');
-      // 含「问1」回填 + 「问2」追加
-      expect(saved!.any((m) => m.content == '问1'), isTrue);
-      expect(saved.any((m) => m.content == '问2'), isTrue);
-    });
-
-    test('seedRecommendationTurn 前会先回填持久化历史，避免覆盖', () async {
-      // 1. 已有持久化历史
-      await repo.streamReply(
-        sessionId: 's1',
-        message: '问 A',
-        professorId: null,
-      ).last;
-
-      // 2. 模拟新进程：内存 _history 为空
-      final repo2 = AiChatRepository(
-        llm: _StubLlm('回答2'),
-        db: db,
-        historyStore: store,
-      );
+    test('seedRecommendationTurn 把摘要注入 system 上下文，不写可见历史', () async {
+      final llm = _RecordingLlm('回答');
+      final r = AiChatRepository(llm: llm, db: db, historyStore: store);
 
       const result = RecommendationResult(
         sessionId: 's1',
@@ -120,24 +110,78 @@ void main() {
         followUpQuestions: [],
       );
 
-      await repo2.seedRecommendationTurn(
+      await r.seedRecommendationTurn(
         sessionId: 's1',
         userPrompt: '帮我推荐导师',
         result: result,
       );
+      await r.streamReply(sessionId: 's1', message: '第一位的研究方向').last;
 
-      final saved = await store.load('s1');
-      expect(saved, isNotNull);
-      final contents = saved!.map((m) => m.content).toList();
-      // 既有历史与新 seed 都应保留
+      final messages = llm.calls.last;
+      // user 提问进对话历史（user 角色）。
+      final nonSystem = messages
+          .where((m) => m.role != 'system')
+          .map((m) => '${m.role}:${m.content}')
+          .toList();
+      expect(nonSystem, containsAllInOrder(['user:帮我推荐导师', 'user:第一位的研究方向']));
+      // 推荐摘要进 system 角色，不进可见对话历史。
+      final systemContent = messages
+          .where((m) => m.role == 'system')
+          .map((m) => m.content)
+          .join('\n');
+      expect(systemContent, contains('张教授'));
+      expect(systemContent, contains('【上一轮已为用户推荐以下导师】'));
       expect(
-        contents,
-        contains('问 A'),
-        reason: '既有 persistent history 不应被 seedRecommendationTurn 覆盖',
+        nonSystem,
+        everyElement(isNot(contains('【上一轮已为用户推荐以下导师】'))),
+        reason: '摘要不应作为可见消息泄漏',
       );
-      expect(contents, contains('帮我推荐导师'));
-      expect(contents.any((c) => c.contains('张教授')), isTrue);
-      expect(contents.length, greaterThanOrEqualTo(4));
+      // seed 不写 store。
+      expect(await store.load('s1'), isNull);
+    });
+
+    test('persistMessages 落盘可见消息，loadHistory 原样读回（带卡片、kind）', () async {
+      final r = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
+      final now = DateTime(2026, 6, 27);
+      final messages = <ChatMessage>[
+        ChatMessage(
+          id: 'm0',
+          role: ChatRole.user,
+          content: '想做CV',
+          createdAt: now,
+          relatedRecommendations: const [],
+          status: ChatMessageStatus.done,
+          kind: ChatMessageKind.conversation,
+        ),
+        ChatMessage(
+          id: 'm1',
+          role: ChatRole.assistant,
+          content: '为你挑了 1 位合适的导师',
+          createdAt: now,
+          relatedRecommendations: [
+            Recommendation(
+              professorId: 'p1',
+              name: '张教授',
+              university: '清华',
+              college: '计算机',
+              title: '教授',
+              researchFields: const ['CV'],
+              matchLevel: MatchLevel.high,
+              reason: '方向匹配',
+              limitations: const [],
+            ),
+          ],
+          status: ChatMessageStatus.done,
+          kind: ChatMessageKind.recommendation,
+        ),
+      ];
+      await r.persistMessages('s1', messages);
+      final loaded = await store.load('s1');
+      expect(loaded, isNotNull);
+      expect(loaded!.length, 2);
+      expect(loaded[1].kind, ChatMessageKind.recommendation);
+      expect(loaded[1].relatedRecommendations, isNotEmpty);
+      expect(loaded[1].relatedRecommendations.first.name, '张教授');
     });
   });
 }

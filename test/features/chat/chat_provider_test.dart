@@ -36,6 +36,12 @@ class _StreamChatRepo implements ChatRepository {
   }) async {}
 
   @override
+  Future<void> persistMessages(
+    String sessionId,
+    List<ChatMessage> messages,
+  ) async {}
+
+  @override
   Stream<String> streamReply({
     required String sessionId,
     required String message,

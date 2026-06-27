@@ -269,9 +269,14 @@ void main() {
       await repo.streamReply(sessionId: 's1', message: '第一位的研究方向').toList();
 
       final messages = llm.calls.last;
-      final contents = messages.map((m) => m.content).toList();
-      expect(contents, anyElement(contains('张三')));
-      expect(contents, anyElement(contains('计算机视觉')));
+      // 推荐摘要以 system 角色注入，不应作为 assistant 可见消息出现在对话历史中。
+      final systemContents = messages
+          .where((m) => m.role == 'system')
+          .map((m) => m.content)
+          .join('\n');
+      expect(systemContents, contains('张三'));
+      expect(systemContents, contains('计算机视觉'));
+      expect(systemContents, contains('【上一轮已为用户推荐以下导师】'));
       expect(
         messages
             .where((message) => message.role != 'system')
@@ -279,10 +284,15 @@ void main() {
             .toList(),
         containsAllInOrder([
           'user:想做计算机视觉',
-          contains('assistant:【上一轮已为用户推荐以下导师】'),
           'user:第一位的研究方向',
         ]),
       );
+      // 对话历史中不应残留推荐摘要（不泄漏成可见 assistant 消息）。
+      final nonSystem = messages
+          .where((m) => m.role != 'system')
+          .map((m) => m.content)
+          .toList();
+      expect(nonSystem, everyElement(isNot(contains('【上一轮已为用户推荐以下导师】'))));
     });
 
     test('未注入推荐轮时上下文不含推荐摘要（回归保护）', () async {
@@ -298,6 +308,12 @@ void main() {
           .map((m) => m.content)
           .toList();
       expect(assistantContents, isEmpty);
+      // 未注入推荐轮时 system 也不含推荐摘要。
+      final systemContents = llm.calls.last
+          .where((m) => m.role == 'system')
+          .map((m) => m.content)
+          .join('\n');
+      expect(systemContents, isNot(contains('上一轮已为用户推荐')));
     });
   });
 }

@@ -13,7 +13,6 @@ import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/fork_ref.dart';
-import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
@@ -101,27 +100,39 @@ final _chatProvider = chatProvider(Object());
 
 String _firstProfId() => MockDb().allProfessors.first.id;
 
-RecommendationResult _recResult(String sid) => RecommendationResult(
-      sessionId: sid,
-      queryUnderstanding: const QueryUnderstanding(
-        researchInterests: [],
-        preferredLocations: [],
-        preferredUniversities: [],
-        uncertainties: [],
+/// 预置主 session 的可见历史（带卡片），供 fork/resume 经 loadHistory 回填。
+/// 取代旧 seedRecommendationTurn 落盘路径（推荐摘要现已不进可见历史）。
+Future<void> _seedVisibleHistory(AiChatRepository repo, String sessionId) async {
+  await repo.persistMessages(
+    sessionId,
+    [
+      ChatMessage(
+        id: 'u1',
+        role: ChatRole.user,
+        content: '想做CV',
+        createdAt: DateTime(2026, 6, 27),
+        relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+        kind: ChatMessageKind.conversation,
       ),
-      recommendations: const [],
-      followUpQuestions: const [],
-    );
+      ChatMessage(
+        id: 'a1',
+        role: ChatRole.assistant,
+        content: '为你挑了合适的导师',
+        createdAt: DateTime(2026, 6, 27),
+        relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+        kind: ChatMessageKind.recommendation,
+      ),
+    ],
+  );
+}
 
 void main() {
   test('startFork 回填历史 + 设 forkAnchor', () async {
     final repo = _repo();
     // 预置主 session 历史（AiChatRepository.seedRecommendationTurn 持久化到 store）
-    await repo.seedRecommendationTurn(
-      sessionId: 's1',
-      userPrompt: '想做CV',
-      result: _recResult('s1'),
-    );
+    await _seedVisibleHistory(repo, 's1');
     final container = ProviderContainer(
       overrides: [chatRepositoryProvider.overrideWithValue(repo)],
     );
@@ -143,11 +154,7 @@ void main() {
 
   test('fork 内 send 触发再推荐意图 → forkReroute 消息', () async {
     final repo = _repo();
-    await repo.seedRecommendationTurn(
-      sessionId: 's1',
-      userPrompt: '想做CV',
-      result: _recResult('s1'),
-    );
+    await _seedVisibleHistory(repo, 's1');
     final container = ProviderContainer(
       overrides: [
         chatRepositoryProvider.overrideWithValue(repo),
@@ -179,11 +186,7 @@ void main() {
 
   test('resume(fork) 通过 mainSessionId 重建 forkAnchor', () async {
     final repo = _repo();
-    await repo.seedRecommendationTurn(
-      sessionId: 's1',
-      userPrompt: '想做CV',
-      result: _recResult('s1'),
-    );
+    await _seedVisibleHistory(repo, 's1');
     final profId = _firstProfId();
     final forkRes = await repo.forkSession(
       sourceSessionId: 's1',
@@ -213,11 +216,7 @@ void main() {
 
   test('resume(fork) mainSessionId 缺省 → anchor 降级为 null 不崩溃', () async {
     final repo = _repo();
-    await repo.seedRecommendationTurn(
-      sessionId: 's1',
-      userPrompt: '想做CV',
-      result: _recResult('s1'),
-    );
+    await _seedVisibleHistory(repo, 's1');
     final forkRes = await repo.forkSession(
       sourceSessionId: 's1',
       professorId: _firstProfId(),
