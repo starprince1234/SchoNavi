@@ -232,7 +232,10 @@ class _HistoryTileState extends ConsumerState<_HistoryTile> {
   bool _loading = false;
 
   Future<void> _toggle() async {
-    setState(() => _expanded = !_expanded);
+    setState(() {
+      _expanded = !_expanded;
+      if (!_expanded) _forks = null;
+    });
     if (_expanded && _forks == null && !_loading) {
       setState(() => _loading = true);
       final res = await ref
@@ -315,7 +318,13 @@ class _HistoryTileState extends ConsumerState<_HistoryTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Divider(height: 1),
-          for (final f in forks) _ForkSubTile(fork: f, item: widget.item),
+          for (final f in forks)
+                _ForkSubTile(
+                  fork: f,
+                  onDeleted: () => setState(
+                    () => _forks?.removeWhere((x) => x.forkId == f.forkId),
+                  ),
+                ),
         ],
       ),
     );
@@ -323,10 +332,10 @@ class _HistoryTileState extends ConsumerState<_HistoryTile> {
 }
 
 class _ForkSubTile extends ConsumerWidget {
-  const _ForkSubTile({required this.fork, required this.item});
+  const _ForkSubTile({required this.fork, required this.onDeleted});
 
   final ForkRef fork;
-  final SearchHistoryItem item;
+  final VoidCallback onDeleted;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -345,6 +354,7 @@ class _ForkSubTile extends ConsumerWidget {
       ),
       onDismissed: (_) async {
         await ref.read(chatRepositoryProvider).deleteFork(forkId: fork.forkId);
+        onDeleted();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('已删除追问')),

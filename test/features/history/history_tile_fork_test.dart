@@ -381,4 +381,59 @@ void main() {
     final forks = await chatRepo.listForks(mainSessionId: 's1');
     expect((forks as Success<List<ForkRef>>).data, isEmpty);
   });
+
+  testWidgets('展开两 fork 后删除一个，立即刷新且折叠再展开只剩一个', (tester) async {
+    final chatRepo = _chatRepo();
+    await chatRepo.seedRecommendationTurn(
+      sessionId: 's1',
+      userPrompt: '想做CV',
+      result: _mentorResult(),
+    );
+    final db = MockDb();
+    final prof0 = db.allProfessors[0];
+    final prof1 = db.allProfessors[1];
+    await chatRepo.forkSession(sourceSessionId: 's1', professorId: prof0.id);
+    await chatRepo.forkSession(sourceSessionId: 's1', professorId: prof1.id);
+
+    await tester.pumpWidget(_pump(
+      historyRepo: _FakeHistoryRepo([
+        SearchHistoryItem(
+          sessionId: 's1',
+          prompt: '想做CV',
+          createdAt: DateTime(2026, 6, 27),
+          summary: '',
+          researchInterests: [],
+          preferredLocations: [],
+          recommendationCount: 0,
+        ),
+      ]),
+      chatRepo: chatRepo,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    expect(find.text(prof0.name), findsOneWidget);
+    expect(find.text(prof1.name), findsOneWidget);
+
+    await tester.drag(find.text(prof0.name), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.text(prof0.name), findsNothing,
+        reason: '被删除的 fork 应立即从展开列表中消失');
+    expect(find.text(prof1.name), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    expect(find.text(prof0.name), findsNothing,
+        reason: '折叠后重新展开不应再显示已删除 fork');
+    expect(find.text(prof1.name), findsOneWidget);
+    final forks = await chatRepo.listForks(mainSessionId: 's1');
+    final remaining = (forks as Success<List<ForkRef>>).data;
+    expect(remaining.length, 1);
+    expect(remaining.first.professorName, prof1.name);
+  });
 }
