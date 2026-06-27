@@ -516,7 +516,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: ChatMessageBubble(
                   key: ValueKey(message.id),
                   message: message,
-                  onTapRecommendation: (id) => context.push('/professor/$id'),
+                  onTapRecommendation: (id) {
+                    final mainSid = ref.read(_chatProvider).sessionId;
+                    final encoded = mainSid != null && mainSid.isNotEmpty
+                        ? Uri.encodeComponent(mainSid)
+                        : null;
+                    if (encoded == null) {
+                      context.push('/professor/$id');
+                    } else {
+                      context.push('/professor/$id?msid=$encoded');
+                    }
+                  },
                   onOpenHomepage: _openHomepage,
                   onRetryRecommendation: (id) =>
                       ref.read(_chatProvider.notifier).retryRecommendation(id),

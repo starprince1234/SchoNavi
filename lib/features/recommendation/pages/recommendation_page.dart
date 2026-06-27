@@ -31,18 +31,6 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
     final async = ref.watch(recommendationProvider(widget.prompt));
     return Scaffold(
       appBar: AppBar(title: const Text('推荐结果')),
-      floatingActionButton: async.maybeWhen(
-        data: (result) => result.recommendations.isEmpty
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: () => context.push(
-                  '/chat?sid=${Uri.encodeComponent(result.sessionId)}',
-                ),
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('继续追问'),
-              ),
-        orElse: () => null,
-      ),
       body: async.when(
         loading: () => ListView(
           padding: const EdgeInsets.all(16),

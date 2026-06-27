@@ -96,12 +96,16 @@ Future<Widget> _wrapProfessor() async {
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, _) => const ProfessorPage(professorId: 'p_001'),
+        builder: (_, _) => const ProfessorPage(
+          professorId: 'p_001',
+          mainSessionId: 's_main_1',
+        ),
       ),
       GoRoute(
         path: '/chat',
         builder: (_, s) => Text(
-          'chat:${s.uri.queryParameters['sid']}|'
+          'chat:${s.uri.queryParameters['fork']}|'
+          '${s.uri.queryParameters['msid']}|'
           '${s.uri.queryParameters['pid']}',
         ),
       ),
@@ -114,23 +118,23 @@ Future<Widget> _wrapProfessor() async {
 }
 
 void main() {
-  testWidgets('推荐页「继续追问」携带 sessionId 跳 /chat', (tester) async {
+  testWidgets('推荐页不再有「继续追问」FAB', (tester) async {
     await tester.pumpWidget(await _wrapRecommendation());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('继续追问'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('chat:s_1'), findsOneWidget);
+    expect(find.text('继续追问'), findsNothing);
   });
 
-  testWidgets('详情页「继续追问」携带派生会话与 professorId 跳 /chat', (tester) async {
-    await tester.pumpWidget(await _wrapProfessor());
-    await tester.pumpAndSettle();
+  testWidgets(
+    '详情页「继续追问」以 fork 参数携带 msid 与 professorId 跳 /chat',
+    (tester) async {
+      await tester.pumpWidget(await _wrapProfessor());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('继续追问'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('继续追问'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('chat:s_prof_p_001|p_001'), findsOneWidget);
-  });
+      expect(find.text('chat:true|s_main_1|p_001'), findsOneWidget);
+    },
+  );
 }

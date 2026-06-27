@@ -37,7 +37,7 @@ class ProfessorPage extends ConsumerWidget {
       floatingActionButton: async.maybeWhen(
         data: (p) => FloatingActionButton.extended(
           onPressed: () => context.push(
-            '/chat?sid=${Uri.encodeComponent('s_prof_${p.id}')}'
+            '/chat?fork=true&msid=${Uri.encodeComponent(mainSessionId ?? '')}'
             '&pid=${Uri.encodeComponent(p.id)}',
           ),
           icon: const Icon(Icons.chat_bubble_outline),
