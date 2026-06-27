@@ -133,7 +133,7 @@ GoRouter _router() => GoRouter(
           path: '/chat',
           builder: (_, state) {
             final q = state.uri.queryParameters;
-            return Text('fork=${q['fork']}&fid=${q['fid']}');
+            return Text('fork=${q['fork']}&fid=${q['fid']}&msid=${q['msid']}');
           },
         ),
       ],
@@ -271,7 +271,7 @@ void main() {
     expect(find.text('暂无追问历史'), findsOneWidget);
   });
 
-  testWidgets('子项点击导航到 /chat?fork=true&fid=forkId', (tester) async {
+  testWidgets('子项点击导航到 /chat?fork=true&fid=forkId&msid=mainSessionId', (tester) async {
     final chatRepo = _chatRepo();
     await chatRepo.seedRecommendationTurn(
       sessionId: 's1',
@@ -305,7 +305,7 @@ void main() {
     await tester.tap(find.text(MockDb().allProfessors.first.name));
     await tester.pumpAndSettle();
 
-    expect(find.text('fork=true&fid=$forkId'), findsOneWidget);
+    expect(find.text('fork=true&fid=$forkId&msid=s1'), findsOneWidget);
   });
 
   testWidgets('子项左滑删除并刷新 fork 列表', (tester) async {

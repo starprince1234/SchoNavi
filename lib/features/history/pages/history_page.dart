@@ -382,7 +382,8 @@ class _ForkSubTile extends ConsumerWidget {
         subtitle: Text(subtitle, style: textTheme.bodySmall),
         trailing: Text(_formatTime(fork.createdAt), style: textTheme.bodySmall),
         onTap: () => context.push(
-          '/chat?fork=true&fid=${Uri.encodeComponent(fork.forkId)}',
+          '/chat?fork=true&fid=${Uri.encodeComponent(fork.forkId)}'
+          '&msid=${Uri.encodeComponent(fork.mainSessionId)}',
         ),
       ),
     );
