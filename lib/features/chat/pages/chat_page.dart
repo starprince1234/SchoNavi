@@ -17,6 +17,7 @@ import '../providers/chat_provider.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_quick_actions.dart';
+import '../widgets/professor_anchor_bar.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
@@ -24,6 +25,9 @@ class ChatPage extends ConsumerStatefulWidget {
     this.sessionId,
     this.professorId,
     this.initialPrompt,
+    this.forkMode = false,
+    this.mainSessionId,
+    this.forkId,
   });
 
   /// 旧入口（从推荐页 FAB / 详情页「继续追问」）：携带已有会话 id 进纯追问。
@@ -33,6 +37,11 @@ class ChatPage extends ConsumerStatefulWidget {
   /// 新入口（首页提交）：把提问作为首条用户消息，触发首轮推荐产卡。
   /// 非空时走对话式推荐首轮，隐藏欢迎卡。
   final String? initialPrompt;
+
+  /// fork 追问入口：从教授详情/历史 fork 列表进来。
+  final bool forkMode;
+  final String? mainSessionId;
+  final String? forkId;
 
   @override
   ConsumerState<ChatPage> createState() => _ChatPageState();
@@ -52,10 +61,25 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       if (_configurationBlocked) return;
       final notifier = ref.read(_provider.notifier);
+      if (widget.forkMode && widget.forkId != null) {
+        await notifier.resume(
+          sessionId: widget.forkId!,
+          isFork: true,
+          mainSessionId: widget.mainSessionId,
+        );
+        return;
+      }
+      if (widget.forkMode) {
+        await notifier.startFork(
+          sourceSessionId: widget.mainSessionId ?? '',
+          professorId: widget.professorId ?? '',
+        );
+        return;
+      }
       final sessionId = widget.sessionId?.trim();
       notifier.start(
         sessionId: sessionId == null || sessionId.isEmpty
@@ -135,7 +159,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(20, 56, 20, 12),
+                          padding: EdgeInsets.fromLTRB(
+                            20,
+                            state.forkAnchor != null ? 108.0 : 56.0,
+                            20,
+                            12,
+                          ),
                       itemCount: state.messages.length + (showWelcome ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (showWelcome && index == 0) {
@@ -157,6 +186,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             onTapRecommendation: (id) =>
                                 context.push('/professor/$id'),
                             onOpenHomepage: _openHomepage,
+                            onRerouteHome: () => context.go('/home'),
                             onRetryRecommendation: (id) => ref
                                 .read(_provider.notifier)
                                 .retryRecommendation(id),
@@ -187,15 +217,38 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ],
               ),
             ),
-          // 左上悬浮：「新对话」→ 回首页（首页即新会话入口）。
+          if (state.forkAnchor != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                bottom: false,
+                child: ProfessorAnchorBar(
+                  anchor: state.forkAnchor!,
+                  onTap: () => context.push(
+                    '/professor/${state.forkAnchor!.professorId}',
+                  ),
+                ),
+              ),
+            ),
+          // 左上悬浮：新会话页（initialPrompt 首页提交入口）显示「新对话」
+          // 回首页；旧会话追问页（推荐页/详情页「继续追问」push 进来）显示
+          // 「返回」，pop 回上一页而非丢弃会话跳首页。
           Positioned(
             top: 8,
             left: 12,
-            child: FloatingTopButton(
-              icon: Icons.edit_square,
-              tooltip: '新对话',
-              onPressed: () => context.go('/home'),
-            ),
+            child: isNewSession
+                ? FloatingTopButton(
+                    icon: Icons.edit_square,
+                    tooltip: '新对话',
+                    onPressed: () => context.go('/home'),
+                  )
+                : FloatingTopButton(
+                    icon: Icons.arrow_back,
+                    tooltip: '返回',
+                    onPressed: () => context.pop(),
+                  ),
           ),
           // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
           Positioned(

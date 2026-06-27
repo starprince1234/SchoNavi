@@ -33,4 +33,27 @@ void main() {
     expect(find.byType(ChatPage), findsOneWidget);
     expect(find.byTooltip('返回'), findsOneWidget);
   });
+
+  testWidgets('/chat?fork&msid=&pid= 解析并落地 ChatPage', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    final router = container.read(routerProvider);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+
+    router.go('/chat?fork=true&msid=s1&pid=p_001');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChatPage), findsOneWidget);
+  });
 }
