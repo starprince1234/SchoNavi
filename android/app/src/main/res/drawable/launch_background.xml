@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- SchoNavi 原生 splash：纯冷底色兜底，应用内动画接管全部视觉 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/launch_paper" />
-    <item>
-        <bitmap android:gravity="center" android:src="@mipmap/ic_launcher" />
-    </item>
+    <item android:drawable="@color/splash_paper" />
 </layer-list>

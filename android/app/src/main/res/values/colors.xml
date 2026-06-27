@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 原暖白底，保留避免引用断裂，但 launch_background 已改用 splash_paper -->
     <color name="launch_paper">#FBF8F1</color>
+    <!-- 冷调底色（= AppColors.paper #F8FAFC），与应用内 splash 动画底色一致 -->
+    <color name="splash_paper">#F8FAFC</color>
 </resources>
