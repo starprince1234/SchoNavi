@@ -5,7 +5,7 @@ import 'package:scho_navi/core/theme/app_colors.dart';
 import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 
 void main() {
-  testWidgets('渲染 svg 图标与「正在思考」文案 + 三个品牌渐变圆点', (tester) async {
+  testWidgets('渲染 svg 图标与「正在思考」文案 + 三个品牌渐变方形点', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(body: ThinkingIndicator()),
@@ -17,19 +17,29 @@ void main() {
     expect(find.text('正在思考…'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    // 三个圆点，用 ValueKey<int>(0/1/2) 定位。
+    // 三个方形点（句号样式，非圆点），用 ValueKey<int>(0/1/2) 定位。
     for (var i = 0; i < 3; i++) {
       final dot = find.byKey(ValueKey<int>(i));
       expect(dot, findsOneWidget,
-          reason: '第 $i 个圆点应存在（ValueKey<int>($i)）');
+          reason: '第 $i 个点应存在（ValueKey<int>($i)）');
       final box = tester.widget<DecoratedBox>(
         find.descendant(of: dot, matching: find.byType(DecoratedBox)).first,
       );
       final decoration = box.decoration as BoxDecoration;
-      expect(decoration.shape, BoxShape.circle, reason: '圆点 $i 应为圆形');
+      expect(decoration.shape, BoxShape.rectangle,
+          reason: '点 $i 应为方形（句号样式，非圆点）');
       expect(decoration.gradient, AppColors.brandGradient,
-          reason: '圆点 $i 应染品牌渐变');
+          reason: '点 $i 应染品牌渐变');
+      // 尺寸精简为 3×3。
+      expect(tester.getSize(dot), const Size(3, 3),
+          reason: '点 $i 应为 3×3（精简）');
     }
+
+    // 点应像句号贴在文案底部（底部对齐），而非垂直居中。
+    final textRect = tester.getRect(find.text('正在思考'));
+    final dot0Rect = tester.getRect(find.byKey(const ValueKey<int>(0)));
+    expect(dot0Rect.bottom, closeTo(textRect.bottom, 0.5),
+        reason: '点应与文案底部对齐（句号样式，不居中）');
   });
 
   testWidgets('「正在思考」文案染品牌渐变且有亮纹扫过（与图标一致）', (tester) async {
@@ -80,12 +90,12 @@ void main() {
     await tester.pump();
 
     // pump 到 v≈0.15（300ms / 2000ms）。此时 i=0: t=0.3 活跃段,
-    // u=0.5, dy=-sin(0.5π)*5=-5。非零 → 证明在跳。
+    // u=0.5, dy=-sin(0.5π)*3=-3。非零 → 证明在跳。
     await tester.pump(const Duration(milliseconds: 300));
 
     final dy0 = _dotDy(tester, 0);
     expect(dy0, isNot(equals(0.0)),
-        reason: 'v≈0.15 时 i=0 应处于活跃段，dy 非零（约 -5）');
+        reason: 'v≈0.15 时 i=0 应处于活跃段，dy 非零（约 -3）');
 
     // 三点错峰：同一时刻 i=0 与 i=2 相位不同 → dy 不同。
     final dy2 = _dotDy(tester, 2);

@@ -8,8 +8,8 @@ import '../../core/theme/app_colors.dart';
 /// 「正在思考」加载气泡：`reasoning.svg` 原子图 + indigo→cyan 渐变填充 +
 /// 沿圆周扫过的滑光（SweepGradient，匀速 2s/圈）。文案「正在思考」同享
 /// 渐变填充与横向掠过的亮纹（LinearGradient 平移），与图标视觉语言一致。
-/// 尾部三个独立圆点用品牌渐变填充并错峰上下跳跃（波浪式），暗示「思考中」。
-/// 纯展示组件，不感知业务状态，不依赖 Riverpod。
+/// 尾部三个独立方形点（句号样式）用品牌渐变填充并错峰上下跳跃（波浪式），
+/// 贴在文案底部对齐，暗示「思考中」。纯展示组件，不感知业务状态，不依赖 Riverpod。
 ///
 /// 用于 ChatMessageBubble 思考分支与推荐流程的占位气泡。
 class ThinkingIndicator extends StatefulWidget {
@@ -38,15 +38,16 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
     super.dispose();
   }
 
-  /// 第 i 个圆点的纵向偏移（px，向上为负）。由 `_controller.value`（记为 v）
+  /// 第 i 个点的纵向偏移（px，向上为负）。由 `_controller.value`（记为 v）
   /// 派生：2s controller 内每点跑 2 个周期（每秒约 1 跳），三点错峰 0.2 形
-  /// 成波浪；每周期 60% 活跃（sin 半波）、40% 静止。
+  /// 成波浪；每周期 60% 活跃（sin 半波）、40% 静止。幅度 3px（点本身 3×3，
+  /// 跳跃幅度与点等宽，克制）。
   double _dotOffset(int i) {
     final v = _controller.value;
     final t = (v * 2 + i * 0.2) % 1.0;
     if (t > 0.6) return 0.0;
     final u = t / 0.6;
-    return -math.sin(u * math.pi) * 5;
+    return -math.sin(u * math.pi) * 3;
   }
 
   @override
@@ -57,6 +58,7 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             SizedBox(
               width: 20,
@@ -111,17 +113,18 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
               ),
             ),
             const SizedBox(width: 3),
-            // 尾三点：品牌渐变填充，错峰上下跳跃（波浪式）。仅 translate，
-            // 不改布局、无 scale/opacity。
+            // 尾三方形点（句号样式）：品牌渐变填充，错峰上下跳跃（波浪式）。
+            // 仅 translate，不改布局、无 scale/opacity。贴文案底部对齐。
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
                 return Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     for (var i = 0; i < 3; i++)
                       Padding(
-                        padding: EdgeInsets.only(left: i == 0 ? 0 : 3),
+                        padding: EdgeInsets.only(left: i == 0 ? 0 : 2),
                         child: Transform.translate(
                           offset: Offset(0, _dotOffset(i)),
                           child: SizedBox(
@@ -129,9 +132,9 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
                             child: const DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: AppColors.brandGradient,
-                                shape: BoxShape.circle,
+                                shape: BoxShape.rectangle,
                               ),
-                              child: SizedBox(width: 5, height: 5),
+                              child: SizedBox(width: 3, height: 3),
                             ),
                           ),
                         ),
