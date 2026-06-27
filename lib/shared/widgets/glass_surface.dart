@@ -61,12 +61,17 @@ class GlassSurface extends StatelessWidget {
     }
 
     // 玻璃面：底层模糊内容 → 叠半透明底 + 描边 + 阴影 → 顶部 1px 高光。
+    // 用 ClipRRect 按圆角裁剪整个 Stack，否则 BackdropFilter 的模糊层会以
+    // 矩形溢出圆角外（DecoratedBox 自身不裁剪），圆形按钮不 hover 时
+    // 露出矩形模糊边。radius 与 decoration.borderRadius 一致。
+    final borderRadius = BorderRadius.circular(radius);
     return DecoratedBox(
       decoration: decoration,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRect(
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
+          children: [
+            Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: AppColors.glassBlur,
@@ -76,7 +81,6 @@ class GlassSurface extends StatelessWidget {
                 child: const SizedBox.expand(),
               ),
             ),
-          ),
           // 顶部高光：一条 1px 渐隐白线，模拟环境光折射边。
           Positioned(
             left: 0,
@@ -103,6 +107,7 @@ class GlassSurface extends StatelessWidget {
           ),
           content,
         ],
+      ),
       ),
     );
   }
