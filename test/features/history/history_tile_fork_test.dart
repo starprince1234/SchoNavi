@@ -128,7 +128,7 @@ class _FakeHistoryRepo implements HistoryRepository {
 GoRouter _router() => GoRouter(
       initialLocation: '/',
       routes: [
-        GoRoute(path: '/', builder: (_, __) => const HistoryPage()),
+        GoRoute(path: '/', builder: (_, _) => const HistoryPage()),
         GoRoute(
           path: '/chat',
           builder: (_, state) {

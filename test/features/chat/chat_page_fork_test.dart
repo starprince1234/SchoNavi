@@ -97,10 +97,10 @@ void main() {
     final router = GoRouter(
       initialLocation: '/chat',
       routes: [
-        GoRoute(path: '/', builder: (_, __) => const SizedBox()),
+        GoRoute(path: '/', builder: (_, _) => const SizedBox()),
         GoRoute(
           path: '/chat',
-          builder: (_, __) => UncontrolledProviderScope(
+          builder: (_, _) => UncontrolledProviderScope(
             container: container,
             child: ChatPage(
               forkMode: true,
