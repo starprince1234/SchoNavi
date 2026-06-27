@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SchoNavi 原生 splash 中心图标占位：与 splash_paper 同色的纯色 drawable，
+     用于 Android 12+ SplashScreen 的 windowSplashScreenAnimatedIcon。
+     设为与背景同色后，系统强制绘制的居中图标视觉消失，开屏只剩纯冷白底，
+     紧接着应用内品牌动画无缝接上。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/splash_paper" />
+</shape>

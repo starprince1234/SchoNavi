@@ -5,6 +5,11 @@
         <!-- Show a splash screen on the activity. Automatically removed when
              the Flutter engine draws its first frame -->
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- Android 12+ SplashScreen：背景与 launch_background 同为 splash_paper 冷白，
+             居中图标用与背景同色的 splash_icon 使其视觉消失——开屏无默认 Flutter 图标，
+             只剩纯冷白底，紧接着应用内品牌动画无缝接上。 -->
+        <item name="android:windowSplashScreenBackground">@color/splash_paper</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
     </style>
     <!-- Theme applied to the Android Window as soon as the process has started.
          This theme determines the color of the Android Window while your
