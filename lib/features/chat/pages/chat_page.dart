@@ -227,7 +227,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 child: ProfessorAnchorBar(
                   anchor: state.forkAnchor!,
                   onTap: () => context.push(
-                    '/professor/${state.forkAnchor!.professorId}',
+                    '/professor/${state.forkAnchor!.professorId}'
+                    '?msid=${Uri.encodeComponent(state.forkAnchor!.mainSessionId)}',
                   ),
                 ),
               ),

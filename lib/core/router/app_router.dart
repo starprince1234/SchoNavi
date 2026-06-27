@@ -76,7 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/professor/:id',
         pageBuilder: (_, state) => sharedAxisPage(
           state: state,
-          child: ProfessorPage(professorId: state.pathParameters['id']!),
+          child: ProfessorPage(
+            professorId: state.pathParameters['id']!,
+            mainSessionId: state.uri.queryParameters['msid'],
+          ),
         ),
       ),
       GoRoute(

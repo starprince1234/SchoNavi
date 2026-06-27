@@ -18,9 +18,16 @@ import '../../../shared/widgets/bento_tile.dart';
 import '../providers/professor_provider.dart';
 
 class ProfessorPage extends ConsumerWidget {
-  const ProfessorPage({super.key, required this.professorId});
+  const ProfessorPage({
+    super.key,
+    required this.professorId,
+    this.mainSessionId,
+  });
 
   final String professorId;
+
+  /// 从 fork 追问入口带来的主会话 id，供 Task 11 的 FAB 继续在该教授下追问使用。
+  final String? mainSessionId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -97,21 +97,96 @@ void main() {
     final router = GoRouter(
       initialLocation: '/chat',
       routes: [
-      GoRoute(path: '/', builder: (_, __) => const SizedBox()),
-      GoRoute(
-        path: '/chat',
-        builder: (_, __) => UncontrolledProviderScope(
-          container: container,
-          child: ChatPage(
-            forkMode: true,
-            mainSessionId: sessionId,
-            professorId: professorId,
+        GoRoute(path: '/', builder: (_, __) => const SizedBox()),
+        GoRoute(
+          path: '/chat',
+          builder: (_, __) => UncontrolledProviderScope(
+            container: container,
+            child: ChatPage(
+              forkMode: true,
+              mainSessionId: sessionId,
+              professorId: professorId,
+            ),
           ),
         ),
-      ),
-    ]);
+        GoRoute(
+          path: '/professor/:id',
+          builder: (_, state) => Scaffold(
+            body: Text(
+              'msid=${state.uri.queryParameters['msid'] ?? 'none'}',
+            ),
+          ),
+        ),
+      ],
+    );
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
     expect(find.byType(ProfessorAnchorBar), findsOneWidget);
+  });
+
+  testWidgets('锚点条点击携带 mainSessionId 作为 msid 跳转到教授详情', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final repo = MockChatRepository(
+      MockDb(),
+      historyStore: LocalChatHistoryStore(_MemStore()),
+      streamChunkDelay: Duration.zero,
+    );
+    const sessionId = 's_main_42';
+    final professorId = MockDb().allProfessors.first.id;
+
+    await repo.seedRecommendationTurn(
+      sessionId: sessionId,
+      userPrompt: '想做CV',
+      result: _recResult(sessionId),
+    );
+    await repo.forkSession(
+      sourceSessionId: sessionId,
+      professorId: professorId,
+    );
+
+    final container = ProviderContainer(overrides: [
+      chatRepositoryProvider.overrideWithValue(repo),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(dataSource: DataSource.http),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final router = GoRouter(
+      initialLocation: '/chat',
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const SizedBox()),
+        GoRoute(
+          path: '/chat',
+          builder: (_, _) => UncontrolledProviderScope(
+            container: container,
+            child: ChatPage(
+              forkMode: true,
+              mainSessionId: sessionId,
+              professorId: professorId,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/professor/:id',
+          builder: (_, state) => Scaffold(
+            body: Text(
+              'msid=${state.uri.queryParameters['msid'] ?? 'none'}',
+            ),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProfessorAnchorBar), findsOneWidget);
+
+    await tester.tap(find.byType(ProfessorAnchorBar));
+    await tester.pumpAndSettle();
+
+    expect(find.text('msid=$sessionId'), findsOneWidget);
   });
 }
