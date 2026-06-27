@@ -24,16 +24,32 @@ class SplashState {
 /// 落实为真实行为；纯逻辑单测无需真 Ticker 即可覆盖状态机。
 class SplashController extends Notifier<SplashState> {
   AnimationController? _ticker;
+  VoidCallback? _tickerListener;
   bool _navigated = false;
 
   @override
-  SplashState build() => const SplashState();
+  SplashState build() {
+    ref.onDispose(_detachTicker);
+    return const SplashState();
+  }
+
+  /// 移除 ticker 监听并清空引用，防泄漏与重复 attach。
+  void _detachTicker() {
+    if (_tickerListener != null && _ticker != null) {
+      _ticker!.removeListener(_tickerListener!);
+    }
+    _ticker = null;
+    _tickerListener = null;
+  }
 
   /// 页面在 initState 创建 Ticker 后调用：保存引用并挂监听，
   /// Ticker 每帧把 value 推给 [setProgress]。
   void attach(AnimationController ticker) {
+    // 防重复 attach：先移除旧 listener。
+    _detachTicker();
     _ticker = ticker;
-    ticker.addListener(() => setProgress(ticker.value));
+    _tickerListener = () => setProgress(ticker.value);
+    ticker.addListener(_tickerListener!);
   }
 
   /// 由 Ticker listener 推送当前进度值（0.0-1.0）。
