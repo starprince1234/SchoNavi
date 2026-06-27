@@ -6,12 +6,19 @@ import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/chat_message.dart';
+import '../../../domain/entities/fork_ref.dart';
 import '../../../domain/entities/query_understanding.dart';
 import '../../../domain/entities/recommendation_result.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../widgets/chat_quick_actions.dart' show defaultChatQuickActions;
 
 enum ChatActivity { idle, recommending, classifying, streaming }
+
+class _Sentinel {
+  const _Sentinel();
+}
+
+const _sentinel = _Sentinel();
 
 class ChatState {
   const ChatState({
@@ -20,6 +27,7 @@ class ChatState {
     required this.messages,
     required this.activity,
     required this.followUpQuestions,
+    this.forkAnchor,
   });
 
   const ChatState.initial()
@@ -27,13 +35,17 @@ class ChatState {
       professorId = null,
       messages = const [],
       activity = ChatActivity.idle,
-      followUpQuestions = const [];
+      followUpQuestions = const [],
+      forkAnchor = null;
 
   final String? sessionId;
   final String? professorId;
   final List<ChatMessage> messages;
   final ChatActivity activity;
   final List<String> followUpQuestions;
+
+  /// fork 追问锚点：非 null 表示当前是 fork 分支，渲染顶部教授条。
+  final ForkRef? forkAnchor;
 
   bool get isBusy => activity != ChatActivity.idle;
 
@@ -49,18 +61,24 @@ class ChatState {
         user.role == ChatRole.user;
   }
 
+  /// [forkAnchor] 用 sentinel 区分「未传」与「显式置 null」，
+  /// 因 ForkRef 本身可空，直接 `?? this.forkAnchor` 无法清空锚点。
   ChatState copyWith({
     String? sessionId,
     String? professorId,
     List<ChatMessage>? messages,
     ChatActivity? activity,
     List<String>? followUpQuestions,
+    Object? forkAnchor = _sentinel,
   }) => ChatState(
     sessionId: sessionId ?? this.sessionId,
     professorId: professorId ?? this.professorId,
     messages: messages ?? this.messages,
     activity: activity ?? this.activity,
     followUpQuestions: followUpQuestions ?? this.followUpQuestions,
+    forkAnchor: identical(forkAnchor, _sentinel)
+        ? this.forkAnchor
+        : forkAnchor as ForkRef?,
   );
 }
 
@@ -132,6 +150,115 @@ class ChatNotifier extends Notifier<ChatState> {
     );
   }
 
+  /// 从 [sourceSessionId] fork 出新分支并载入其历史，绑死 [professorId]。
+  ///
+  /// 流程：forkSession 拿 forkId → loadHistory 回填消息 → listForks 找到
+  /// 匹配 forkId 的 ForkRef 作为锚点。每次 await 后用 [_isCurrent] 丢弃过期回调。
+  Future<void> startFork({
+    required String sourceSessionId,
+    required String professorId,
+  }) async {
+    final token = _beginOperation();
+    final sub = _sub;
+    _sub = null;
+    _activeAssistantId = null;
+    if (sub != null) unawaited(sub.cancel());
+    _completeTurn();
+
+    state = state.copyWith(
+      sessionId: null,
+      professorId: professorId,
+      messages: const [],
+      activity: ChatActivity.idle,
+      forkAnchor: null,
+    );
+
+    final repo = ref.read(chatRepositoryProvider);
+    final forkRes = await repo.forkSession(
+      sourceSessionId: sourceSessionId,
+      professorId: professorId,
+    );
+    if (!_isCurrent(token)) return;
+
+    switch (forkRes) {
+      case Success<String>(:final data):
+        final forkId = data;
+        final historyRes = await repo.loadHistory(sessionId: forkId);
+        if (!_isCurrent(token)) return;
+        final msgs = historyRes is Success<List<ChatMessage>>
+            ? historyRes.data
+            : const <ChatMessage>[];
+        final forksRes = await repo.listForks(mainSessionId: sourceSessionId);
+        ForkRef? anchor;
+        if (forksRes is Success<List<ForkRef>>) {
+          anchor = forksRes.data
+              .cast<ForkRef?>()
+              .firstWhere((f) => f?.forkId == forkId, orElse: () => null);
+        }
+        _seq = msgs.length;
+        state = ChatState(
+          sessionId: forkId,
+          professorId: professorId,
+          messages: msgs,
+          activity: ChatActivity.idle,
+          followUpQuestions: const [],
+          forkAnchor: anchor,
+        );
+        unawaited(_refreshQuickActions(followUp: '', token: token));
+      case Failure<String>():
+        state = state.copyWith(activity: ChatActivity.idle);
+    }
+  }
+
+  /// 恢复某 session 的历史。fork 模式下用 [mainSessionId] 经 listForks 重建锚点。
+  ///
+  /// [mainSessionId] 为 null/空 时 fork 锚点降级为 null（顶部条不显示，不崩溃）；
+  /// 路由侧（Task 10）从历史页携带 msid 传入，避免从 `f_<mainSid>_<pid>` 反解
+  /// mainSid（该格式在 mainSid 含 `_` 时有歧义）。
+  Future<void> resume({
+    required String sessionId,
+    required bool isFork,
+    String? mainSessionId,
+  }) async {
+    final token = _beginOperation();
+    final sub = _sub;
+    _sub = null;
+    _activeAssistantId = null;
+    if (sub != null) unawaited(sub.cancel());
+    _completeTurn();
+
+    final repo = ref.read(chatRepositoryProvider);
+    final historyRes = await repo.loadHistory(sessionId: sessionId);
+    if (!_isCurrent(token)) return;
+    final msgs = historyRes is Success<List<ChatMessage>>
+        ? historyRes.data
+        : const <ChatMessage>[];
+
+    ForkRef? anchor;
+    String? professorId;
+    if (isFork && mainSessionId != null && mainSessionId.isNotEmpty) {
+      final forksRes = await repo.listForks(mainSessionId: mainSessionId);
+      if (!_isCurrent(token)) return;
+      if (forksRes is Success<List<ForkRef>>) {
+        anchor = forksRes.data
+            .cast<ForkRef?>()
+            .firstWhere((f) => f?.forkId == sessionId, orElse: () => null);
+        professorId = anchor?.professorId;
+      }
+    }
+
+    _seq = msgs.length;
+    state = ChatState(
+      sessionId: sessionId,
+      professorId: professorId,
+      messages: msgs,
+      activity: ChatActivity.idle,
+      followUpQuestions: const [],
+      forkAnchor: anchor,
+    );
+    unawaited(_refreshQuickActions(followUp: '', token: token));
+  }
+
   Future<void> send(String text) async {
     final content = text.trim();
     if (content.isEmpty ||
@@ -169,6 +296,10 @@ class ChatNotifier extends Notifier<ChatState> {
     if (!_isCurrent(token)) return;
 
     if (needsRecommendations) {
+      if (state.forkAnchor != null) {
+        await _emitForkReroute(content, token: token);
+        return;
+      }
       final placeholderId = _nextId();
       state = state.copyWith(
         activity: ChatActivity.recommending,
@@ -390,6 +521,28 @@ class ChatNotifier extends Notifier<ChatState> {
           else
             m,
       ],
+    );
+  }
+
+  /// fork 内识别到再推荐意图时不走产卡，而是发一条重路由提示消息，
+  /// 引导用户回首页重挑一组导师。空推荐卡片、状态 done、不可重新生成。
+  Future<void> _emitForkReroute(String userPrompt, {required int token}) async {
+    // userPrompt 仅作为触发上下文，重路由文案不引用其内容。
+    if (!_isCurrent(token)) return;
+    final anchor = state.forkAnchor;
+    final name = anchor?.professorName ?? '这位导师';
+    final msg = ChatMessage(
+      id: _nextId(),
+      role: ChatRole.assistant,
+      content: '这里咱们专注聊$name教授。想看新的导师推荐，回首页重挑一组吧～',
+      createdAt: DateTime.now(),
+      relatedRecommendations: const [],
+      status: ChatMessageStatus.done,
+      kind: ChatMessageKind.forkReroute,
+    );
+    state = state.copyWith(
+      messages: [...state.messages, msg],
+      activity: ChatActivity.idle,
     );
   }
 
