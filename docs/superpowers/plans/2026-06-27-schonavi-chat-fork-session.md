@@ -860,96 +860,38 @@ void main() {
     repo = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
   });
 
-  group('forkSession', () {
-    test('复制源历史到 forkId', () async {
-      // 主 session 种一条历史
-      await store.save('s1', [
-        ChatMessage(
-          id: 'm1', role: ChatRole.user, content: '想做CV',
-          createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-        ChatMessage(
-          id: 'm2', role: ChatRole.assistant, content: '为你挑了导师',
-          createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-      ]);
-      final prof = db.professors.first;
-      final res = await repo.forkSession(
-        sourceSessionId: 's1',
-        professorId: prof.id,
-      );
-      expect(res, isA<Success<String>>());
-      final forkId = (res as Success<String>).data;
-      expect(forkId, 'f_s1_${prof.id}');
-      final forkHistory = await store.load(forkId);
-      expect(forkHistory, isNotNull);
-      expect(forkHistory!.length, 2);
-      expect(forkHistory[0].content, '想做CV');
+  group('AiChatRepository 持久化改造（fork 4 方法见 Task 6 mixin）', () {
+    test('streamReply 完成后历史写入 store', () async {
+      await repo.streamReply(
+        sessionId: 's1',
+        message: '为什么推荐他',
+        professorId: null,
+      ).last;
+      final saved = await store.load('s1');
+      expect(saved, isNotNull);
+      expect(saved!.length, greaterThanOrEqualTo 2); // user + assistant
+      expect(saved.any((m) => m.content == '回答'), isTrue);
     });
 
-    test('同导师复用已有 fork 不新建', () async {
-      await store.save('s1', [
-        ChatMessage(
-          id: 'm1', role: ChatRole.user, content: '想做CV',
-          createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-      ]);
-      final prof = db.professors.first;
-      final id1 = await repo.forkSession(
-          sourceSessionId: 's1', professorId: prof.id);
-      // 第二次 fork 同导师
-      final id2 = await repo.forkSession(
-          sourceSessionId: 's1', professorId: prof.id);
-      expect((id2 as Success<String>).data, (id1 as Success<String>).data);
-      final forks = await repo.listForks(mainSessionId: 's1');
-      expect(forks.length, 1);
-    });
-
-    test('ForkRef 含导师信息', () async {
-      await store.save('s1', [
-        ChatMessage(
-          id: 'm1', role: ChatRole.user, content: '想做CV',
-          createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-      ]);
-      final prof = db.professors.first;
-      await repo.forkSession(sourceSessionId: 's1', professorId: prof.id);
-      final forks = await repo.listForks(mainSessionId: 's1');
-      expect(forks.length, 1);
-      expect(forks[0].professorId, prof.id);
-      expect(forks[0].professorName, prof.name);
-      expect(forks[0].university, prof.university);
-    });
-  });
-
-  group('loadHistory', () {
-    test('返回空列表对未知 session', () async {
-      final res = await repo.loadHistory(sessionId: 'unknown');
-      expect(res, isA<Success<List<ChatMessage>>>());
-      expect((res as Success<List<ChatMessage>>).data, isEmpty);
-    });
-  });
-
-  group('deleteFork', () {
-    test('删除后 listForks 不再含', () async {
-      await store.save('s1', [
-        ChatMessage(
-          id: 'm1', role: ChatRole.user, content: '想做CV',
-          createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-      ]);
-      final prof = db.professors.first;
-      final res = await repo.forkSession(
-          sourceSessionId: 's1', professorId: prof.id);
-      final forkId = (res as Success<String>).data;
-      await repo.deleteFork(forkId: forkId);
-      final forks = await repo.listForks(mainSessionId: 's1');
-      expect(forks, isEmpty);
+    test('新进程读 store 回填内存历史（_ensureHistoryLoaded）', () async {
+      // 先一个 repo 写入
+      await repo.streamReply(
+        sessionId: 's1',
+        message: '问1',
+        professorId: null,
+      ).last;
+      // 模拟新进程：新建 repo（内存 _history 空），再 streamReply 时应从 store 回填
+      final repo2 = AiChatRepository(
+          llm: _StubLlm('回答2'), db: db, historyStore: store);
+      await repo2.streamReply(
+        sessionId: 's1',
+        message: '问2',
+        professorId: null,
+      ).last;
+      final saved = await store.load('s1');
+      // 含「问1」回填 + 「问2」追加
+      expect(saved!.any((m) => m.content == '问1'), isTrue);
+      expect(saved.any((m) => m.content == '问2'), isTrue);
     });
   });
 }
@@ -1019,75 +961,11 @@ class AiChatRepository implements ChatRepository {
   final Map<String, List<LlmMessage>> _history = {};
 ```
 
-新增方法（放在 `seedRecommendationTurn` 后、`_summarizeRecommendations` 前）：
+**不在此 task 写 fork 4 方法**——它们由 Task 6 的 `ChatForkMixin` 提供（AiChatRepository 在 Task 6 接 `with ChatForkMixin`）。本 task 只做：构造加 `historyStore` 字段 + `_history` 读写 store 的持久化改造。
+
+辅助方法（放在 `seedRecommendationTurn` 后、`_summarizeRecommendations` 前）：
 
 ```dart
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) async {
-    try {
-      final existing = await historyStore.findFork(sourceSessionId, professorId);
-      if (existing != null) {
-        await _ensureHistoryLoaded(existing.forkId);
-        return Success(existing.forkId);
-      }
-      final forkId = 'f_${sourceSessionId}_$professorId';
-      final source = await historyStore.load(sourceSessionId) ?? const [];
-      await historyStore.save(forkId, source);
-      final prof = db.getProfessor(professorId);
-      final ref = ForkRef(
-        forkId: forkId,
-        mainSessionId: sourceSessionId,
-        professorId: professorId,
-        professorName: prof?.name ?? '该导师',
-        university: prof?.university ?? '',
-        college: prof?.college,
-        createdAt: DateTime.now(),
-      );
-      await historyStore.saveFork(ref);
-      _history[forkId] = source.map(_toLlmMessage).toList();
-      return Success(forkId);
-    } catch (e) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) async {
-    try {
-      final msgs = await historyStore.load(sessionId) ?? const [];
-      return Success(msgs);
-    } catch (e) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async {
-    try {
-      return Success(await historyStore.listForks(mainSessionId));
-    } catch (e) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async {
-    try {
-      await historyStore.deleteFork(forkId);
-      _history.remove(forkId);
-      return const Success(null);
-    } catch (e) {
-      return Failure(const UnknownException());
-    }
-  }
-
   LlmMessage _toLlmMessage(ChatMessage m) =>
       LlmMessage(m.role == ChatRole.user ? 'user' : 'assistant', m.content);
 
@@ -1187,18 +1065,115 @@ git commit -m "feat(chat): AiChatRepository 持久化 + forkSession/loadHistory/
 
 ---
 
-## Task 6: MockChatRepository + HttpChatRepository 实现 4 方法
+## Task 6: ChatForkMixin + MockChatRepository + HttpChatRepository 实现 4 方法
 
 **Files:**
-- Modify: `lib/data/mock/mock_chat_repository.dart`
-- Modify: `lib/data/http/http_chat_repository.dart`
+- Create: `lib/data/chat_fork_mixin.dart`
+- Modify: `lib/data/ai/ai_chat_repository.dart`（with ChatForkMixin，删自身 4 方法）
+- Modify: `lib/data/mock/mock_chat_repository.dart`（with ChatForkMixin，构造加 store）
+- Modify: `lib/data/http/http_chat_repository.dart`（抛 UnimplementedError，不走 mixin）
 - Test: `test/data/mock/mock_chat_repository_fork_test.dart`
 
 **Interfaces:**
-- Consumes: `ChatHistoryStore`（Mock 注入，与 AiChatRepository 同）
-- Produces: 两个实现类实现 4 方法，消除编译错误。
+- Consumes: `ChatHistoryStore`、`MockDb`（mixin 取导师信息用 abstract getter）
+- Produces: `ChatForkMixin`（封装 4 方法 store 委托），AiChatRepository/MockChatRepository 复用，消除 verbatim duplication。
 
-- [ ] **Step 1: 写失败测试**
+> **设计决策（pre-flight 调整）**：原 plan 让两个 repository 各自复制 4 方法逻辑——但 verbatim duplication 是 review 会拦的 Important 项。改为抽 `ChatForkMixin`，AiChatRepository 和 MockChatRepository 都 `with ChatForkMixin` 复用。HttpChatRepository 不走 mixin（抛 UnimplementedError）。
+
+- [ ] **Step 1: 写 ChatForkMixin**
+
+`lib/data/chat_fork_mixin.dart`：
+
+```dart
+import '../core/error/app_exception.dart';
+import '../core/result/result.dart';
+import '../domain/entities/chat_message.dart';
+import '../domain/entities/fork_ref.dart';
+import '../domain/repositories/chat_repository.dart';
+import 'local/chat_history_store.dart';
+import 'mock/mock_db.dart';
+
+/// 封装 forkSession/loadHistory/listForks/deleteFork 四个方法的 store 委托逻辑。
+///
+/// 同时被 [AiChatRepository] 与 [MockChatRepository] 复用，消除 verbatim
+/// duplication。Http 实现不接 store，不使用本 mixin。
+mixin ChatForkMixin on ChatRepository {
+  ChatHistoryStore get historyStore;
+  MockDb get db;
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async {
+    try {
+      final existing =
+          await historyStore.findFork(sourceSessionId, professorId);
+      if (existing != null) return Success(existing.forkId);
+      final forkId = 'f_${sourceSessionId}_$professorId';
+      final source = await historyStore.load(sourceSessionId) ?? const [];
+      await historyStore.save(forkId, source);
+      final prof = db.getProfessor(professorId);
+      await historyStore.saveFork(ForkRef(
+        forkId: forkId,
+        mainSessionId: sourceSessionId,
+        professorId: professorId,
+        professorName: prof?.name ?? '该导师',
+        university: prof?.university ?? '',
+        college: prof?.college,
+        createdAt: DateTime.now(),
+      ));
+      return Success(forkId);
+    } catch (_) {
+      return Failure(const UnknownException());
+    }
+  }
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async {
+    try {
+      return Success(await historyStore.load(sessionId) ?? const []);
+    } catch (_) {
+      return Failure(const UnknownException());
+    }
+  }
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async {
+    try {
+      return Success(await historyStore.listForks(mainSessionId));
+    } catch (_) {
+      return Failure(const UnknownException());
+    }
+  }
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async {
+    try {
+      await historyStore.deleteFork(forkId);
+      return const Success(null);
+    } catch (_) {
+      return Failure(const UnknownException());
+    }
+  }
+}
+```
+
+> 注：`mixin on ChatRepository` 要求宿主类 `implements ChatRepository`——AiChatRepository/MockChatRepository 均满足。`historyStore`/`db` 为 abstract getter，由宿主类提供（AiChatRepository 已有 `db` 字段；MockChatRepository 已有 `_db` 字段——需暴露为 `db` getter）。
+
+- [ ] **Step 2: AiChatRepository 改用 mixin**
+
+`lib/data/ai/ai_chat_repository.dart`：
+
+类声明改为 `class AiChatRepository with ChatForkMixin implements ChatRepository {`。删除 Task 5 里加的 `forkSession`/`loadHistory`/`listForks`/`deleteFork` 四个方法（它们现由 mixin 提供）。保留 `historyStore` 字段（mixin 通过 getter 访问——若字段名是 `historyStore` 则直接可用；若 mixin 需 `db` getter 而 AiChatRepository 字段是 `db`，也直接可用）。
+
+import 加 `import '../chat_fork_mixin.dart';`。
+
+- [ ] **Step 3: 写失败测试**
 
 `test/data/mock/mock_chat_repository_fork_test.dart`：
 
@@ -1278,19 +1253,130 @@ void main() {
     expect(forks.length, 1);
   });
 }
+
+// —— AiChatRepository 走同一 mixin，覆盖 fork CRUD 完整用例（从 Task 5 移入）——
+class _StubLlm implements LlmClient {
+  _StubLlm(this.reply);
+  final String reply;
+  @override
+  Future<Result<String>> complete({
+    required List<LlmMessage> messages,
+    bool jsonMode = false,
+    double temperature = 0.7,
+  }) async {
+    return Success(reply);
+  }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) async* {
+    yield reply;
+  }
+}
+
+void aiChatForkCases() {
+  late AiChatRepository repo;
+  late LocalChatHistoryStore store;
+  late MockDb db;
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    db = MockDb();
+    store = LocalChatHistoryStore(_MemStore());
+    repo = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
+  });
+
+  test('forkSession 复制源历史到 forkId', () async {
+    await store.save('s1', [
+      ChatMessage(
+        id: 'm1', role: ChatRole.user, content: '想做CV',
+        createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+      ),
+      ChatMessage(
+        id: 'm2', role: ChatRole.assistant, content: '为你挑了导师',
+        createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+      ),
+    ]);
+    final prof = db.professors.first;
+    final res = await repo.forkSession(
+        sourceSessionId: 's1', professorId: prof.id);
+    expect(res, isA<Success<String>>());
+    final forkId = (res as Success<String>).data;
+    expect(forkId, 'f_s1_${prof.id}');
+    final forkHistory = await store.load(forkId);
+    expect(forkHistory!.length, 2);
+    expect(forkHistory[0].content, '想做CV');
+  });
+
+  test('同导师复用已有 fork 不新建', () async {
+    await store.save('s1', [
+      ChatMessage(
+        id: 'm1', role: ChatRole.user, content: '想做CV',
+        createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+      ),
+    ]);
+    final prof = db.professors.first;
+    final id1 = await repo.forkSession(sourceSessionId: 's1', professorId: prof.id);
+    final id2 = await repo.forkSession(sourceSessionId: 's1', professorId: prof.id);
+    expect((id2 as Success<String>).data, (id1 as Success<String>).data);
+    expect((await repo.listForks(mainSessionId: 's1')).length, 1);
+  });
+
+  test('ForkRef 含导师信息', () async {
+    await store.save('s1', [
+      ChatMessage(
+        id: 'm1', role: ChatRole.user, content: '想做CV',
+        createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+      ),
+    ]);
+    final prof = db.professors.first;
+    await repo.forkSession(sourceSessionId: 's1', professorId: prof.id);
+    final forks = await repo.listForks(mainSessionId: 's1');
+    expect(forks[0].professorName, prof.name);
+    expect(forks[0].university, prof.university);
+  });
+
+  test('loadHistory 未知 session 返回空', () async {
+    final res = await repo.loadHistory(sessionId: 'unknown');
+    expect((res as Success<List<ChatMessage>>).data, isEmpty);
+  });
+
+  test('deleteFork 后 listForks 不再含', () async {
+    await store.save('s1', [
+      ChatMessage(
+        id: 'm1', role: ChatRole.user, content: '想做CV',
+        createdAt: DateTime(2026, 6, 27), relatedRecommendations: const [],
+        status: ChatMessageStatus.done,
+      ),
+    ]);
+    final prof = db.professors.first;
+    final forkId = (await repo.forkSession(
+        sourceSessionId: 's1', professorId: prof.id) as Success<String>).data;
+    await repo.deleteFork(forkId: forkId);
+    expect(await repo.listForks(mainSessionId: 's1'), isEmpty);
+  });
+}
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+> 注：上述 AiChatRepository 用例放在同一测试文件，由 `main()` 末尾调用 `aiChatForkCases()` 或直接合并入 `main()`——实现时按 flutter_test 习惯合并为一个 `main()`，去掉外层 `aiChatForkCases` 包装。需 import `package:scho_navi/core/ai/llm_client.dart`、`data/ai/ai_chat_repository.dart`。
+
+- [ ] **Step 4: 跑测试确认失败**
 
 Run: `flutter test test/data/mock/mock_chat_repository_fork_test.dart`
-Expected: FAIL — `MockChatRepository` 构造无 `historyStore`、4 方法未实现。
+Expected: FAIL — `MockChatRepository` 构造无 `historyStore`、4 方法未实现（mixin 未接入）。
 
-- [ ] **Step 3: MockChatRepository 实现 4 方法**
+- [ ] **Step 5: MockChatRepository 接入 mixin**
 
-`lib/data/mock/mock_chat_repository.dart`，构造加 `historyStore`：
+`lib/data/mock/mock_chat_repository.dart`，构造加 `historyStore`，类声明加 mixin：
 
 ```dart
-class MockChatRepository implements ChatRepository {
+class MockChatRepository with ChatForkMixin implements ChatRepository {
   MockChatRepository(
     this._db, {
     required this.historyStore,
@@ -1300,83 +1386,21 @@ class MockChatRepository implements ChatRepository {
   final MockDb _db;
   final ChatHistoryStore historyStore;
   final Duration streamChunkDelay;
+
+  @override
+  MockDb get db => _db;
 ```
 
 文件顶部 import 加：
 
 ```dart
-import '../../core/error/app_exception.dart';
-import '../../core/storage/local_store.dart';
-import '../../domain/entities/chat_message.dart';
-import '../../domain/entities/fork_ref.dart';
+import '../chat_fork_mixin.dart';
 import '../local/chat_history_store.dart';
 ```
 
-在 `seedRecommendationTurn` 后追加 4 方法（复用 AiChatRepository 同样逻辑——可抽 mixin 但为 DRY 最小化此处复制；若 review 建议抽 mixin 可后置）：
+（无需再手写 4 方法——mixin 提供。）
 
-```dart
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) async {
-    try {
-      final existing =
-          await historyStore.findFork(sourceSessionId, professorId);
-      if (existing != null) return Success(existing.forkId);
-      final forkId = 'f_${sourceSessionId}_$professorId';
-      final source = await historyStore.load(sourceSessionId) ?? const [];
-      await historyStore.save(forkId, source);
-      final prof = _db.getProfessor(professorId);
-      await historyStore.saveFork(ForkRef(
-        forkId: forkId,
-        mainSessionId: sourceSessionId,
-        professorId: professorId,
-        professorName: prof?.name ?? '该导师',
-        university: prof?.university ?? '',
-        college: prof?.college,
-        createdAt: DateTime.now(),
-      ));
-      return Success(forkId);
-    } catch (_) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) async {
-    try {
-      return Success(await historyStore.load(sessionId) ?? const []);
-    } catch (_) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async {
-    try {
-      return Success(await historyStore.listForks(mainSessionId));
-    } catch (_) {
-      return Failure(const UnknownException());
-    }
-  }
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async {
-    try {
-      await historyStore.deleteFork(forkId);
-      return const Success(null);
-    } catch (_) {
-      return Failure(const UnknownException());
-    }
-  }
-```
-
-- [ ] **Step 4: HttpChatRepository 实现 4 方法（抛 UnimplementedError）**
+- [ ] **Step 6: HttpChatRepository 实现 4 方法（抛 UnimplementedError，不走 mixin）**
 
 `lib/data/http/http_chat_repository.dart`，import 加：
 
@@ -1421,33 +1445,35 @@ import '../../domain/entities/fork_ref.dart';
   }
 ```
 
-- [ ] **Step 5: 更新所有测试中 MockChatRepository 构造点**
+- [ ] **Step 7: 更新所有测试中 MockChatRepository 构造点**
 
-全局搜 `MockChatRepository(` 构造调用，给非测试的（如有）或测试中需持久化的补 `historyStore:` 参数。Run:
+全局搜 `MockChatRepository(` 构造调用，给每处补 `historyStore:` 参数。Run:
 
 ```bash
 grep -rn "MockChatRepository(" test/ lib/
 ```
 
-对每处构造补 `historyStore: LocalChatHistoryStore(<store>)`。测试中通常用 `SharedPreferences.setMockInitialValues({})` + `LocalChatHistoryStore(_MemStore())` 或注入 `localStoreProvider` override。
+对每处构造补 `historyStore: LocalChatHistoryStore(<store>)`。测试中通常用 `SharedPreferences.setMockInitialValues({})` + `LocalChatHistoryStore(_MemStore())`。
 
-- [ ] **Step 6: 跑测试确认通过 + 无回归**
+- [ ] **Step 8: 跑测试确认通过 + 无回归**
 
 Run: `flutter test test/data/mock/mock_chat_repository_fork_test.dart`
 Run: `flutter test test/features/chat/`
 Expected: PASS
 
-- [ ] **Step 7: 跑 analyze**
+- [ ] **Step 9: 跑 analyze**
 
-Run: `flutter analyze lib/data/mock/ lib/data/http/`
+Run: `flutter analyze lib/data/mock/ lib/data/http/ lib/data/chat_fork_mixin.dart lib/data/ai/`
 Expected: No issues（`HttpChatRepository` 抛 UnimplementedError 不影响 analyze）。
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add lib/data/mock/mock_chat_repository.dart lib/data/http/http_chat_repository.dart test/data/mock/mock_chat_repository_fork_test.dart
-git commit -m "feat(chat): MockChatRepository + HttpChatRepository 实现 fork 4 方法"
+git add lib/data/chat_fork_mixin.dart lib/data/ai/ai_chat_repository.dart lib/data/mock/mock_chat_repository.dart lib/data/http/http_chat_repository.dart test/data/mock/mock_chat_repository_fork_test.dart
+git commit -m "feat(chat): ChatForkMixin 复用 + Mock/Http 实现 fork 4 方法"
 ```
+
+> 注：Task 5 不再让 AiChatRepository 手写 4 方法（改为 Task 6 Step 2 接 mixin）。Task 5 仍负责 AiChatRepository 的持久化改造（_history 读写 store）+ historyStore 字段注入。执行 Task 5 时只做持久化，4 方法留给 Task 6 的 mixin。
 
 ---
 
