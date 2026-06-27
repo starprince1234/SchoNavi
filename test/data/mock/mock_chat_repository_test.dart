@@ -1,12 +1,56 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/core/storage/local_store.dart';
+import 'package:scho_navi/data/local/local_chat_history_store.dart';
 import 'package:scho_navi/data/mock/mock_chat_repository.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 
+class _MemStore implements LocalStore {
+  final Map<String, dynamic> _m = {};
+
+  @override
+  String? getString(String key) => _m[key] as String?;
+
+  @override
+  Future<void> setString(String key, String value) async => _m[key] = value;
+
+  @override
+  bool? getBool(String key) => _m[key] as bool?;
+
+  @override
+  Future<void> setBool(String key, bool value) async => _m[key] = value;
+
+  @override
+  Map<String, dynamic>? getJson(String key) => _m[key] as Map<String, dynamic>?;
+
+  @override
+  Future<void> setJson(String key, Map<String, dynamic> value) async =>
+      _m[key] = value;
+
+  @override
+  List<dynamic>? getJsonList(String key) => _m[key] as List<dynamic>?;
+
+  @override
+  Future<void> setJsonList(String key, List<dynamic> value) async =>
+      _m[key] = value;
+
+  @override
+  bool containsKey(String key) => _m.containsKey(key);
+
+  @override
+  Future<void> remove(String key) async => _m.remove(key);
+
+  @override
+  Future<void> clear() async => _m.clear();
+}
+
 void main() {
   final db = MockDb();
-  final repo = MockChatRepository(db);
+  SharedPreferences.setMockInitialValues({});
+  final store = LocalChatHistoryStore(_MemStore());
+  final repo = MockChatRepository(db, historyStore: store);
 
   Future<ChatResult> ask(String message, {String? professorId}) async {
     final res = await repo.sendMessage(
@@ -57,7 +101,11 @@ void main() {
   });
 
   test('streamReply 逐段 emit 且可拼回完整答案', () async {
-    final repo = MockChatRepository(MockDb(), streamChunkDelay: Duration.zero);
+    final repo = MockChatRepository(
+      MockDb(),
+      historyStore: store,
+      streamChunkDelay: Duration.zero,
+    );
 
     final chunks = await repo
         .streamReply(sessionId: 's_1', message: '为什么推荐他', professorId: 'p_001')

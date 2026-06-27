@@ -4,13 +4,13 @@ import '../../core/ai/llm_client.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_result.dart';
-import '../../domain/entities/fork_ref.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../chat_fork_mixin.dart';
 import '../local/chat_history_store.dart';
 import '../mock/mock_db.dart';
 
-class AiChatRepository implements ChatRepository {
+class AiChatRepository extends ChatRepository with ChatForkMixin {
   AiChatRepository({
     required this.llm,
     required this.db,
@@ -18,7 +18,10 @@ class AiChatRepository implements ChatRepository {
   });
 
   final LlmClient llm;
+  @override
   final MockDb db;
+
+  @override
   final ChatHistoryStore historyStore;
   final Map<String, List<LlmMessage>> _history = {};
 
@@ -182,35 +185,6 @@ class AiChatRepository implements ChatRepository {
         );
       }).toList(),
     );
-  }
-
-  // ---- fork CRUD: stubs; real implementation provided by Task 6 ChatForkMixin ----
-
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) async {
-    throw UnimplementedError('forkSession will be implemented by ChatForkMixin');
-  }
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) async {
-    throw UnimplementedError('loadHistory will be implemented by ChatForkMixin');
-  }
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async {
-    throw UnimplementedError('listForks will be implemented by ChatForkMixin');
-  }
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async {
-    throw UnimplementedError('deleteFork will be implemented by ChatForkMixin');
   }
 
   String _summarizeRecommendations(RecommendationResult result) {

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/storage/local_store.dart';
-import 'package:scho_navi/data/dto/chat_message_dto.dart';
 import 'package:scho_navi/data/local/local_chat_history_store.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/fork_ref.dart';

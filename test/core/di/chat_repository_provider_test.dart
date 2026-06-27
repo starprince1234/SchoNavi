@@ -1,14 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
 import 'package:scho_navi/data/http/http_chat_repository.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 
-void main() {
+void main() async {
+  SharedPreferences.setMockInitialValues({});
+  final sharedPreferences = await SharedPreferences.getInstance();
+
   test('default config wires AiChatRepository', () {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+    );
     addTearDown(container.dispose);
 
     expect(container.read(chatRepositoryProvider), isA<AiChatRepository>());

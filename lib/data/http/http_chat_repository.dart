@@ -5,7 +5,9 @@ import 'package:dio/dio.dart';
 
 import '../../core/error/app_exception.dart';
 import '../../core/result/result.dart';
+import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_result.dart';
+import '../../domain/entities/fork_ref.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../dto/api_envelope.dart';
@@ -106,5 +108,32 @@ class HttpChatRepository implements ChatRepository {
     } catch (_) {
       throw const ServerException();
     }
+  }
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async {
+    throw UnimplementedError('forkSession 未在 http 数据源实现');
+  }
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async {
+    throw UnimplementedError('loadHistory 未在 http 数据源实现');
+  }
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async {
+    throw UnimplementedError('listForks 未在 http 数据源实现');
+  }
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async {
+    throw UnimplementedError('deleteFork 未在 http 数据源实现');
   }
 }

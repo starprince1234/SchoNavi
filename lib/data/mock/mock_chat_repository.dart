@@ -5,16 +5,25 @@ import '../../domain/entities/chat_result.dart';
 import '../../domain/entities/recommendation.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../chat_fork_mixin.dart';
+import '../local/chat_history_store.dart';
 import 'mock_db.dart';
 
 /// 按消息关键词意图返回合理假回答；「相似/换方向/只看某地」附带推荐卡片。
-class MockChatRepository implements ChatRepository {
+class MockChatRepository extends ChatRepository with ChatForkMixin {
   MockChatRepository(
     this._db, {
+    required this.historyStore,
     this.streamChunkDelay = const Duration(milliseconds: 28),
   });
 
   final MockDb _db;
+
+  @override
+  MockDb get db => _db;
+
+  @override
+  final ChatHistoryStore historyStore;
 
   /// 每片之间的间隔，制造逐字流式观感；测试可传 Duration.zero 提速。
   final Duration streamChunkDelay;

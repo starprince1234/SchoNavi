@@ -23,11 +23,12 @@ void main() {
   });
 
   test('progress 增大时帆叶子路径长度递增', () {
-    final len = (double p) {
+    double len(double p) {
       final r = _RecordingCanvas();
       SplashLogoPainter(progress: p).paint(r, const Size.square(64));
       return r.lastLeafPathLength;
-    };
+    }
+
     final l1 = len(0.30);
     final l2 = len(0.50);
     final l3 = len(0.70);
@@ -46,12 +47,10 @@ class _RecordingCanvas implements Canvas {
   int drawPathCount = 0;
   int drawLineCount = 0;
   double lastLeafPathLength = 0;
-  Path? _lastPath;
 
   @override
   void drawPath(Path path, Paint paint) {
     drawPathCount++;
-    _lastPath = path;
     final metrics = path.computeMetrics();
     lastLeafPathLength = metrics.fold<double>(
       0.0,
