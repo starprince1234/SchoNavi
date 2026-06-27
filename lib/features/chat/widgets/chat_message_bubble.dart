@@ -134,7 +134,7 @@ class ChatMessageBubble extends StatelessWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {},
-                    child: const Text('继续问李卫国'),
+                    child: const Text('继续问这位'),
                   ),
                 ),
                 const SizedBox(width: 8),

@@ -25,7 +25,7 @@ void main() {
       ),
     ));
     expect(find.textContaining('专注聊'), findsOneWidget);
-    expect(find.text('继续问李卫国'), findsOneWidget);
+    expect(find.text('继续问这位'), findsOneWidget);
     expect(find.text('回首页重挑 ›'), findsOneWidget);
   });
 
