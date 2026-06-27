@@ -21,6 +21,7 @@ class ChatMessageBubble extends StatelessWidget {
     this.onRetryRecommendation,
     this.onRegenerate,
     this.onFeedback,
+    this.onRerouteHome,
   });
 
   final ChatMessage message;
@@ -30,6 +31,7 @@ class ChatMessageBubble extends StatelessWidget {
   final void Function(String messageId)? onRegenerate;
   final void Function(String messageId, ChatMessageFeedback feedback)?
   onFeedback;
+  final VoidCallback? onRerouteHome;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +123,29 @@ class ChatMessageBubble extends StatelessWidget {
             message: message,
             onRegenerate: onRegenerate,
             onFeedback: onFeedback,
+          ),
+        if (message.kind == ChatMessageKind.forkReroute &&
+            message.status == ChatMessageStatus.done &&
+            onRerouteHome != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    child: const Text('继续问李卫国'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onRerouteHome,
+                    child: const Text('回首页重挑 ›'),
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
     );
