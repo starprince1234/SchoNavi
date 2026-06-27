@@ -63,16 +63,19 @@ class ChatState {
 
   /// [forkAnchor] 用 sentinel 区分「未传」与「显式置 null」，
   /// 因 ForkRef 本身可空，直接 `?? this.forkAnchor` 无法清空锚点。
+  /// [professorId] 同样支持显式置 null，避免失败分支留下过期导师绑定。
   ChatState copyWith({
     String? sessionId,
-    String? professorId,
+    Object? professorId = _sentinel,
     List<ChatMessage>? messages,
     ChatActivity? activity,
     List<String>? followUpQuestions,
     Object? forkAnchor = _sentinel,
   }) => ChatState(
     sessionId: sessionId ?? this.sessionId,
-    professorId: professorId ?? this.professorId,
+    professorId: identical(professorId, _sentinel)
+        ? this.professorId
+        : professorId as String?,
     messages: messages ?? this.messages,
     activity: activity ?? this.activity,
     followUpQuestions: followUpQuestions ?? this.followUpQuestions,
@@ -189,6 +192,7 @@ class ChatNotifier extends Notifier<ChatState> {
             ? historyRes.data
             : const <ChatMessage>[];
         final forksRes = await repo.listForks(mainSessionId: sourceSessionId);
+        if (!_isCurrent(token)) return;
         ForkRef? anchor;
         if (forksRes is Success<List<ForkRef>>) {
           anchor = forksRes.data
@@ -206,7 +210,12 @@ class ChatNotifier extends Notifier<ChatState> {
         );
         unawaited(_refreshQuickActions(followUp: '', token: token));
       case Failure<String>():
-        state = state.copyWith(activity: ChatActivity.idle);
+        if (!_isCurrent(token)) return;
+        state = state.copyWith(
+          activity: ChatActivity.idle,
+          professorId: null,
+          forkAnchor: null,
+        );
     }
   }
 
