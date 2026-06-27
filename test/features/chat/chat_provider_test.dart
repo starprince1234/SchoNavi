@@ -8,6 +8,7 @@ import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/fork_ref.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
 
@@ -46,6 +47,29 @@ class _StreamChatRepo implements ChatRepository {
     lastProfessorId = professorId;
     return build();
   }
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async =>
+      throw UnimplementedError();
 }
 
 ProviderContainer _containerWith(ChatRepository repo) {

@@ -19,6 +19,7 @@ import '../../data/http/http_comparison_repository.dart';
 import '../../data/http/http_competition_recommendation_repository.dart';
 import '../../data/http/http_favorite_repository.dart';
 import '../../data/http/http_history_repository.dart';
+import '../../data/local/local_chat_history_store.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
@@ -182,6 +183,7 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
       return AiChatRepository(
         llm: ref.watch(llmClientProvider),
         db: ref.watch(mockDbProvider),
+        historyStore: LocalChatHistoryStore(ref.watch(localStoreProvider)),
       );
     case DataSource.http:
       return HttpChatRepository(ref.watch(dioProvider));

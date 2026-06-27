@@ -14,6 +14,7 @@ import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/search_history_item.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/entities/fork_ref.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/domain/repositories/history_repository.dart';
 import 'package:scho_navi/domain/repositories/profile_repository.dart';
@@ -62,6 +63,29 @@ class _StreamChatRepo implements ChatRepository {
     lastMessage = message;
     return stream();
   }
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async =>
+      throw UnimplementedError();
 }
 
 class _FakeRecRepo implements RecommendationRepository {

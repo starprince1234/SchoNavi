@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/core/storage/local_store.dart';
 import 'package:scho_navi/data/ai/ai_chat_repository.dart';
+import 'package:scho_navi/data/local/local_chat_history_store.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
@@ -78,7 +80,7 @@ class _QueueLlm implements LlmClient {
 
 void main() {
   test('answer/sessionId pass through and no embedded cards', () async {
-    final repo = AiChatRepository(llm: _RecordingLlm('你好'), db: MockDb());
+    final repo = AiChatRepository(llm: _RecordingLlm('你好'), db: MockDb(), historyStore: _historyStore());
 
     final res = await repo.sendMessage(sessionId: 's1', message: '在吗');
 
@@ -90,7 +92,7 @@ void main() {
 
   test('second call includes previous history', () async {
     final llm = _RecordingLlm('A');
-    final repo = AiChatRepository(llm: llm, db: MockDb());
+    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
     await repo.sendMessage(sessionId: 's1', message: '问题一');
     llm.reply = 'B';
@@ -102,7 +104,7 @@ void main() {
 
   test('professorId injects professor context into system prompt', () async {
     final llm = _RecordingLlm('ok');
-    final repo = AiChatRepository(llm: llm, db: MockDb());
+    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
     await repo.sendMessage(
       sessionId: 's1',
@@ -117,7 +119,7 @@ void main() {
 
   test('regenerate does not duplicate repeated last user message', () async {
     final llm = _RecordingLlm('A1');
-    final repo = AiChatRepository(llm: llm, db: MockDb());
+    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
     await repo.sendMessage(sessionId: 's1', message: '同一个问题');
     llm.reply = 'A2';
@@ -130,7 +132,7 @@ void main() {
   });
 
   test('LLM failure passes through', () async {
-    final repo = AiChatRepository(llm: _FailLlm(), db: MockDb());
+    final repo = AiChatRepository(llm: _FailLlm(), db: MockDb(), historyStore: _historyStore());
 
     final res = await repo.sendMessage(sessionId: 's1', message: 'x');
 
@@ -144,6 +146,7 @@ void main() {
           Stream.fromIterable(const ['你', '好']),
         ]),
         db: MockDb(),
+        historyStore: _historyStore(),
       );
 
       final out = await repo
@@ -158,7 +161,7 @@ void main() {
         Stream.fromIterable(const ['你', '好']),
         Stream.fromIterable(const ['再见']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
       await repo.streamReply(sessionId: 's1', message: '问题一').toList();
       await repo.streamReply(sessionId: 's1', message: '问题二').toList();
@@ -171,7 +174,7 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['ok']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
       await repo
           .streamReply(sessionId: 's1', message: '为什么', professorId: 'p_001')
@@ -189,7 +192,7 @@ void main() {
           Stream<String>.error(const ServerException()),
           Stream.fromIterable(const ['好的']),
         ]);
-        final repo = AiChatRepository(llm: llm, db: MockDb());
+        final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
         await expectLater(
           repo.streamReply(sessionId: 's1', message: '问题一'),
@@ -208,7 +211,7 @@ void main() {
         controller.stream,
         Stream.fromIterable(const ['继续']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
       final got = <String>[];
       final sub = repo
@@ -256,7 +259,7 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['好的']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
       repo.seedRecommendationTurn(
         sessionId: 's1',
@@ -286,7 +289,7 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['好的']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb());
+      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
 
       await repo.streamReply(sessionId: 's1', message: '在吗').toList();
 
@@ -298,3 +301,33 @@ void main() {
     });
   });
 }
+
+class _TestStore implements LocalStore {
+  final Map<String, dynamic> _m = {};
+  @override
+  String? getString(String key) => _m[key] as String?;
+  @override
+  Future<void> setString(String key, String value) async => _m[key] = value;
+  @override
+  bool? getBool(String key) => _m[key] as bool?;
+  @override
+  Future<void> setBool(String key, bool value) async => _m[key] = value;
+  @override
+  Map<String, dynamic>? getJson(String key) => _m[key] as Map<String, dynamic>?;
+  @override
+  Future<void> setJson(String key, Map<String, dynamic> value) async =>
+      _m[key] = value;
+  @override
+  List<dynamic>? getJsonList(String key) => _m[key] as List<dynamic>?;
+  @override
+  Future<void> setJsonList(String key, List<dynamic> value) async =>
+      _m[key] = value;
+  @override
+  bool containsKey(String key) => _m.containsKey(key);
+  @override
+  Future<void> remove(String key) async => _m.remove(key);
+  @override
+  Future<void> clear() async => _m.clear();
+}
+
+LocalChatHistoryStore _historyStore() => LocalChatHistoryStore(_TestStore());

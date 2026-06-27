@@ -6,7 +6,9 @@ import 'package:scho_navi/app.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
+import 'package:scho_navi/domain/entities/fork_ref.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
@@ -48,6 +50,29 @@ class _FakeChatRepo implements ChatRepository {
   }) async* {
     yield '可以左右滑动查看推荐的导师。';
   }
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async =>
+      throw UnimplementedError();
 }
 
 class _FakeNeedClassifier implements RecommendationNeedClassifier {

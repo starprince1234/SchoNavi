@@ -10,8 +10,10 @@ import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/favorite_item.dart';
+import 'package:scho_navi/domain/entities/fork_ref.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
@@ -59,6 +61,29 @@ class _StreamChatRepo implements ChatRepository {
     streamCalls++;
     return build();
   }
+
+  @override
+  Future<Result<String>> forkSession({
+    required String sourceSessionId,
+    required String professorId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ChatMessage>>> loadHistory({
+    required String sessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<void>> deleteFork({required String forkId}) async =>
+      throw UnimplementedError();
 }
 
 Widget _wrap(_StreamChatRepo repo) {
@@ -95,7 +120,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('新对话'), findsOneWidget);
+    // 旧会话追问路径（sessionId 非 null、无 initialPrompt）左上为「返回」。
+    expect(find.byTooltip('返回'), findsOneWidget);
     expect(find.byTooltip('重新生成'), findsWidgets);
     expect(find.text('换一批'), findsOneWidget);
   });
@@ -423,17 +449,80 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
   });
 
-  testWidgets('点击左上新对话按钮跳转首页', (tester) async {
+  testWidgets('新会话页(initialPrompt)左上新对话按钮跳转首页', (tester) async {
     final repo = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
     final router = GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, _) => const ChatPage(sessionId: 's_test'),
+          builder: (_, _) =>
+              const ChatPage(initialPrompt: '想做计算机视觉'),
         ),
         GoRoute(
           path: '/home',
           builder: (_, _) => const Text('home-marker'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          initialAppConfigProvider.overrideWithValue(
+            const AppConfig(llm: LlmConfig(apiKey: 'test-key')),
+          ),
+          chatRepositoryProvider.overrideWithValue(repo),
+          recommendationRepositoryProvider.overrideWithValue(
+            _FakeRecRepo(
+              Success(
+                RecommendationResult(
+                  sessionId: 's_rec',
+                  queryUnderstanding: const QueryUnderstanding(
+                    researchInterests: ['计算机视觉'],
+                    preferredLocations: [],
+                    preferredUniversities: [],
+                    degreeStage: null,
+                    uncertainties: [],
+                  ),
+                  recommendations: const [],
+                  followUpQuestions: const [],
+                ),
+              ),
+            ),
+          ),
+          recommendationNeedClassifierProvider.overrideWithValue(
+            const _FakeNeedClassifier(false),
+          ),
+          quickActionsSourceProvider.overrideWithValue(
+            const _FailingQuickActionsSource(),
+          ),
+          profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
+          historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // initialPrompt 新会话页左上为「新对话」，点击回首页。
+    expect(find.byTooltip('新对话'), findsOneWidget);
+    await tester.tap(find.byTooltip('新对话'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('home-marker'), findsOneWidget);
+  });
+
+  testWidgets('旧会话追问页左上返回按钮 pop 回上一页', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Text('root-marker'),
+        ),
+        GoRoute(
+          path: '/chat',
+          builder: (_, _) => const ChatPage(sessionId: 's_test'),
         ),
       ],
     );
@@ -456,11 +545,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 注意：本测试 ChatPage 在 '/' 路由，context.go('/home') 验证跳转能力。
-    await tester.tap(find.byTooltip('新对话'));
+    router.push('/chat');
     await tester.pumpAndSettle();
 
-    expect(find.text('home-marker'), findsOneWidget);
+    // 旧会话追问页左上为「返回」，点击 pop 回根路由。
+    expect(find.byTooltip('返回'), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('root-marker'), findsOneWidget);
   });
 }
 
