@@ -9,8 +9,9 @@ enum ChatMessageStatus { sending, streaming, done, error }
 /// 助手消息所属的业务轮次。
 ///
 /// 推荐轮由结构化推荐接口直接产出，不支持“重新生成文字”；普通聊天轮才允许
-/// 重新生成。
-enum ChatMessageKind { conversation, recommendation }
+/// 重新生成。forkReroute 是 fork 追问内识别到再推荐意图时的重路由提示轮，
+/// 不可重新生成、无推荐卡片。
+enum ChatMessageKind { conversation, recommendation, forkReroute }
 
 /// 用户对助手消息的单条反馈。
 enum ChatMessageFeedback { none, like, dislike }
