@@ -12,6 +12,7 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
 import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/floating_top_button.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_bubble.dart';
@@ -123,25 +124,6 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       });
     }
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        title: Text(
-          isNewSession ? '找导师' : '继续追问',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        actions: [
-          IconButton(
-            tooltip: '重新生成',
-            onPressed: state.canRegenerate
-                ? () => ref.read(_provider.notifier).regenerate()
-                : null,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
       body: Stack(
         children: [
           const Positioned.fill(child: CoolScaffoldBackground()),
@@ -153,10 +135,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                        vertical: 12,
-                      ),
+                          padding: const EdgeInsets.fromLTRB(20, 56, 20, 12),
                       itemCount: state.messages.length + (showWelcome ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (showWelcome && index == 0) {
@@ -208,6 +187,28 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 ],
               ),
             ),
+          // 左上悬浮：「新对话」→ 回首页（首页即新会话入口）。
+          Positioned(
+            top: 8,
+            left: 12,
+            child: FloatingTopButton(
+              icon: Icons.edit_square,
+              tooltip: '新对话',
+              onPressed: () => context.go('/home'),
+            ),
+          ),
+          // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
+          Positioned(
+            top: 8,
+            right: 12,
+            child: FloatingTopButton(
+              icon: Icons.refresh,
+              tooltip: '重新生成',
+              onPressed: state.canRegenerate
+                  ? () => ref.read(_provider.notifier).regenerate()
+                  : null,
+            ),
+          ),
         ],
       ),
     );

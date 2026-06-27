@@ -89,13 +89,14 @@ Widget _wrap(_StreamChatRepo repo) {
 }
 
 void main() {
-  testWidgets('挂载后显示标题与快捷操作', (tester) async {
+  testWidgets('挂载后显示悬浮按钮与快捷操作', (tester) async {
     await tester.pumpWidget(
       _wrap(_StreamChatRepo(() => Stream.fromIterable(const ['x']))),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('继续追问'), findsWidgets);
+    expect(find.byTooltip('新对话'), findsOneWidget);
+    expect(find.byTooltip('重新生成'), findsWidgets);
     expect(find.text('换一批'), findsOneWidget);
   });
 
@@ -142,12 +143,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.streamCalls, 1);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byTooltip('重新生成'),
-      ),
-    );
+    await tester.tap(find.byTooltip('重新生成').first);
     await tester.pumpAndSettle();
     expect(repo.streamCalls, 2);
   });
@@ -416,6 +412,55 @@ void main() {
     router.pop();
     await tester.pumpAndSettle();
     expect(find.text('答案'), findsOneWidget);
+  });
+
+  testWidgets('不再渲染 AppBar 实体栏', (tester) async {
+    await tester.pumpWidget(
+      _wrap(_StreamChatRepo(() => Stream.fromIterable(const ['x']))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBar), findsNothing);
+  });
+
+  testWidgets('点击左上新对话按钮跳转首页', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const ChatPage(sessionId: 's_test'),
+        ),
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const Text('home-marker'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          initialAppConfigProvider.overrideWithValue(
+            const AppConfig(llm: LlmConfig(apiKey: 'test-key')),
+          ),
+          chatRepositoryProvider.overrideWithValue(repo),
+          recommendationNeedClassifierProvider.overrideWithValue(
+            const _FakeNeedClassifier(false),
+          ),
+          quickActionsSourceProvider.overrideWithValue(
+            const _FailingQuickActionsSource(),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 注意：本测试 ChatPage 在 '/' 路由，context.go('/home') 验证跳转能力。
+    await tester.tap(find.byTooltip('新对话'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('home-marker'), findsOneWidget);
   });
 }
 
