@@ -476,6 +476,7 @@ class ChatNotifier extends Notifier<ChatState> {
                   m,
             ],
           );
+          _persist();
           unawaited(
             ref
                 .read(historyRepositoryProvider)
@@ -531,6 +532,7 @@ class ChatNotifier extends Notifier<ChatState> {
             m,
       ],
     );
+    _persist();
   }
 
   /// fork 内识别到再推荐意图时不走产卡，而是发一条重路由提示消息，
@@ -553,6 +555,7 @@ class ChatNotifier extends Notifier<ChatState> {
       messages: [...state.messages, msg],
       activity: ChatActivity.idle,
     );
+    _persist();
   }
 
   Future<void> _streamConversation(String content, {required int token}) async {
@@ -605,6 +608,7 @@ class ChatNotifier extends Notifier<ChatState> {
                   ChatMessageStatus.error,
                 );
                 state = state.copyWith(activity: ChatActivity.idle);
+                _persist();
               }
               _clearActiveTurn(turn: turn, assistantId: assistantId);
             },
@@ -616,6 +620,7 @@ class ChatNotifier extends Notifier<ChatState> {
                   ChatMessageStatus.done,
                 );
                 state = state.copyWith(activity: ChatActivity.idle);
+                _persist();
                 unawaited(
                   _refreshQuickActions(followUp: content, token: token),
                 );
@@ -628,6 +633,7 @@ class ChatNotifier extends Notifier<ChatState> {
       if (_isCurrent(token)) {
         _setAssistant(assistantId, _messageFor(error), ChatMessageStatus.error);
         state = state.copyWith(activity: ChatActivity.idle);
+        _persist();
       }
       _clearActiveTurn(turn: turn, assistantId: assistantId);
     }
@@ -656,6 +662,7 @@ class ChatNotifier extends Notifier<ChatState> {
         );
       }
     }
+    _persist();
 
     state = state.copyWith(activity: ChatActivity.idle);
     _completeTurn();
@@ -668,6 +675,16 @@ class ChatNotifier extends Notifier<ChatState> {
     if (i == -1) return;
     messages[i] = messages[i].copyWith(content: content, status: status);
     state = state.copyWith(messages: messages);
+  }
+
+  /// 把当前可见消息（含卡片、kind）落盘，供 fork/resume 还原。
+  /// sessionId 缺失时静默跳过（初始化态无会话）。
+  void _persist() {
+    final sessionId = state.sessionId;
+    if (sessionId == null || sessionId.isEmpty) return;
+    unawaited(
+      ref.read(chatRepositoryProvider).persistMessages(sessionId, state.messages),
+    );
   }
 
   void _clearActiveTurn({
