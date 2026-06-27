@@ -284,4 +284,33 @@ void main() {
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.controller?.text, '保留输入');
   });
+
+  testWidgets('落地态：左上无新对话按钮，右上存在菜单按钮', (tester) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    // 落地态左上无「新对话」悬浮按钮。
+    expect(find.byTooltip('新对话'), findsNothing);
+    // 右上始终有「菜单」悬浮按钮。
+    expect(find.byTooltip('菜单'), findsOneWidget);
+    // 不再有 AppBar 实体栏。
+    expect(find.byType(AppBar), findsNothing);
+  });
+
+  testWidgets('对话态：左上出现新对话按钮，点击回到落地态', (tester) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '我想找医学影像方向的导师');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pumpAndSettle();
+
+    // 对话态左上「新对话」出现。
+    expect(find.byTooltip('新对话'), findsOneWidget);
+    // 点击回到落地态。
+    await tester.tap(find.byTooltip('新对话'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('新对话'), findsNothing);
+  });
 }

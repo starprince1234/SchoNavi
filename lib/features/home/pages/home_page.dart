@@ -20,6 +20,7 @@ import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
+import '../../../shared/widgets/floating_top_button.dart';
 import '../../../shared/widgets/glass_surface.dart';
 import '../../../shared/widgets/quick_tag.dart';
 import '../../../shared/widgets/right_edge_open_drawer.dart';
@@ -351,31 +352,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                     constraints: const BoxConstraints(maxWidth: 720),
                     child: Column(
                       children: [
-                        // Fixed top bar: 对话态左侧是新会话入口，菜单常驻右上。
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: SizedBox(
-                            height: 44,
-                            width: double.infinity,
-                            child: Row(
-                              children: [
-                                if (_inConversation)
-                                  IconButton(
-                                    tooltip: '新对话',
-                                    icon: const Icon(Icons.edit_square),
-                                    onPressed: _startNewConversation,
-                                  )
-                                else
-                                  const SizedBox(width: 12),
-                                const Spacer(),
-                                const _HomeMenuButton(),
-                              ],
-                            ),
-                          ),
-                        ),
                         Expanded(
                           child: _inConversation
                               ? _buildConversationContent(textTheme, scheme)
@@ -391,11 +367,35 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ),
               ),
+              // 左上悬浮：仅对话态出现「新对话」；落地态留空。
+              if (_inConversation)
+                Positioned(
+                  top: 8,
+                  left: 12,
+                  child: FloatingTopButton(
+                    icon: Icons.edit_square,
+                    tooltip: '新对话',
+                    onPressed: _startNewConversation,
+                  ),
+                ),
+              // 右上悬浮：「菜单」常驻。
+              Positioned(
+                top: 8,
+                right: 12,
+                child: FloatingTopButton(
+                  icon: Icons.menu_outlined,
+                  tooltip: '菜单',
+                  onPressed: () {
+                    Haptics.light();
+                    Scaffold.of(context).openEndDrawer();
+                  },
+                ),
+              ),
               // Right-edge swipe area. It stops 120 logical pixels above the
               // bottom of the screen so it does not steal horizontal scroll
-              // gestures from the tag row.
+              // gestures from the tag row. top:56 避让右上菜单按钮触控区。
               Positioned(
-                top: 0,
+                top: 56,
                 right: 0,
                 bottom: 120,
                 child: RightEdgeOpenDrawer(
@@ -505,7 +505,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         Expanded(
           child: ListView.builder(
             controller: _conversationScrollController,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 12),
             itemCount: state.messages.length,
             itemBuilder: (context, index) {
               final message = state.messages[index];
@@ -677,26 +677,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _HomeMenuButton extends StatelessWidget {
-  const _HomeMenuButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: '菜单',
-      icon: const Icon(Icons.menu_outlined),
-      style: IconButton.styleFrom(
-        minimumSize: const Size(44, 44),
-        tapTargetSize: MaterialTapTargetSize.padded,
-      ),
-      onPressed: () {
-        Haptics.light();
-        Scaffold.of(context).openEndDrawer();
-      },
     );
   }
 }
