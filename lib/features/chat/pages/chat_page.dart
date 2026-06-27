@@ -230,39 +230,55 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     '/professor/${state.forkAnchor!.professorId}'
                     '?msid=${Uri.encodeComponent(state.forkAnchor!.mainSessionId)}',
                   ),
-                ),
-              ),
-            ),
-          // 左上悬浮：新会话页（initialPrompt 首页提交入口）显示「新对话」
-          // 回首页；旧会话追问页（推荐页/详情页「继续追问」push 进来）显示
-          // 「返回」，pop 回上一页而非丢弃会话跳首页。
-          Positioned(
-            top: 8,
-            left: 12,
-            child: isNewSession
-                ? FloatingTopButton(
-                    icon: Icons.edit_square,
-                    tooltip: '新对话',
-                    onPressed: () => context.go('/home'),
-                  )
-                : FloatingTopButton(
+                  // fork 追问页：把「返回」「重新生成」收进锚点条同一行，
+                  // 避免它们作为独立 Positioned 与锚点条在顶部重叠。
+                  leading: FloatingTopButton(
                     icon: Icons.arrow_back,
                     tooltip: '返回',
                     onPressed: () => context.pop(),
                   ),
-          ),
-          // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
-          Positioned(
-            top: 8,
-            right: 12,
-            child: FloatingTopButton(
-              icon: Icons.refresh,
-              tooltip: '重新生成',
-              onPressed: state.canRegenerate
-                  ? () => ref.read(_provider.notifier).regenerate()
-                  : null,
+                  trailing: FloatingTopButton(
+                    icon: Icons.refresh,
+                    tooltip: '重新生成',
+                    onPressed: state.canRegenerate
+                        ? () => ref.read(_provider.notifier).regenerate()
+                        : null,
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            // 左上悬浮：新会话页（initialPrompt 首页提交入口）显示「新对话」
+            // 回首页；旧会话追问页（推荐页/详情页「继续追问」push 进来）显示
+            // 「返回」，pop 回上一页而非丢弃会话跳首页。
+            Positioned(
+              top: 8,
+              left: 12,
+              child: isNewSession
+                  ? FloatingTopButton(
+                      icon: Icons.edit_square,
+                      tooltip: '新对话',
+                      onPressed: () => context.go('/home'),
+                    )
+                  : FloatingTopButton(
+                      icon: Icons.arrow_back,
+                      tooltip: '返回',
+                      onPressed: () => context.pop(),
+                    ),
             ),
-          ),
+            // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
+            Positioned(
+              top: 8,
+              right: 12,
+              child: FloatingTopButton(
+                icon: Icons.refresh,
+                tooltip: '重新生成',
+                onPressed: state.canRegenerate
+                    ? () => ref.read(_provider.notifier).regenerate()
+                    : null,
+              ),
+            ),
+          ],
         ],
       ),
     );
