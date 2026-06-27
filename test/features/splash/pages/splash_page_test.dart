@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scho_navi/features/splash/pages/splash_page.dart';
 import 'package:scho_navi/features/splash/splash_controller.dart';
 
-Widget _wrap() {
-  final container = ProviderContainer();
+Widget _wrapWith(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: const MaterialApp(home: SplashPage()),
@@ -14,7 +13,9 @@ Widget _wrap() {
 
 void main() {
   testWidgets('初始渲染：logo CustomPaint + 「SchoNavi」字标存在', (tester) async {
-    await tester.pumpWidget(_wrap());
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_wrapWith(container));
     await tester.pump();
     expect(find.byType(CustomPaint), findsWidgets);
     expect(find.text('SchoNavi'), findsOneWidget);
@@ -38,8 +39,16 @@ void main() {
   });
 
   testWidgets('整页可点按（GestureDetector 存在）', (tester) async {
-    await tester.pumpWidget(_wrap());
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_wrapWith(container));
     await tester.pump();
-    expect(find.byType(GestureDetector), findsWidgets);
+    expect(
+      find.ancestor(
+        of: find.byType(AnimatedOpacity),
+        matching: find.byType(GestureDetector),
+      ),
+      findsOneWidget,
+    );
   });
 }

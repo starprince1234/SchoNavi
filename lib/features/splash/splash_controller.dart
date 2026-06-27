@@ -29,12 +29,12 @@ class SplashController extends Notifier<SplashState> {
 
   @override
   SplashState build() {
-    ref.onDispose(_detachTicker);
+    ref.onDispose(detach);
     return const SplashState();
   }
 
   /// 移除 ticker 监听并清空引用，防泄漏与重复 attach。
-  void _detachTicker() {
+  void detach() {
     if (_tickerListener != null && _ticker != null) {
       _ticker!.removeListener(_tickerListener!);
     }
@@ -46,7 +46,7 @@ class SplashController extends Notifier<SplashState> {
   /// Ticker 每帧把 value 推给 [setProgress]。
   void attach(AnimationController ticker) {
     // 防重复 attach：先移除旧 listener。
-    _detachTicker();
+    detach();
     _ticker = ticker;
     _tickerListener = () => setProgress(ticker.value);
     ticker.addListener(_tickerListener!);

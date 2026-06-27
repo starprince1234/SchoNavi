@@ -21,22 +21,26 @@ class SplashPage extends ConsumerStatefulWidget {
 class _SplashPageState extends ConsumerState<SplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ticker;
+  late final SplashController _controller;
   bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = ref.read(splashControllerProvider.notifier);
     _ticker = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
     // Ticker 由页面提供 vsync，控制器通过 attach 挂监听把 value 推给 setProgress。
-    ref.read(splashControllerProvider.notifier).attach(_ticker);
+    _controller.attach(_ticker);
     _ticker.forward();
   }
 
   @override
   void dispose() {
+    // dispose 中 ref 不可用，提前缓存 controller 引用。
+    _controller.detach();
     _ticker.dispose();
     super.dispose();
   }
@@ -92,13 +96,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
                         blendMode: BlendMode.srcIn,
                         child: Text(
                           'SchoNavi',
+                          // srcIn 会用 brandGradient 替换文字颜色，此处不指定颜色。
                           style: (textTheme.headlineMedium ??
                                   const TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w800))
                               .copyWith(
                             fontWeight: FontWeight.w800,
-                            color: AppColors.indigo,
                           ),
                         ),
                       ),
