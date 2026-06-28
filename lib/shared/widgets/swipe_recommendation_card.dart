@@ -2,30 +2,30 @@ import 'package:flutter/material.dart';
 
 import '../../core/haptics/haptics.dart';
 import '../../core/theme/app_colors.dart';
-import '../../domain/entities/recommendation.dart';
 import 'bento_tile.dart';
 import 'match_level_chip.dart';
+import 'recommendation_card_data.dart';
 
 /// 对话流内嵌的浓缩推荐卡（横滑轨道的单张）。
 ///
 /// 沿用 ProfessorCard 的视觉语言（圆角描边 + BentoTile + MatchLevelChip），
 /// 但去掉 Hero 与「访问主页」独占行，改为底部紧凑的「访问主页 / 收藏」按钮行，
-/// 高度可控以适配 PageView 的固定高度。点击卡片整体触发 [onTap] 进导师详情。
+/// 高度可控以适配 PageView 的固定高度。点击卡片整体触发 [onTap] 进详情。
 class SwipeRecommendationCard extends StatefulWidget {
   const SwipeRecommendationCard({
     super.key,
-    required this.recommendation,
+    required this.data,
     required this.onTap,
     this.isFavorite = false,
     this.onFavoritePressed,
-    this.onOpenHomepagePressed,
+    this.onOpenUrlPressed,
   });
 
-  final Recommendation recommendation;
+  final RecommendationCardData data;
   final VoidCallback onTap;
   final bool isFavorite;
   final VoidCallback? onFavoritePressed;
-  final VoidCallback? onOpenHomepagePressed;
+  final VoidCallback? onOpenUrlPressed;
 
   @override
   State<SwipeRecommendationCard> createState() =>
@@ -37,7 +37,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
 
   @override
   Widget build(BuildContext context) {
-    final r = widget.recommendation;
+    final r = widget.data;
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -58,41 +58,20 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            r.name,
+                            r.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          // 职称弱化为 labelSmall，与姓名形成「重—弱」节奏。
                           Text(
-                            r.title,
+                            r.subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: AppColors.inkFaint,
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          // 学校行提级：indigo 图标 + 单行，形成「中」档视觉锚点。
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.school_outlined,
-                                size: 13,
-                                color: AppColors.indigo,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '${r.university} / ${r.college}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                              ),
-                            ],
                           ),
                         ],
                       ),
@@ -105,7 +84,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _CompactFields(fields: r.researchFields),
+                _CompactFields(fields: r.tags),
                 const SizedBox(height: 8),
                 // 推荐理由引述化：cyan 竖条锚点。
                 IntrinsicHeight(
@@ -132,11 +111,11 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                   ),
                 ),
                 const Spacer(),
-                if (widget.onOpenHomepagePressed != null ||
+                if (widget.onOpenUrlPressed != null ||
                     widget.onFavoritePressed != null)
                   Row(
                     children: [
-                      if (widget.onOpenHomepagePressed != null)
+                      if (widget.onOpenUrlPressed != null)
                         TextButton.icon(
                           style: TextButton.styleFrom(
                             minimumSize: const Size(44, 44),
@@ -145,10 +124,14 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                           ),
                           onPressed: () {
                             Haptics.light();
-                            widget.onOpenHomepagePressed!();
+                            widget.onOpenUrlPressed!();
                           },
                           icon: const Icon(Icons.open_in_new, size: 16),
-                          label: const Text('访问主页'),
+                          label: Text(
+                            widget.data.kind == RecommendationKind.mentor
+                                ? '访问主页'
+                                : '访问官网',
+                          ),
                         ),
                       const Spacer(),
                       if (widget.onFavoritePressed != null)
@@ -162,7 +145,6 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                           child: AnimatedScale(
                             scale: _favoriteDown ? 0.85 : 1.0,
                             duration: const Duration(milliseconds: 120),
-                            // 按下态 + 已收藏态：indigoSoft 背景晕；已收藏追加 glow 外发光。
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               decoration: BoxDecoration(
