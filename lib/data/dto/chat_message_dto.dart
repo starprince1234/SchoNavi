@@ -3,6 +3,7 @@ import 'recommendation_dtos.dart';
 
 class ChatMessageDto {
   const ChatMessageDto({
+    this.id,
     required this.role,
     required this.content,
     required this.createdAt,
@@ -12,6 +13,7 @@ class ChatMessageDto {
     required this.relatedRecommendations,
   });
 
+  final String? id;
   final String role; // 'user' | 'assistant'
   final String content;
   final String createdAt; // ISO8601
@@ -21,51 +23,56 @@ class ChatMessageDto {
   final List<RecommendationDto> relatedRecommendations;
 
   factory ChatMessageDto.fromEntity(ChatMessage m) => ChatMessageDto(
-        role: m.role == ChatRole.user ? 'user' : 'assistant',
-        content: m.content,
-        createdAt: m.createdAt.toIso8601String(),
-        status: m.status.name,
-        kind: m.kind.name,
-        feedback: m.feedback.name,
-        relatedRecommendations: m.relatedRecommendations
-            .map(RecommendationDto.fromEntity)
-            .toList(),
-      );
+    id: m.id,
+    role: m.role == ChatRole.user ? 'user' : 'assistant',
+    content: m.content,
+    createdAt: m.createdAt.toIso8601String(),
+    status: m.status.name,
+    kind: m.kind.name,
+    feedback: m.feedback.name,
+    relatedRecommendations: m.relatedRecommendations
+        .map(RecommendationDto.fromEntity)
+        .toList(),
+  );
 
   factory ChatMessageDto.fromJson(Map<String, dynamic> json) => ChatMessageDto(
-        role: json['role'] as String? ?? 'assistant',
-        content: json['content'] as String? ?? '',
-        createdAt: json['created_at'] as String? ??
-            DateTime.now().toIso8601String(),
-        status: json['status'] as String? ?? 'done',
-        kind: json['kind'] as String? ?? 'conversation',
-        feedback: json['feedback'] as String? ?? 'none',
-        relatedRecommendations:
-            (json['related_recommendations'] as List<dynamic>? ?? const [])
-                .map((e) => RecommendationDto.fromJson(e as Map<String, dynamic>))
-                .toList(),
-      );
+    id: json['id'] as String?,
+    role: json['role'] as String? ?? 'assistant',
+    content: json['content'] as String? ?? '',
+    createdAt:
+        json['created_at'] as String? ?? DateTime.now().toIso8601String(),
+    status: json['status'] as String? ?? 'done',
+    kind: json['kind'] as String? ?? 'conversation',
+    feedback: json['feedback'] as String? ?? 'none',
+    relatedRecommendations:
+        (json['related_recommendations'] as List<dynamic>? ?? const [])
+            .map((e) => RecommendationDto.fromJson(e as Map<String, dynamic>))
+            .toList(),
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'role': role,
-        'content': content,
-        'created_at': createdAt,
-        'status': status,
-        'kind': kind,
-        'feedback': feedback,
-        'related_recommendations':
-            relatedRecommendations.map((d) => d.toJson()).toList(),
-      };
+    if (id != null) 'id': id,
+    'role': role,
+    'content': content,
+    'created_at': createdAt,
+    'status': status,
+    'kind': kind,
+    'feedback': feedback,
+    'related_recommendations': relatedRecommendations
+        .map((d) => d.toJson())
+        .toList(),
+  };
 
   ChatMessage toEntity(String id) => ChatMessage(
-        id: id,
-        role: role == 'user' ? ChatRole.user : ChatRole.assistant,
-        content: content,
-        createdAt: DateTime.tryParse(createdAt) ?? DateTime.now(),
-        relatedRecommendations:
-            relatedRecommendations.map((d) => d.toEntity()).toList(),
-        status: ChatMessageStatus.values.byName(status),
-        kind: ChatMessageKind.values.byName(kind),
-        feedback: ChatMessageFeedback.values.byName(feedback),
-      );
+    id: this.id ?? id,
+    role: role == 'user' ? ChatRole.user : ChatRole.assistant,
+    content: content,
+    createdAt: DateTime.tryParse(createdAt) ?? DateTime.now(),
+    relatedRecommendations: relatedRecommendations
+        .map((d) => d.toEntity())
+        .toList(),
+    status: ChatMessageStatus.values.byName(status),
+    kind: ChatMessageKind.values.byName(kind),
+    feedback: ChatMessageFeedback.values.byName(feedback),
+  );
 }
