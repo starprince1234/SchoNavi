@@ -577,7 +577,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     final query = <String, String>{
                       if (mainSid != null && mainSid.isNotEmpty)
                         'msid': mainSid,
-                      if (turnId != null) 'stid': turnId,
+                      'stid': ?turnId,
                     };
                     context.push(
                       Uri(

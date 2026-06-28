@@ -260,8 +260,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                     messageIndex,
                                   );
                                   final query = <String, String>{
-                                    if (sid != null) 'msid': sid,
-                                    if (turnId != null) 'stid': turnId,
+                                    'msid': ?sid,
+                                    'stid': ?turnId,
                                   };
                                   context.push(
                                     Uri(
