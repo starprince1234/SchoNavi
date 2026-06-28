@@ -24,6 +24,7 @@ class CompetitionHomeResultView extends StatelessWidget {
     required this.onRetry,
     this.prompt,
     this.onOpenDetail,
+    this.onOpenUrl,
   });
 
   final CompetitionHomeState state;
@@ -38,6 +39,10 @@ class CompetitionHomeResultView extends StatelessWidget {
 
   /// 点击竞赛卡片时回调竞赛 id；由外层负责路由跳转。
   final void Function(String competitionId)? onOpenDetail;
+
+  /// 点击卡片「访问官网」时回调官方 URL；由外层负责实际打开（例如 linkLauncher）。
+  /// 仅当卡片 [RecommendationCardData.openUrl] 与本回调均非空时才挂载按钮。
+  final void Function(String url)? onOpenUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -97,10 +102,14 @@ class CompetitionHomeResultView extends StatelessWidget {
             items: recs.map((c) => c.toCardData()).toList(growable: false),
             semanticsLabel: (d) => d.title,
             itemBuilder: (context, cardData, index) {
-              final source = recs[index];
+              final openUrl = cardData.openUrl;
+              final urlLauncher = (openUrl == null || onOpenUrl == null)
+                  ? null
+                  : () => onOpenUrl!(openUrl);
               return SwipeRecommendationCard(
                 data: cardData,
-                onTap: () => onOpenDetail?.call(source.id),
+                onTap: () => onOpenDetail?.call(cardData.id),
+                onOpenUrlPressed: urlLauncher,
               );
             },
           ),

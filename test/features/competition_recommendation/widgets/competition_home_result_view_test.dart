@@ -21,6 +21,38 @@ CompetitionRecommendationResult _res(int n) => CompetitionRecommendationResult(
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
+CompetitionRecommendationResult _singleWithUrl(String? officialUrl) =>
+    CompetitionRecommendationResult(
+      sessionId: 's',
+      understanding: const CompetitionQueryUnderstanding(
+        directions: ['算法'],
+        categories: ['计算机类'],
+        timingPreferences: [],
+        teamPreferences: [],
+        uncertainties: [],
+      ),
+      recommendations: [
+        RecommendedCompetition(
+          id: 'c0',
+          name: '竞赛0',
+          category: '计算机类',
+          level: '国家级',
+          tags: const ['算法'],
+          teamSize: '个人',
+          signupTime: '',
+          contestTime: '',
+          format: '',
+          organizer: '',
+          officialUrl: officialUrl,
+          reason: '契合',
+          preparationTips: const [],
+          limitations: const [],
+          matchScore: 0.7,
+        ),
+      ],
+      followUpQuestions: const [],
+    );
+
 void main() {
   testWidgets('loading 显示思考占位', (t) async {
     await t.pumpWidget(_wrap(CompetitionHomeResultView(
@@ -56,5 +88,34 @@ void main() {
       onAdjust: () {}, onRetry: (_) async {},
     )));
     expect(find.text('重试'), findsOneWidget);
+  });
+
+  testWidgets('result 卡片：提供 onOpenUrl 且 openUrl 非空时显示「访问官网」', (t) async {
+    await t.pumpWidget(_wrap(CompetitionHomeResultView(
+      state: CompetitionHomeResult(_singleWithUrl('https://x')),
+      onAdjust: () {},
+      onRetry: (_) async {},
+      onOpenUrl: (_) {},
+    )));
+    expect(find.text('访问官网'), findsOneWidget);
+  });
+
+  testWidgets('result 卡片：未提供 onOpenUrl 时不显示「访问官网」', (t) async {
+    await t.pumpWidget(_wrap(CompetitionHomeResultView(
+      state: CompetitionHomeResult(_singleWithUrl('https://x')),
+      onAdjust: () {},
+      onRetry: (_) async {},
+    )));
+    expect(find.text('访问官网'), findsNothing);
+  });
+
+  testWidgets('result 卡片：openUrl 为空时不显示「访问官网」', (t) async {
+    await t.pumpWidget(_wrap(CompetitionHomeResultView(
+      state: CompetitionHomeResult(_singleWithUrl(null)),
+      onAdjust: () {},
+      onRetry: (_) async {},
+      onOpenUrl: (_) {},
+    )));
+    expect(find.text('访问官网'), findsNothing);
   });
 }
