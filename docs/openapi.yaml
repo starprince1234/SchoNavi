@@ -67,9 +67,207 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProfessorEnvelope'
+  /identity/anonymous:
+    post:
+      summary: Create an installation-level anonymous identity.
+      responses:
+        '200':
+          description: Anonymous bearer credential; also sets the secure Web cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousIdentityEnvelope'
+  /chat/sessions:
+    post:
+      summary: Create a general or professor-anchored conversation.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionCreateRequest'
+      responses:
+        '200':
+          description: Created session descriptor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionEnvelope'
+    get:
+      summary: List non-fork conversations owned by the current identity.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Active root conversations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListEnvelope'
+  /chat/sessions/{session_id}:
+    get:
+      summary: Load the persisted aggregate for one conversation.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session, projected turns, and messages. Fork responses contain only fork-owned turns and messages; inherited source context is not exposed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionAggregateEnvelope'
+    delete:
+      summary: Delete a conversation; deleting a root cascades to its forks.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Deletion result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedEnvelope'
+  /chat/sessions/{session_id}/turns:
+    get:
+      summary: Load projected turns and messages for a conversation. Fork responses contain only fork-owned history.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Turn and message projection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnListEnvelope'
+    post:
+      summary: Persist a user turn and stream its route and assistant attempt.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnCreateRequest'
+      responses:
+        '200':
+          description: SSE ack, route, delta, completed, and error events. Every event includes session_id, turn_id, attempt_id, and revision.
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /chat/sessions/{session_id}/forks:
+    get:
+      summary: List forks below a root conversation.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Fork descriptors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionListEnvelope'
+    post:
+      summary: Create or reuse the unique fork at a recommendation source turn.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForkCreateRequest'
+      responses:
+        '200':
+          description: Created or reused fork descriptor.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionEnvelope'
+  /chat/turns/{turn_id}/attempts:
+    post:
+      summary: Regenerate an existing turn without adding a user message.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TurnId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptCreateRequest'
+      responses:
+        '200':
+          description: SSE events with the same grammar as turn submission.
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /chat/attempts/{attempt_id}/cancel:
+    post:
+      summary: Persist an active attempt as interrupted.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Interruption result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterruptedEnvelope'
+  /chat/messages/{message_id}/feedback:
+    patch:
+      summary: Persist assistant-message feedback.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackRequest'
+      responses:
+        '200':
+          description: Feedback update result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedEnvelope'
   /chat/messages:
     post:
-      summary: Send a non-streaming chat message.
+      deprecated: true
+      summary: Send a legacy non-streaming chat message.
       requestBody:
         required: true
         content:
@@ -338,6 +536,39 @@ components:
       required: true
       schema:
         type: string
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TurnId:
+      name: turn_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AttemptId:
+      name: attempt_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MessageId:
+      name: message_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: scho_anonymous
   schemas:
     EnvelopeBase:
       type: object
@@ -346,6 +577,143 @@ components:
         code: { type: integer }
         message: { type: string }
         data: true
+    AnonymousIdentity:
+      type: object
+      required: [owner_id, access_token]
+      properties:
+        owner_id: { type: string, format: uuid }
+        access_token: { type: string }
+    SessionCreateRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [general, professor]
+          default: general
+        professor_id: { type: [string, 'null'] }
+    ForkCreateRequest:
+      type: object
+      required: [source_turn_id, professor_id]
+      properties:
+        source_turn_id: { type: string, format: uuid }
+        professor_id: { type: string }
+    TurnCreateRequest:
+      type: object
+      required: [text, request_id, expected_revision]
+      properties:
+        text: { type: string, minLength: 1 }
+        request_id: { type: string, format: uuid }
+        expected_revision: { type: integer, minimum: 0 }
+    AttemptCreateRequest:
+      type: object
+      required: [session_id, request_id, expected_revision]
+      properties:
+        session_id: { type: string, format: uuid }
+        request_id: { type: string, format: uuid }
+        expected_revision: { type: integer, minimum: 0 }
+    FeedbackRequest:
+      type: object
+      required: [feedback]
+      properties:
+        feedback:
+          type: string
+          enum: [none, like, dislike]
+    ConversationSession:
+      type: object
+      required: [id, kind, root_session_id, revision, created_at, updated_at, legacy_context_incomplete]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [general, professor, fork] }
+        root_session_id: { type: string, format: uuid }
+        source_session_id: { type: [string, 'null'], format: uuid }
+        source_turn_id: { type: [string, 'null'], format: uuid }
+        professor_id: { type: [string, 'null'] }
+        revision: { type: integer, minimum: 0 }
+        title: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: [string, 'null'], format: date-time }
+        legacy_context_incomplete: { type: boolean }
+    ConversationTurn:
+      type: object
+      required: [id, session_id, ordinal, status, user_message_id, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        session_id: { type: string, format: uuid }
+        ordinal: { type: integer, minimum: 0 }
+        status:
+          type: string
+          enum: [queued, classifying, connecting, streaming, recommending, committing, completed, failed, interrupted]
+        route: { type: [string, 'null'], enum: [recommendation, conversation, forkReroute, null] }
+        user_message_id: { type: string, format: uuid }
+        active_attempt_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ConversationMessage:
+      type: object
+      required: [id, turn_id, role, content, created_at, status, kind, feedback, related_recommendations]
+      properties:
+        id: { type: string, format: uuid }
+        turn_id: { type: string, format: uuid }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+        status: { type: string, enum: [sending, streaming, done, error, interrupted] }
+        kind: { type: string }
+        feedback: { type: string, enum: [none, like, dislike] }
+        related_recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recommendation'
+    ConversationAggregate:
+      type: object
+      required: [session, turns, messages]
+      properties:
+        session:
+          $ref: '#/components/schemas/ConversationSession'
+        turns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationTurn'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationMessage'
+    TurnList:
+      type: object
+      required: [turns, messages]
+      properties:
+        turns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationTurn'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationMessage'
+    SessionList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationSession'
+    DeletedResult:
+      type: object
+      required: [deleted]
+      properties:
+        deleted: { type: boolean }
+    InterruptedResult:
+      type: object
+      required: [interrupted]
+      properties:
+        interrupted: { type: boolean }
+    UpdatedResult:
+      type: object
+      required: [updated]
+      properties:
+        updated: { type: boolean }
     HomePrompt:
       type: object
       required: [text]
@@ -844,3 +1212,59 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/RemovedResult'
+    AnonymousIdentityEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AnonymousIdentity'
+    SessionEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ConversationSession'
+    SessionListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SessionList'
+    SessionAggregateEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ConversationAggregate'
+    TurnListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TurnList'
+    DeletedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DeletedResult'
+    InterruptedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/InterruptedResult'
+    UpdatedEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UpdatedResult'

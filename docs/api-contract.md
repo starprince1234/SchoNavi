@@ -40,9 +40,27 @@ Common error codes:
 | `42901` | 429 | Rate limited |
 | `50001` | 500 | Server error |
 
-The backend may identify the current anonymous/user profile from its own
-context. If explicit user binding is needed, accept optional header
-`X-Client-User-Id`.
+### Identity and ownership
+
+- The first anonymous request calls `POST /identity/anonymous`.
+- Mobile clients persist the returned bearer token in secure storage and send
+  `Authorization: Bearer <token>`.
+- Same-origin Web clients use the `HttpOnly`, `Secure`, `SameSite=Lax`
+  `scho_anonymous` cookie set by the same endpoint.
+- Chat ownership always comes from the authenticated identity. An `owner_id`
+  supplied by a request body is ignored/rejected; it is never an authorization
+  source.
+- Missing or invalid identity returns `401`. A session owned by another
+  identity is not exposed and returns `404`.
+
+### Conversation identifiers and concurrency
+
+`session_id`, `turn_id`, `message_id`, `attempt_id`, and `request_id` are
+independent UUIDv7 values. Their strings carry no parent/child semantics.
+Conversation mutations use `expected_revision`; a mismatch fails rather than
+silently overwriting newer state. Creating a turn or attempt also requires
+`Idempotency-Key: <request_id>`, and the header must equal the JSON
+`request_id`.
 
 ## Shared Models
 
@@ -94,6 +112,129 @@ Enums:
 `match_level` values: `高`, `中`, `低`.
 
 ## Endpoints
+
+### POST `/identity/anonymous`
+
+Creates an installation-level anonymous identity. Response data:
+
+```json
+{
+  "owner_id": "0197...",
+  "access_token": "random-secret-token"
+}
+```
+
+If a valid `scho_anonymous` cookie or bearer token already exists, the endpoint
+reuses that owner. Cookie-authenticated Web calls return an empty
+`access_token`; Web code must rely on the HttpOnly cookie rather than copying a
+bearer into browser storage.
+
+### Conversation sessions
+
+`ConversationSession`:
+
+```json
+{
+  "id": "0197...",
+  "kind": "general",
+  "root_session_id": "0197...",
+  "source_session_id": null,
+  "source_turn_id": null,
+  "professor_id": null,
+  "revision": 0,
+  "title": null,
+  "created_at": "2026-06-27T08:00:00Z",
+  "updated_at": "2026-06-27T08:00:00Z",
+  "deleted_at": null,
+  "legacy_context_incomplete": false
+}
+```
+
+`kind` is `general`, `professor`, or `fork`. Only a `fork` has
+`source_session_id` and `source_turn_id`. A professor-anchored conversation
+without a valid recommendation source is a `professor` session, never a fake
+fork.
+
+- `POST /chat/sessions` creates a `general` or `professor` session. Body:
+  `{ "kind": "general", "professor_id": null }`.
+- `GET /chat/sessions` returns `{ "items": ConversationSession[] }`, excluding
+  fork sessions and deleted sessions.
+- `GET /chat/sessions/{id}` returns `{ session, turns, messages }`.
+- `GET /chat/sessions/{id}/turns` returns `{ turns, messages }`.
+- For a `fork`, both read endpoints return only turns and messages created in
+  that fork. The inherited source prefix remains server-side model context and
+  is never projected into the fork's visible history.
+- `GET /chat/sessions/{rootId}/forks` returns
+  `{ "items": ConversationSession[] }`.
+- `DELETE /chat/sessions/{id}` transactionally deletes the session. Deleting a
+  root also deletes its forks, turns, attempts, messages, summaries, and cache;
+  deleting a fork does not affect the root.
+
+### POST `/chat/sessions/{sourceId}/forks`
+
+Request:
+
+```json
+{ "source_turn_id": "0197...", "professor_id": "p_001" }
+```
+
+The source turn must be a completed recommendation turn containing the named
+professor. `(sourceId, source_turn_id, professor_id)` is unique per owner, so
+concurrent duplicates return the same fork. The fork context is permanently
+bounded to the source conversation prefix ending at `source_turn_id`.
+
+### POST `/chat/sessions/{id}/turns`
+
+Headers: `Authorization` and `Idempotency-Key` are required. Request:
+
+```json
+{
+  "text": "为什么推荐这位导师？",
+  "request_id": "0197...",
+  "expected_revision": 3
+}
+```
+
+Response is `text/event-stream`. Every event carries `session_id`, `turn_id`,
+`attempt_id`, and `revision`; clients must discard events that do not match the
+current operation.
+
+```text
+event: ack
+data: {"session_id":"...","turn_id":"...","attempt_id":"...","revision":3}
+
+event: route
+data: {"session_id":"...","turn_id":"...","attempt_id":"...","revision":3,"route":"conversation"}
+
+event: delta
+data: {"session_id":"...","turn_id":"...","attempt_id":"...","revision":3,"text":"主要依据是"}
+
+event: completed
+data: {"session_id":"...","turn_id":"...","attempt_id":"...","revision":4,"session":{},"message":{},"quick_actions":[]}
+
+event: error
+data: {"session_id":"...","turn_id":"...","attempt_id":"...","revision":3,"code":"revision_conflict","message":"会话已更新"}
+```
+
+`route` is `recommendation`, `conversation`, or `forkReroute`.
+`completed.message.related_recommendations` and the final session descriptor
+are authoritative and must not be discarded by the client.
+
+### Attempts, cancellation, and feedback
+
+- `POST /chat/turns/{turnId}/attempts` regenerates an existing turn without
+  adding another user message. Body:
+  `{ "session_id": "...", "request_id": "...", "expected_revision": 4 }`.
+  It returns the same SSE event grammar as turn submission.
+- `POST /chat/attempts/{attemptId}/cancel` persists the active attempt as
+  `interrupted`; partial text is not represented as completed.
+- `PATCH /chat/messages/{messageId}/feedback` persists
+  `{ "feedback": "like" }`, `{ "feedback": "dislike" }`, or
+  `{ "feedback": "none" }`.
+
+The server is authoritative in HTTP mode and constructs model context from
+stored conversation state. Clients may cache completed aggregates for offline
+reading, but do not queue offline sends.
 
 ### GET `/home/prompts`
 
@@ -214,6 +355,9 @@ Response data:
 ```
 
 ### POST `/chat/messages`
+
+> Legacy compatibility endpoint. New clients use the session/turn endpoints
+> above.
 
 Request:
 
@@ -443,9 +587,9 @@ Response data:
 
 ### History
 
-Search history is persisted by the backend in HTTP mode. The Flutter client
-generates history snapshots after successful mentor or competition
-recommendations and submits the complete `SearchHistoryItem`.
+These legacy history endpoints now store competition searches only. Mentor
+conversation history is derived exclusively from `/chat/sessions`; clients
+must not write a second mentor-session index through `/history`.
 
 `SearchHistoryItem`:
 
@@ -462,7 +606,8 @@ recommendations and submits the complete `SearchHistoryItem`.
 }
 ```
 
-`type` values: `mentor`, `competition`.
+New writes use `type = competition`. `mentor` is accepted only while reading or
+migrating old data.
 
 #### GET `/history`
 
