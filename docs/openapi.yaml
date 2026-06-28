@@ -624,7 +624,7 @@ components:
       properties:
         competition:
           $ref: '#/components/schemas/CompetitionSnapshot'
-        target_date: { type: string, format: date }
+        target_date: { type: string, format: date-time }
         weekly_commitment:
           $ref: '#/components/schemas/WeeklyCommitment'
         experience_level:
