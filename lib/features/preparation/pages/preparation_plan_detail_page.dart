@@ -1,0 +1,540 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/haptics/haptics.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/preparation_plan.dart';
+import '../../../domain/entities/preparation_template.dart';
+import '../../../domain/repositories/preparation_plan_repository.dart';
+import '../../../domain/services/preparation_scheduler.dart';
+import '../providers/preparation_providers.dart';
+import '../widgets/preparation_countdown.dart';
+import '../widgets/preparation_phase_timeline.dart';
+import '../widgets/preparation_task_list.dart';
+
+/// 备赛计划详情页（spec §7.4）。
+///
+/// 顶部倒计时 + 总进度 + 当前阶段 + 紧/超负荷警示；中部阶段时间轴；
+/// 底部任务清单（按阶段分组，可勾选/编辑/删除/添加）。
+/// 操作：修改目标日期（重算未完成任务 dueDate，保留已完成）、归档、删除。
+class PreparationPlanDetailPage extends ConsumerStatefulWidget {
+  const PreparationPlanDetailPage({super.key, required this.planId});
+
+  final String planId;
+
+  @override
+  ConsumerState<PreparationPlanDetailPage> createState() =>
+      _PreparationPlanDetailPageState();
+}
+
+class _PreparationPlanDetailPageState
+    extends ConsumerState<PreparationPlanDetailPage> {
+  PreparationPlan? _plan;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 首帧后异步加载，避免在 build 期间同步读取仓库。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  Future<void> _reload() async {
+    final repo = ref.read(preparationPlanRepositoryProvider);
+    final plan = repo.findById(widget.planId);
+    if (!mounted) return;
+    setState(() {
+      _plan = plan;
+      _loading = false;
+    });
+  }
+
+  PreparationPlanRepository get _repo =>
+      ref.read(preparationPlanRepositoryProvider);
+
+  DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final plan = _plan;
+    if (plan == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('计划详情')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.search_off,
+                  size: 48, color: AppColors.inkFaint),
+              const SizedBox(height: 12),
+              const Text('未找到该计划',
+                  style: TextStyle(color: AppColors.inkSoft, fontSize: 15)),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text('返回'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(plan.competition.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.event_outlined),
+            tooltip: '修改目标日期',
+            onPressed: () => _changeTargetDate(plan),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'archive') {
+                _confirmArchive(plan);
+              } else if (v == 'delete') {
+                _confirmDelete(plan);
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'archive', child: Text('归档计划')),
+              PopupMenuItem(value: 'delete', child: Text('删除计划')),
+            ],
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          PreparationCountdown(plan: plan, today: _today),
+          const SizedBox(height: 12),
+          PreparationPhaseTimeline(plan: plan, today: _today),
+          const SizedBox(height: 12),
+          PreparationTaskList(
+            plan: plan,
+            onToggleTask: _toggleTask,
+            onEditTask: _editTask,
+            onDeleteTask: _deleteTask,
+            onAddTask: _addTask,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 任务完成 / 撤销 ────────────────────────────────────────────────────
+  Future<void> _toggleTask(int phaseIndex, int taskIndex) async {
+    final plan = _plan;
+    if (plan == null) return;
+    final task = plan.phases[phaseIndex].tasks[taskIndex];
+    final newCompletedAt =
+        task.completed ? null : DateTime.now();
+    final updatedTask = task.copyWith(completedAt: newCompletedAt);
+    final updatedPhase = plan.phases[phaseIndex]
+        .copyWith(tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask));
+    final updatedPlan = plan.copyWith(
+      phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
+    );
+    Haptics.light();
+    await _saveAndRefresh(updatedPlan);
+  }
+
+  // ── 添加任务（每阶段 userAdded） ────────────────────────────────────────
+  Future<void> _addTask(int phaseIndex) async {
+    final plan = _plan;
+    if (plan == null) return;
+    final phase = plan.phases[phaseIndex];
+    final result = await showDialog<_TaskEditResult>(
+      context: context,
+      builder: (_) => _TaskEditDialog(
+        initialTitle: '',
+        initialNote: '',
+        initialDueDate: phase.endDate,
+        firstDate: _today,
+        lastDate: plan.targetDate,
+      ),
+    );
+    if (result == null) return;
+    final newTask = PreparationTask(
+      id: 'u_${DateTime.now().millisecondsSinceEpoch}',
+      title: result.title,
+      kind: PreparationTaskKind.userAdded,
+      estimatedHours: 1,
+      dueDate: result.dueDate,
+      note: result.note,
+    );
+    final updatedPhase = phase.copyWith(tasks: [...phase.tasks, newTask]);
+    final updatedPlan =
+        plan.copyWith(phases: _replaceAt(plan.phases, phaseIndex, updatedPhase));
+    Haptics.selection();
+    await _saveAndRefresh(updatedPlan);
+  }
+
+  // ── 编辑任务（title/note/dueDate） ──────────────────────────────────────
+  Future<void> _editTask(int phaseIndex, int taskIndex) async {
+    final plan = _plan;
+    if (plan == null) return;
+    final task = plan.phases[phaseIndex].tasks[taskIndex];
+    final result = await showDialog<_TaskEditResult>(
+      context: context,
+      builder: (_) => _TaskEditDialog(
+        initialTitle: task.title,
+        initialNote: task.note ?? '',
+        initialDueDate: task.dueDate,
+        firstDate: _today,
+        lastDate: plan.targetDate,
+      ),
+    );
+    if (result == null) return;
+    final updatedTask = task.copyWith(
+      title: result.title,
+      note: result.note,
+      dueDate: result.dueDate,
+    );
+    final updatedPhase = plan.phases[phaseIndex]
+        .copyWith(tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask));
+    final updatedPlan = plan.copyWith(
+      phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
+    );
+    Haptics.selection();
+    await _saveAndRefresh(updatedPlan);
+  }
+
+  // ── 删除任务（必做不可删，由 UI 不渲染删除按钮保证） ────────────────────
+  Future<void> _deleteTask(int phaseIndex, int taskIndex) async {
+    final plan = _plan;
+    if (plan == null) return;
+    final task = plan.phases[phaseIndex].tasks[taskIndex];
+    if (task.kind == PreparationTaskKind.required) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除任务'),
+        content: Text('确定删除「${task.title}」？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final newTasks = List<PreparationTask>.from(plan.phases[phaseIndex].tasks)
+      ..removeAt(taskIndex);
+    final updatedPhase = plan.phases[phaseIndex].copyWith(tasks: newTasks);
+    final updatedPlan = plan.copyWith(
+      phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
+    );
+    Haptics.warning();
+    await _saveAndRefresh(updatedPlan);
+  }
+
+  // ── 修改目标日期：仅重算未完成任务 dueDate，保留完成态 + 备注 ──────────
+  //
+  // Approach (documented in task report): template weights are not persisted on
+  // the plan, so we re-distribute the new total window across existing phases
+  // proportionally to their CURRENT relative durations (endDate-startDate+1).
+  // Each phase's new endDate is derived; incomplete tasks' dueDate is set to
+  // their phase's new endDate clamped to [today, newTargetDate]. Completed
+  // tasks keep their original dueDate.
+  Future<void> _changeTargetDate(PreparationPlan plan) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: plan.targetDate,
+      firstDate: today.add(const Duration(days: 1)),
+      lastDate: today.add(const Duration(days: 365 * 3)),
+    );
+    if (picked == null || !mounted) return;
+
+    final newPhases = _reschedulePhases(
+      phases: plan.phases,
+      today: today,
+      newTargetDate: picked,
+    );
+    final updatedPlan = plan.copyWith(
+      targetDate: picked,
+      phases: newPhases,
+    );
+    await _saveAndRefresh(updatedPlan);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('目标日期已更新，未完成任务已重新排期')),
+    );
+  }
+
+  /// Re-distribute the new total window across phases proportionally to their
+  /// current relative durations, then move incomplete tasks' dueDate to their
+  /// phase's new endDate (clamped). Completed tasks keep dueDate + completedAt.
+  ///
+  /// We use [PreparationScheduler.schedule] for phase boundary recomputation:
+  /// phase weights are derived from current durations (endDate-startDate+1,
+  /// clamped to >=1). The scheduler guarantees contiguous, non-overlapping
+  /// segments covering [today, newTargetDate] exactly.
+  List<PreparationPhase> _reschedulePhases({
+    required List<PreparationPhase> phases,
+    required DateTime today,
+    required DateTime newTargetDate,
+  }) {
+    if (phases.isEmpty) return phases;
+
+    // Build template-phase equivalents with weight = current duration (days).
+    final templatePhases = phases
+        .map((p) => PreparationTemplatePhase(
+              key: p.key,
+              title: p.title,
+              weight: _durationDays(p.startDate, p.endDate).toDouble(),
+              requiredTasks: const [],
+              optionalTasks: const [],
+            ))
+        .toList();
+
+    final segments = PreparationScheduler.schedule(
+      phases: templatePhases,
+      today: today,
+      targetDate: newTargetDate,
+    );
+
+    // Map segments back to phases by index (scheduler preserves order;
+    // merging only happens when window is too tight — keys would join '+',
+    // but we still map by index to the original phase list because merging
+    // shrinks the segment count, in which case we attach remaining phases to
+    // the last segment to avoid index OOB).
+    final newPhases = <PreparationPhase>[];
+    for (var i = 0; i < phases.length; i++) {
+      final seg = segments.length > i ? segments[i] : segments.last;
+      final newStart = seg.startDate;
+      final newEnd = seg.endDate;
+      final newTasks = phases[i].tasks.map((t) {
+        if (t.completed) return t; // preserve completed + dueDate
+        final due = newEnd.isBefore(today)
+            ? today
+            : (newEnd.isAfter(newTargetDate) ? newTargetDate : newEnd);
+        return t.copyWith(dueDate: due);
+      }).toList();
+      newPhases.add(phases[i].copyWith(
+        startDate: newStart,
+        endDate: newEnd,
+        tasks: newTasks,
+      ));
+    }
+    return newPhases;
+  }
+
+  int _durationDays(DateTime start, DateTime end) {
+    final d = end.difference(start).inDays + 1;
+    return d < 1 ? 1 : d;
+  }
+
+  // ── 归档 / 删除 plan（二次确认） ────────────────────────────────────────
+  Future<void> _confirmArchive(PreparationPlan plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('归档计划'),
+        content: const Text('归档后该计划将不再出现在进行中列表，确认归档？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('归档'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _repo.archive(plan.id);
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
+  Future<void> _confirmDelete(PreparationPlan plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('删除计划'),
+        content: const Text('删除后无法恢复，确认删除该计划？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _repo.delete(plan.id);
+    if (!mounted) return;
+    Navigator.of(context).maybePop();
+  }
+
+  // ── 保存 + 本地刷新 ─────────────────────────────────────────────────────
+  Future<void> _saveAndRefresh(PreparationPlan plan) async {
+    final saved = await _repo.save(plan);
+    if (!mounted) return;
+    setState(() => _plan = saved);
+  }
+
+  // ── 工具：列表不可变替换 ────────────────────────────────────────────────
+  List<T> _replaceAt<T>(List<T> list, int index, T value) {
+    final copy = List<T>.from(list);
+    copy[index] = value;
+    return copy;
+  }
+}
+
+/// 任务编辑/新增对话框结果。
+class _TaskEditResult {
+  const _TaskEditResult({
+    required this.title,
+    required this.note,
+    required this.dueDate,
+  });
+  final String title;
+  final String note;
+  final DateTime dueDate;
+}
+
+class _TaskEditDialog extends StatefulWidget {
+  const _TaskEditDialog({
+    required this.initialTitle,
+    required this.initialNote,
+    required this.initialDueDate,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  final String initialTitle;
+  final String initialNote;
+  final DateTime initialDueDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  @override
+  State<_TaskEditDialog> createState() => _TaskEditDialogState();
+}
+
+class _TaskEditDialogState extends State<_TaskEditDialog> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _noteCtrl;
+  late DateTime _dueDate;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(text: widget.initialTitle);
+    _noteCtrl = TextEditingController(text: widget.initialNote);
+    _dueDate = widget.initialDueDate;
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate,
+      firstDate: widget.firstDate,
+      lastDate: widget.lastDate,
+    );
+    if (picked != null) setState(() => _dueDate = picked);
+  }
+
+  void _submit() {
+    final title = _titleCtrl.text.trim();
+    if (title.isEmpty) {
+      setState(() => _error = '标题不能为空');
+      return;
+    }
+    Navigator.pop(
+      context,
+      _TaskEditResult(
+        title: title,
+        note: _noteCtrl.text.trim(),
+        dueDate: _dueDate,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.initialTitle.isEmpty ? '添加任务' : '编辑任务'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: '标题',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteCtrl,
+              decoration: const InputDecoration(
+                labelText: '备注（可选）',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading:
+                  const Icon(Icons.event_outlined, color: AppColors.indigo),
+              title: Text(
+                '截止：${_dueDate.year}-${_dueDate.month.toString().padLeft(2, '0')}-${_dueDate.day.toString().padLeft(2, '0')}',
+              ),
+              trailing: const Icon(Icons.chevron_right,
+                  color: AppColors.inkFaint),
+              onTap: _pickDate,
+            ),
+            if (_error != null)
+              Text(_error!,
+                  style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('保存')),
+      ],
+    );
+  }
+}
