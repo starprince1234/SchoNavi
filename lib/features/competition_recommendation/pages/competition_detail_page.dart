@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/match_level.dart';
 import '../../../domain/entities/recommended_competition.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/match_level_chip.dart';
 import '../widgets/competition_ai_tips_block.dart';
 import '../widgets/competition_fact_block.dart';
 
@@ -63,16 +65,37 @@ class CompetitionDetailPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  merged.name,
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${merged.category} / ${merged.level}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: AppColors.inkSoft),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            merged.name,
+                            style: theme.textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '${merged.category} / ${merged.level}',
+                            style: theme.textTheme.bodySmall
+                                ?.copyWith(color: AppColors.inkSoft),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 仅在 recommended 传入真实 matchScore 时展示匹配度胶囊；
+                    // 目录直入（深链/历史）matchScore 为 0，展示「0%」会误导。
+                    if (recommended != null) ...[
+                      const SizedBox(width: 8),
+                      MatchLevelChip(
+                        level: MatchLevel.fromScore(merged.matchScore),
+                        matchScore: merged.matchScore,
+                      ),
+                    ],
+                  ],
                 ),
                 if (merged.reason.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -124,10 +147,12 @@ class CompetitionDetailPage extends ConsumerWidget {
       case LaunchResult.success:
         return;
       case LaunchResult.noUrl:
-        messenger.showSnackBar(const SnackBar(content: Text('暂无官网信息')));
+        messenger.showSnackBar(
+          const SnackBar(content: Text('暂无官网信息，请以学校或赛事官方通知为准')),
+        );
       case LaunchResult.failed:
         messenger.showSnackBar(
-          const SnackBar(content: Text('官网可能暂时无法打开')),
+          const SnackBar(content: Text('官网可能暂时无法打开，请以赛事官方通知为准')),
         );
     }
   }
