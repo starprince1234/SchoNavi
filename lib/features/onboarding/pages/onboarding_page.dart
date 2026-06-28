@@ -32,18 +32,18 @@ class _OnboardingData {
 const _pages = <_OnboardingData>[
   _OnboardingData(
     Icons.chat_bubble_outline,
-    '自然语言找导师',
-    '用一句话描述你的研究兴趣与目标，大模型理解后接地推荐匹配的导师。',
+    '说出你的方向',
+    '输入研究兴趣、目标院校或想申请的专业，SchoNavi 帮你快速找到合适的导师线索。',
   ),
   _OnboardingData(
     Icons.auto_awesome,
-    '一站式申请助手',
-    '推荐理由、追问答疑、套磁邮件、多导师对比、背景匹配雷达——一键生成。',
+    '把申请理清楚',
+    '查看推荐理由、继续追问细节，还能生成套磁思路、对比多位导师，少走弯路。',
   ),
   _OnboardingData(
     Icons.verified_outlined,
-    '真实可信',
-    '事实接地于公开资料、不编造；推荐理解与排序交由大模型或真实后端完成。',
+    '推荐更有依据',
+    '信息来自可查资料，帮你看清导师方向、匹配程度和下一步该怎么准备。',
   ),
 ];
 
