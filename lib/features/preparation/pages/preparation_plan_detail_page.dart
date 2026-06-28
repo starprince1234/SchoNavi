@@ -448,7 +448,27 @@ class _TaskEditDialogState extends State<_TaskEditDialog> {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.initialTitle);
     _noteCtrl = TextEditingController(text: widget.initialNote);
-    _dueDate = widget.initialDueDate;
+    // Defensive: guarantee lastDate >= firstDate so showDatePicker's
+    // `!lastDate.isBefore(firstDate)` assertion holds even when the plan is
+    // already overdue (targetDate < today). The effective selectable window
+    // collapses to [firstDate, firstDate] in that degenerate case.
+    _effectiveFirst = widget.firstDate;
+    _effectiveLast = widget.lastDate.isBefore(widget.firstDate)
+        ? widget.firstDate
+        : widget.lastDate;
+    // Clamp the initial due date into [firstDate, lastDate] so the displayed
+    // value is selectable and showDatePicker's `!initialDate.isBefore(firstDate)`
+    // assertion holds even when the task/phase is already in the past.
+    _dueDate = _clampDate(widget.initialDueDate);
+  }
+
+  late final DateTime _effectiveFirst;
+  late final DateTime _effectiveLast;
+
+  DateTime _clampDate(DateTime d) {
+    if (d.isBefore(_effectiveFirst)) return _effectiveFirst;
+    if (d.isAfter(_effectiveLast)) return _effectiveLast;
+    return d;
   }
 
   @override
@@ -461,9 +481,9 @@ class _TaskEditDialogState extends State<_TaskEditDialog> {
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _dueDate,
-      firstDate: widget.firstDate,
-      lastDate: widget.lastDate,
+      initialDate: _clampDate(_dueDate),
+      firstDate: _effectiveFirst,
+      lastDate: _effectiveLast,
     );
     if (picked != null) setState(() => _dueDate = picked);
   }
