@@ -75,10 +75,11 @@ class HttpHistoryRepository implements HistoryRepository {
 
   @override
   Future<void> remove(String sessionId) async {
-    await guardApi(
+    final result = await guardApi(
       () => _dio.delete<dynamic>('/api/v1/history/$sessionId'),
       (_) => true,
     );
+    if (result case Failure<bool>(:final error)) throw error;
     _setSnapshot(
       _snapshot
           .where((current) => current.sessionId != sessionId)
@@ -88,10 +89,11 @@ class HttpHistoryRepository implements HistoryRepository {
 
   @override
   Future<void> clear() async {
-    await guardApi(
+    final result = await guardApi(
       () => _dio.delete<dynamic>('/api/v1/history'),
       (_) => true,
     );
+    if (result case Failure<bool>(:final error)) throw error;
     _setSnapshot(const []);
   }
 
@@ -106,10 +108,12 @@ class HttpHistoryRepository implements HistoryRepository {
       (data) => SearchHistoryItemDto.fromJson(asJsonObject(data)).toEntity(),
     );
     final saved = result is Success<SearchHistoryItem> ? result.data : item;
-    _setSnapshot([
-      saved,
-      ..._snapshot.where((current) => current.sessionId != saved.sessionId),
-    ]..sort(_byNewest));
+    _setSnapshot(
+      [
+        saved,
+        ..._snapshot.where((current) => current.sessionId != saved.sessionId),
+      ]..sort(_byNewest),
+    );
   }
 
   Future<void> _refresh() async {
@@ -117,7 +121,8 @@ class HttpHistoryRepository implements HistoryRepository {
       () => _dio.get<dynamic>('/api/v1/history'),
       (data) => (data as List<dynamic>? ?? const <dynamic>[])
           .map(
-            (item) => SearchHistoryItemDto.fromJson(asJsonObject(item)).toEntity(),
+            (item) =>
+                SearchHistoryItemDto.fromJson(asJsonObject(item)).toEntity(),
           )
           .toList(growable: false),
     );
