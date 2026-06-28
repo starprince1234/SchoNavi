@@ -19,4 +19,12 @@ enum MatchLevel {
         return MatchLevel.medium;
     }
   }
+
+  /// 由归一化匹配分派生等级：≥0.8 high、≥0.6 medium、其余 low。
+  static MatchLevel fromScore(double score) {
+    final s = score.clamp(0.0, 1.0);
+    if (s >= 0.8) return MatchLevel.high;
+    if (s >= 0.6) return MatchLevel.medium;
+    return MatchLevel.low;
+  }
 }
