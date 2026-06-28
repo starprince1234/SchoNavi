@@ -15,6 +15,7 @@ import '../../data/ai/llm_recommendation_need_classifier.dart';
 import '../../data/ai/llm_quick_actions_source.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
+import '../../data/fixtures/competition_catalog_repository_impl.dart';
 import '../../data/http/http_chat_repository.dart';
 import '../../data/http/http_conversation_repository.dart';
 import '../../data/http/http_comparison_repository.dart';
@@ -47,6 +48,7 @@ import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/conversation_repository.dart';
 import '../../domain/repositories/comparison_repository.dart';
+import '../../domain/repositories/competition_catalog_repository.dart';
 import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
@@ -173,6 +175,11 @@ final competitionRecommendationRepositoryProvider =
           );
       }
     });
+
+final competitionCatalogRepositoryProvider =
+    Provider<CompetitionCatalogRepository>(
+  (_) => const StaticCompetitionCatalogRepository(),
+);
 
 final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
