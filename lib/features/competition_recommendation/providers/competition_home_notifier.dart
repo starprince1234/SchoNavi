@@ -1,0 +1,77 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/di/providers.dart';
+import '../../../core/result/result.dart';
+import '../../../domain/entities/competition_recommendation_result.dart';
+import '../../profile/providers/profile_provider.dart';
+
+sealed class CompetitionHomeState {
+  const CompetitionHomeState();
+}
+
+class CompetitionHomeIdle extends CompetitionHomeState {
+  const CompetitionHomeIdle();
+}
+
+class CompetitionHomeLoading extends CompetitionHomeState {
+  final String? prompt;
+  const CompetitionHomeLoading([this.prompt]);
+}
+
+class CompetitionHomeResult extends CompetitionHomeState {
+  final CompetitionRecommendationResult data;
+  const CompetitionHomeResult(this.data);
+}
+
+class CompetitionHomeEmpty extends CompetitionHomeState {
+  const CompetitionHomeEmpty();
+}
+
+class CompetitionHomeError extends CompetitionHomeState {
+  final String message;
+  const CompetitionHomeError(this.message);
+}
+
+class CompetitionHomeNotifier extends Notifier<CompetitionHomeState> {
+  int _requestSeq = 0;
+
+  @override
+  CompetitionHomeState build() => const CompetitionHomeIdle();
+
+  Future<void> submit(String prompt) async {
+    final mySeq = ++_requestSeq;
+    state = CompetitionHomeLoading(prompt);
+    final profile = ref.read(profileProvider);
+    final repo = ref.read(competitionRecommendationRepositoryProvider);
+    final result = await repo.getRecommendations(prompt: prompt, profile: profile);
+
+    if (mySeq != _requestSeq) return;
+
+    state = switch (result) {
+      Success(:final data) => data.recommendations.isEmpty
+          ? const CompetitionHomeEmpty()
+          : () {
+              unawaited(
+                ref.read(historyRepositoryProvider).addFromCompetitionResult(
+                  prompt: prompt,
+                  result: data,
+                ),
+              );
+              return CompetitionHomeResult(data);
+            }(),
+      Failure(:final error) => CompetitionHomeError(error.toString()),
+    };
+  }
+
+  void reset() {
+    _requestSeq++;
+    state = const CompetitionHomeIdle();
+  }
+}
+
+final competitionHomeProvider =
+    NotifierProvider<CompetitionHomeNotifier, CompetitionHomeState>(
+  CompetitionHomeNotifier.new,
+);
