@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scho_navi/core/theme/app_colors.dart';
+import 'package:scho_navi/core/theme/app_theme.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
+import 'package:scho_navi/shared/widgets/bento_tile.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 
 const _rec = Recommendation(
@@ -17,9 +20,34 @@ const _rec = Recommendation(
   homepageUrl: 'https://example.edu',
 );
 
-Widget _wrap(Widget child) => MaterialApp(
+Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
+  theme: theme,
   home: Scaffold(body: SizedBox(width: 320, child: child)),
 );
+
+void _expectRoundedOutline(WidgetTester tester) {
+  final cardFinder = find.byType(SwipeRecommendationCard);
+  final tile = tester.widget<BentoTile>(
+    find.descendant(of: cardFinder, matching: find.byType(BentoTile)),
+  );
+  final border = tile.border! as Border;
+  final outline = Theme.of(tester.element(cardFinder)).colorScheme.outline;
+
+  expect(tile.borderRadius, 18);
+  for (final side in [border.top, border.right, border.bottom, border.left]) {
+    expect(side.color, outline);
+    expect(side.width, 1);
+  }
+  expect(
+    find.descendant(
+      of: cardFinder,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Container && widget.color == AppColors.indigo,
+      ),
+    ),
+    findsNothing,
+  );
+}
 
 void main() {
   testWidgets('渲染姓名/学校/职称与匹配度文案', (tester) async {
@@ -31,6 +59,18 @@ void main() {
     expect(find.text('教授'), findsOneWidget);
     expect(find.textContaining('清华大学'), findsOneWidget);
     expect(find.textContaining('匹配度'), findsOneWidget);
+  });
+
+  testWidgets('使用跟随明暗主题的完整圆角描边，且无旧紫色竖条', (tester) async {
+    for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+      await tester.pumpWidget(
+        _wrap(
+          SwipeRecommendationCard(recommendation: _rec, onTap: () {}),
+          theme: theme,
+        ),
+      );
+      _expectRoundedOutline(tester);
+    }
   });
 
   testWidgets('点击卡片触发 onTap', (tester) async {

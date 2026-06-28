@@ -1,14 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scho_navi/core/theme/app_colors.dart';
+import 'package:scho_navi/core/theme/app_theme.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
+import 'package:scho_navi/shared/widgets/bento_tile.dart';
 import 'package:scho_navi/shared/widgets/empty_view.dart';
 import 'package:scho_navi/shared/widgets/error_view.dart';
 import 'package:scho_navi/shared/widgets/loading_view.dart';
 import 'package:scho_navi/shared/widgets/match_level_chip.dart';
 import 'package:scho_navi/shared/widgets/professor_card.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child, {ThemeData? theme}) => MaterialApp(
+  theme: theme,
+  home: Scaffold(body: child),
+);
+
+void _expectProfessorCardOutline(WidgetTester tester) {
+  final cardFinder = find.byType(ProfessorCard);
+  final tile = tester.widget<BentoTile>(
+    find.descendant(of: cardFinder, matching: find.byType(BentoTile)),
+  );
+  final border = tile.border! as Border;
+  final outline = Theme.of(tester.element(cardFinder)).colorScheme.outline;
+
+  expect(tile.borderRadius, 18);
+  for (final side in [border.top, border.right, border.bottom, border.left]) {
+    expect(side.color, outline);
+    expect(side.width, 1);
+  }
+  expect(
+    find.descendant(
+      of: cardFinder,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Container && widget.color == AppColors.indigo,
+      ),
+    ),
+    findsNothing,
+  );
+}
 
 void main() {
   testWidgets('LoadingView shows a progress indicator', (tester) async {
@@ -72,4 +102,31 @@ void main() {
     await tester.tap(find.byType(ProfessorCard));
     expect(tapped, isTrue);
   });
+
+  testWidgets(
+    'ProfessorCard uses themed rounded outline without accent strip',
+    (tester) async {
+      const rec = Recommendation(
+        professorId: 'p_001',
+        name: '张三',
+        university: '上海交通大学',
+        college: '电子信息与电气工程学院',
+        title: '教授',
+        researchFields: ['医学影像', '计算机视觉'],
+        matchLevel: MatchLevel.high,
+        reason: '方向相关。',
+        limitations: [],
+      );
+
+      for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+        await tester.pumpWidget(
+          _wrap(
+            ProfessorCard(recommendation: rec, onTap: () {}),
+            theme: theme,
+          ),
+        );
+        _expectProfessorCardOutline(tester);
+      }
+    },
+  );
 }

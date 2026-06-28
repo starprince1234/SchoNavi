@@ -10,9 +10,8 @@ import 'glass_surface.dart';
 /// of 48x48 logical pixels to meet accessibility tap-target guidelines.
 ///
 /// 冷调玻璃拟态：默认实心冷面（长列表友好、性能优），[frosted] 开启毛玻璃
-/// （用于浮层/输入条/hero 等固定区）。按下态用浅冷叠层而非纯黑。左侧强调条
-/// 仍由调用方在 `padding: EdgeInsets.zero` 的内部 Row 中自行绘制，本组件不
-/// 重构子树布局。
+/// （用于浮层/输入条/hero 等固定区）。按下态用浅冷叠层而非纯黑；调用方可通过
+/// [border] 提供与圆角轮廓一致的主题描边。
 class BentoTile extends StatefulWidget {
   const BentoTile({
     super.key,
@@ -76,10 +75,9 @@ class _BentoTileState extends State<BentoTile> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final solid =
-        !widget.frosted && widget.gradient == null
-            ? (widget.color ?? scheme.surface)
-            : null;
+    final solid = !widget.frosted && widget.gradient == null
+        ? (widget.color ?? scheme.surface)
+        : null;
 
     Widget content = AnimatedScale(
       scale: _down ? 0.97 : 1,
@@ -127,10 +125,7 @@ class _BentoTileState extends State<BentoTile> {
     if (!widget.minTapTarget) return gesture;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 48,
-        minHeight: 48,
-      ),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       child: gesture,
     );
   }
