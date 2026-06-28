@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/chat/pages/chat_page.dart';
 import '../../features/compare/pages/compare_page.dart';
+import '../../features/competition_recommendation/pages/competition_detail_page.dart';
 import '../../features/competition_recommendation/pages/competition_recommendation_page.dart';
 import '../../features/email/pages/email_page.dart';
 import '../../features/favorite/pages/favorite_page.dart';
@@ -69,6 +70,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state,
           child: CompetitionRecommendationPage(
             prompt: state.uri.queryParameters['q'] ?? '',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/competition/:id',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: CompetitionDetailPage(
+            competitionId: state.pathParameters['id']!,
           ),
         ),
       ),
