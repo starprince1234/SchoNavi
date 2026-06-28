@@ -35,4 +35,39 @@ class RecommendedCompetition {
 
   /// 0.0-1.0 的归一化匹配度。
   final double matchScore;
+
+  RecommendedCompetition copyWith({
+    String? id,
+    String? name,
+    String? category,
+    String? level,
+    List<String>? tags,
+    String? teamSize,
+    String? signupTime,
+    String? contestTime,
+    String? format,
+    String? organizer,
+    String? officialUrl,
+    String? reason,
+    List<String>? preparationTips,
+    List<String>? limitations,
+    double? matchScore,
+  }) =>
+      RecommendedCompetition(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        category: category ?? this.category,
+        level: level ?? this.level,
+        tags: tags ?? this.tags,
+        teamSize: teamSize ?? this.teamSize,
+        signupTime: signupTime ?? this.signupTime,
+        contestTime: contestTime ?? this.contestTime,
+        format: format ?? this.format,
+        organizer: organizer ?? this.organizer,
+        officialUrl: officialUrl ?? this.officialUrl,
+        reason: reason ?? this.reason,
+        preparationTips: preparationTips ?? this.preparationTips,
+        limitations: limitations ?? this.limitations,
+        matchScore: matchScore ?? this.matchScore,
+      );
 }
