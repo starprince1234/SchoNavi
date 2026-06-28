@@ -74,3 +74,5 @@ data-fixture/
 .snow/
 
 .playwright-mcp/
+
+.tmp*/
