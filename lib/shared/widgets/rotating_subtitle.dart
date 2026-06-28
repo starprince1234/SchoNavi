@@ -78,7 +78,7 @@ class CrossfadeStrategy implements SubtitleAnimationStrategy {
 class TypewriterStrategy implements SubtitleAnimationStrategy {
   const TypewriterStrategy({
     this.perCharacter = const Duration(milliseconds: 90),
-    this.holdAfterTyped = const Duration(milliseconds: 1800),
+    this.holdAfterTyped = const Duration(milliseconds: 2600),
   });
 
   final Duration perCharacter;
