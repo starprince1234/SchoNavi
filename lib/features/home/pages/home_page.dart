@@ -16,6 +16,8 @@ import '../../../domain/entities/recommendation.dart';
 import '../../chat/providers/chat_provider.dart';
 import '../../chat/widgets/chat_message_bubble.dart';
 import '../../chat/widgets/chat_quick_actions.dart';
+import '../../competition_recommendation/providers/competition_home_notifier.dart';
+import '../../competition_recommendation/widgets/competition_home_result_view.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/app_menu_drawer.dart';
 import '../../../shared/widgets/bento_grid.dart';
@@ -105,6 +107,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _submitting = false;
   bool _inConversation = false;
   bool _inConversationStarted = false;
+  String? _competitionPrompt;
   int _messageCount = 0;
   _HomeTab _currentTab = _HomeTab.mentor;
 
@@ -130,8 +133,8 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool get _canSubmit =>
       _controller.plainText.trim().isNotEmpty && !_submitting;
 
-  /// 导师 tab：首页原地进入对话态——对齐 ChatGPT App，发送后不跳路由，
-  /// 消息在首页上方展开、输入框沉底。竞赛 tab 仍跳静态结果页（无对话能力）。
+  /// 导师 tab / 竞赛 tab 均首页原地响应：发送后不跳路由。
+  /// 导师进入对话态，竞赛进入结果态。
   Future<void> _submit() async {
     final prompt = _controller.plainText.trim();
     if (prompt.isEmpty || _submitting) return;
@@ -154,13 +157,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     if (!isMentor) {
-      // 竞赛 tab：保留既有跳转。
-      setState(() => _submitting = true);
-      if (!mounted) return;
-      await context.push(
-        '/competition-recommendation?q=${Uri.encodeComponent(prompt)}',
-      );
-      if (!mounted) return;
+      // 竞赛 tab：首页原地进入结果态，由 CompetitionHomeResultView 渲染推荐卡。
+      setState(() {
+        _submitting = true;
+        _inConversation = true;
+        _competitionPrompt = prompt;
+      });
+      final promptValue = prompt;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await ref.read(competitionHomeProvider.notifier).submit(promptValue);
+      });
       _controller.clear();
       setState(() => _submitting = false);
       return;
@@ -200,6 +207,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _stopGeneration() => ref.read(_chatProvider.notifier).stop();
 
   void _startNewConversation() {
+    if (_currentTab == _HomeTab.competition) {
+      ref.read(competitionHomeProvider.notifier).reset();
+      setState(() {
+        _inConversation = false;
+        _competitionPrompt = null;
+      });
+      _controller.clear();
+      return;
+    }
     setState(() {
       _inConversation = false;
       _inConversationStarted = false;
@@ -236,6 +252,29 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SnackBar(content: Text('主页可能已失效，可通过学校官网确认')),
         );
     }
+  }
+
+  Future<void> _openCompetitionUrl(String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await ref.read(linkLauncherProvider).open(url);
+    switch (result) {
+      case LaunchResult.success:
+        return;
+      case LaunchResult.noUrl:
+        messenger.showSnackBar(const SnackBar(content: Text('暂无主页信息')));
+      case LaunchResult.failed:
+        messenger.showSnackBar(
+          const SnackBar(content: Text('主页可能已失效，可通过学校官网确认')),
+        );
+    }
+  }
+
+  void _adjustCompetition() {
+    ref.read(competitionHomeProvider.notifier).reset();
+    setState(() {
+      _inConversation = false;
+      _competitionPrompt = null;
+    });
   }
 
   void _appendTag(String tag) {
@@ -493,8 +532,34 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  /// 竞赛 tab 原地结果态：由 [CompetitionHomeResultView] 渲染需求理解与推荐卡。
+  Widget _buildCompetitionResultContent() {
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 56, 20, 12),
+            child: CompetitionHomeResultView(
+              state: ref.watch(competitionHomeProvider),
+              onAdjust: _adjustCompetition,
+              onRetry: (prompt) =>
+                  ref.read(competitionHomeProvider.notifier).submit(prompt),
+              prompt: _competitionPrompt,
+              onOpenDetail: (id) => context.push('/competition/$id'),
+              onOpenUrl: _openCompetitionUrl,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 对话态：消息流（复用 ChatMessageBubble）+ 快捷操作横滑条。
   Widget _buildConversationContent(TextTheme textTheme, ColorScheme scheme) {
+    if (_currentTab == _HomeTab.competition) {
+      return _buildCompetitionResultContent();
+    }
+
     final state = ref.watch(_chatProvider);
     if (state.messages.length != _messageCount) {
       _messageCount = state.messages.length;

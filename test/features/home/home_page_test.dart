@@ -14,7 +14,11 @@ import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
+import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
+import 'package:scho_navi/domain/entities/recommended_competition.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
+import 'package:scho_navi/domain/repositories/competition_recommendation_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
 import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
@@ -45,6 +49,37 @@ final _recResult = RecommendationResult(
   followUpQuestions: const ['偏应用'],
 );
 
+final _compResult = CompetitionRecommendationResult(
+  sessionId: 's_comp',
+  understanding: const CompetitionQueryUnderstanding(
+    directions: ['算法'],
+    categories: [],
+    timingPreferences: [],
+    teamPreferences: [],
+    uncertainties: [],
+  ),
+  recommendations: [
+    RecommendedCompetition(
+      id: 'c_001',
+      name: '蓝桥杯',
+      category: '计算机类',
+      level: '国家级',
+      tags: const ['算法'],
+      teamSize: '个人',
+      signupTime: '',
+      contestTime: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+      reason: '契合算法方向',
+      preparationTips: const [],
+      limitations: const [],
+      matchScore: 0.8,
+    ),
+  ],
+  followUpQuestions: const [],
+);
+
 class _FakeRecRepo implements RecommendationRepository {
   @override
   Future<Result<RecommendationResult>> getRecommendations({
@@ -52,6 +87,15 @@ class _FakeRecRepo implements RecommendationRepository {
     UserProfile? profile,
     String? sessionId,
   }) async => Success(_recResult);
+}
+
+class _FakeCompetitionRepo implements CompetitionRecommendationRepository {
+  @override
+  Future<Result<CompetitionRecommendationResult>> getRecommendations({
+    required String prompt,
+    UserProfile? profile,
+    String? sessionId,
+  }) async => Success(_compResult);
 }
 
 class _StreamChatRepo implements ChatRepository {
@@ -142,6 +186,9 @@ Future<Widget> _wrap({bool configured = true}) async {
         AppConfig(llm: LlmConfig(apiKey: configured ? 'test-key' : '')),
       ),
       recommendationRepositoryProvider.overrideWithValue(_FakeRecRepo()),
+      competitionRecommendationRepositoryProvider.overrideWithValue(
+        _FakeCompetitionRepo(),
+      ),
       chatRepositoryProvider.overrideWithValue(_StreamChatRepo()),
       recommendationNeedClassifierProvider.overrideWithValue(
         const _FakeNeedClassifier(),
@@ -195,7 +242,7 @@ void main() {
     expect(input.controller?.text, '我想找计算机视觉方向的导师，最好在北京。');
   });
 
-  testWidgets('competition prompt routes to competition recommendation', (
+  testWidgets('competition prompt stays home and shows in-place recommendation', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -209,7 +256,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    expect(find.text('competition-marker'), findsOneWidget);
+    // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
+    expect(find.text('competition-marker'), findsNothing);
+    expect(find.text('我想参加蓝桥杯', skipOffstage: false), findsOneWidget);
+    expect(find.text('蓝桥杯'), findsOneWidget);
+    expect(find.text('调整条件'), findsOneWidget);
   });
 
   testWidgets('mentor prompt stays home and starts in-place conversation', (
@@ -252,7 +303,7 @@ void main() {
     expect(find.byType(SwipeRecommendationCard), findsNothing);
   });
 
-  testWidgets('competition quick tag routes to competition recommendation', (
+  testWidgets('competition quick tag stays home and shows in-place recommendation', (
     tester,
   ) async {
     await tester.pumpWidget(await _wrap());
@@ -266,7 +317,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    expect(find.text('competition-marker'), findsOneWidget);
+    // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
+    expect(find.text('competition-marker'), findsNothing);
+    expect(find.text('蓝桥杯'), findsOneWidget);
+    expect(find.text('调整条件'), findsOneWidget);
   });
 
   testWidgets('right edge swipe opens the end drawer', (tester) async {
