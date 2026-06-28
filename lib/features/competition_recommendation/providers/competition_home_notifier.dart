@@ -16,8 +16,8 @@ class CompetitionHomeIdle extends CompetitionHomeState {
 }
 
 class CompetitionHomeLoading extends CompetitionHomeState {
-  final String? prompt;
-  const CompetitionHomeLoading([this.prompt]);
+  final String prompt;
+  const CompetitionHomeLoading(this.prompt);
 }
 
 class CompetitionHomeResult extends CompetitionHomeState {
