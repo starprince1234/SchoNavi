@@ -92,9 +92,9 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
     expect(find.text('张三'), findsOneWidget);
     // 3 个 indicator 圆点（用 Container 圆点近似定位：通过 Semantics label 更稳）。
-    expect(find.byKey(const Key('rec-indicator-0')), findsOneWidget);
-    expect(find.byKey(const Key('rec-indicator-1')), findsOneWidget);
-    expect(find.byKey(const Key('rec-indicator-2')), findsOneWidget);
+    expect(find.byKey(const Key('carousel-indicator-0')), findsOneWidget);
+    expect(find.byKey(const Key('carousel-indicator-1')), findsOneWidget);
+    expect(find.byKey(const Key('carousel-indicator-2')), findsOneWidget);
   });
 
   testWidgets('单张卡片不显示 indicator', (tester) async {
@@ -108,7 +108,7 @@ void main() {
     );
 
     expect(find.byType(PageView), findsOneWidget);
-    expect(find.byKey(const Key('rec-indicator-0')), findsNothing);
+    expect(find.byKey(const Key('carousel-indicator-0')), findsNothing);
   });
 
   testWidgets('点击卡片触发 onTap(id)', (tester) async {
@@ -151,9 +151,9 @@ void main() {
     await tester.drag(find.byType(PageView), const Offset(-320, 0));
     await tester.pumpAndSettle();
     expect(
-      tester.getSize(find.byKey(const Key('rec-indicator-1'))).width,
+      tester.getSize(find.byKey(const Key('carousel-indicator-1'))).width,
       greaterThan(
-        tester.getSize(find.byKey(const Key('rec-indicator-0'))).width,
+        tester.getSize(find.byKey(const Key('carousel-indicator-0'))).width,
       ),
     );
 
@@ -161,9 +161,9 @@ void main() {
     expect(revision, 1);
     await tester.pump();
     expect(
-      tester.getSize(find.byKey(const Key('rec-indicator-1'))).width,
+      tester.getSize(find.byKey(const Key('carousel-indicator-1'))).width,
       greaterThan(
-        tester.getSize(find.byKey(const Key('rec-indicator-0'))).width,
+        tester.getSize(find.byKey(const Key('carousel-indicator-0'))).width,
       ),
     );
   });
@@ -199,7 +199,7 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    expect(find.byKey(const Key('rec-indicator-0')), findsNothing);
+    expect(find.byKey(const Key('carousel-indicator-0')), findsNothing);
     expect(find.text('张三'), findsOneWidget);
   });
 
