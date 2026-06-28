@@ -118,4 +118,17 @@ void main() {
     )));
     expect(find.text('访问官网'), findsNothing);
   });
+
+  testWidgets('点击卡片触发 onOpenDetail', (t) async {
+    var opened = '';
+    await t.pumpWidget(_wrap(CompetitionHomeResultView(
+      state: CompetitionHomeResult(_res(1)),
+      onAdjust: () {},
+      onRetry: (_) async {},
+      onOpenDetail: (id) => opened = id,
+    )));
+    await t.tap(find.text('竞赛0'));
+    await t.pump();
+    expect(opened, 'c0');
+  });
 }

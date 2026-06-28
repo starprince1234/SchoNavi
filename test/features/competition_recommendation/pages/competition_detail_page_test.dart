@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/features/competition_recommendation/pages/competition_detail_page.dart';
 
 void main() {
