@@ -4,7 +4,7 @@ import 'recommendation.dart';
 enum ChatRole { user, assistant }
 
 /// 消息状态。streaming = 正在逐字接收；sending 保留为等待首个增量的思考态。
-enum ChatMessageStatus { sending, streaming, done, error }
+enum ChatMessageStatus { sending, streaming, done, error, interrupted }
 
 /// 助手消息所属的业务轮次。
 ///
