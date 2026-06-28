@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/launcher/link_launcher.dart';
@@ -8,6 +9,7 @@ import '../../../domain/entities/match_level.dart';
 import '../../../domain/entities/recommended_competition.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/match_level_chip.dart';
+import '../../preparation/providers/preparation_providers.dart';
 import '../widgets/competition_ai_tips_block.dart';
 import '../widgets/competition_fact_block.dart';
 
@@ -47,6 +49,8 @@ class CompetitionDetailPage extends ConsumerWidget {
             matchScore: recommended!.matchScore,
             reason: recommended!.reason,
           );
+
+    final active = ref.watch(activePlanForCompetitionProvider(competitionId));
 
     final theme = Theme.of(context);
     return Scaffold(
@@ -120,16 +124,24 @@ class CompetitionDetailPage extends ConsumerWidget {
               icon: const Icon(Icons.open_in_new),
               label: const Text('访问官网'),
             ),
-          // 备赛按钮占位：Plan C 接入"开始备赛/继续备赛"。
+          // 备赛按钮：有进行中计划→"继续备赛"跳详情；无→"开始备赛"跳表单。
           const SizedBox(height: 12),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               foregroundColor: AppColors.indigo,
             ),
-            onPressed: null, // Plan C 接入
+            onPressed: () {
+              if (active != null) {
+                context.push('/preparation-plans/${active.id}');
+              } else {
+                context.push(
+                  '/preparation-plans/new?competitionId=$competitionId',
+                );
+              }
+            },
             icon: const Icon(Icons.flag_outlined),
-            label: const Text('开始备赛'),
+            label: Text(active != null ? '继续备赛' : '开始备赛'),
           ),
         ],
       ),

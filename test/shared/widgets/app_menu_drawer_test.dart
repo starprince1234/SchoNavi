@@ -181,4 +181,14 @@ void main() {
     expect(find.text('数学建模 团队赛'), findsOneWidget);
     expect(find.text('医学影像 上海'), findsNothing);
   });
+
+  testWidgets('抽屉含"我的备赛"入口', (tester) async {
+    await tester.pumpWidget(await _pumpDrawer());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('我的备赛'), findsOneWidget);
+  });
 }

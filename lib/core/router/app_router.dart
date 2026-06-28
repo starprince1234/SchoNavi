@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +12,9 @@ import '../../features/history/pages/history_page.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/match/pages/match_page.dart';
 import '../../features/onboarding/pages/onboarding_page.dart';
+import '../../features/preparation/pages/preparation_plan_detail_page.dart';
+import '../../features/preparation/pages/preparation_plan_form_page.dart';
+import '../../features/preparation/pages/preparation_plans_page.dart';
 import '../../features/professor/pages/professor_page.dart';
 import '../../features/recommendation/pages/recommendation_page.dart';
 import '../../features/profile/pages/privacy_agreement_page.dart';
@@ -18,6 +22,7 @@ import '../../features/profile/pages/profile_intro_page.dart';
 import '../../features/profile/pages/profile_page.dart';
 import '../../features/profile/pages/profile_wizard_page.dart';
 import '../../features/settings/pages/settings_page.dart';
+import '../../domain/entities/preparation_plan.dart';
 
 import '../di/providers.dart';
 import '../motion/page_transition.dart';
@@ -131,6 +136,32 @@ final routerProvider = Provider<GoRouter>((ref) {
           child: MatchPage(professorId: state.uri.queryParameters['pid'] ?? ''),
         ),
       ),
+      GoRoute(
+        path: '/preparation-plans',
+        pageBuilder: (context, state) => sharedAxisPage(
+          state: state,
+          child: const PreparationPlansPage(),
+        ),
+      ),
+      // 静态 `new` 路径必须注册在 `:id` 之前，否则会被参数路由吞掉。
+      GoRoute(
+        path: '/preparation-plans/new',
+        pageBuilder: (context, state) => sharedAxisPage(
+          state: state,
+          child: _PreparationPlanFormRoute(
+            competitionId: state.uri.queryParameters['competitionId'] ?? '',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/preparation-plans/:id',
+        pageBuilder: (context, state) => sharedAxisPage(
+          state: state,
+          child: PreparationPlanDetailPage(
+            planId: state.pathParameters['id']!,
+          ),
+        ),
+      ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
       GoRoute(
         path: '/profile/privacy',
@@ -151,3 +182,46 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// `/preparation-plans/new?competitionId=...` 的路由壳：从竞赛目录取基底
+/// 构造 [CompetitionSnapshot] 后渲染 [PreparationPlanFormPage]；查不到则
+/// 展示空态（避免把空 snapshot 喂给表单生成器）。
+class _PreparationPlanFormRoute extends ConsumerWidget {
+  const _PreparationPlanFormRoute({required this.competitionId});
+
+  final String competitionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (competitionId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('创建备赛计划')),
+        body: const Center(child: Text('缺少竞赛信息')),
+      );
+    }
+    final base = ref.read(competitionCatalogRepositoryProvider).findById(
+          competitionId,
+        );
+    if (base == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('创建备赛计划')),
+        body: const Center(child: Text('未找到该竞赛')),
+      );
+    }
+    return PreparationPlanFormPage(
+      competition: CompetitionSnapshot(
+        id: base.id,
+        name: base.name,
+        category: base.category,
+        rulesSummary: CompetitionRulesSummary(
+          signupTime: base.signupTime,
+          contestTime: base.contestTime,
+          teamSize: base.teamSize,
+          format: base.format,
+          organizer: base.organizer,
+          officialUrl: base.officialUrl,
+        ),
+      ),
+    );
+  }
+}
