@@ -63,6 +63,7 @@ web/backend_agent/.omo/
 web/backend_agent/.opencode/
 web/backend_agent/logs/
 web/backend_agent/data/
+web/backend/data/
 web/backend_agent/raw_data/*
 !web/backend_agent/raw_data/
 data-fixture/
