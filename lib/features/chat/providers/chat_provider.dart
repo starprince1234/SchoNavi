@@ -4,15 +4,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/ids/uuid_v7.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/chat_message.dart';
+import '../../../domain/entities/conversation_aggregate.dart';
+import '../../../domain/entities/conversation_event.dart';
+import '../../../domain/entities/conversation_session.dart';
+import '../../../domain/entities/conversation_turn.dart';
 import '../../../domain/entities/fork_ref.dart';
-import '../../../domain/entities/query_understanding.dart';
-import '../../../domain/entities/recommendation_result.dart';
-import '../../profile/providers/profile_provider.dart';
-import '../widgets/chat_quick_actions.dart' show defaultChatQuickActions;
 
-enum ChatActivity { idle, recommending, classifying, streaming }
+enum ChatActivity {
+  unloaded,
+  creating,
+  hydrating,
+  idle,
+  classifying,
+  connecting,
+  streaming,
+  recommending,
+  committing,
+  cancelling,
+  loadFailed,
+  turnFailed,
+  interrupted,
+  deleting,
+  deleted,
+}
 
 class _Sentinel {
   const _Sentinel();
@@ -28,51 +45,109 @@ class ChatState {
     required this.activity,
     required this.followUpQuestions,
     this.forkAnchor,
+    this.kind = ConversationSessionKind.general,
+    this.rootSessionId,
+    this.sourceSessionId,
+    this.sourceTurnId,
+    this.revision = 0,
+    this.turns = const [],
+    this.activeTurnId,
+    this.activeAttemptId,
+    this.errorMessage,
+    this.legacyContextIncomplete = false,
   });
 
   const ChatState.initial()
     : sessionId = null,
       professorId = null,
       messages = const [],
-      activity = ChatActivity.idle,
+      activity = ChatActivity.unloaded,
       followUpQuestions = const [],
-      forkAnchor = null;
+      forkAnchor = null,
+      kind = ConversationSessionKind.general,
+      rootSessionId = null,
+      sourceSessionId = null,
+      sourceTurnId = null,
+      revision = 0,
+      turns = const [],
+      activeTurnId = null,
+      activeAttemptId = null,
+      errorMessage = null,
+      legacyContextIncomplete = false;
 
   final String? sessionId;
   final String? professorId;
   final List<ChatMessage> messages;
   final ChatActivity activity;
   final List<String> followUpQuestions;
-
-  /// fork 追问锚点：非 null 表示当前是 fork 分支，渲染顶部教授条。
   final ForkRef? forkAnchor;
+  final ConversationSessionKind kind;
+  final String? rootSessionId;
+  final String? sourceSessionId;
+  final String? sourceTurnId;
+  final int revision;
+  final List<ConversationTurn> turns;
+  final String? activeTurnId;
+  final String? activeAttemptId;
+  final String? errorMessage;
+  final bool legacyContextIncomplete;
 
-  bool get isBusy => activity != ChatActivity.idle;
+  bool get isBusy => switch (activity) {
+    ChatActivity.creating ||
+    ChatActivity.hydrating ||
+    ChatActivity.classifying ||
+    ChatActivity.connecting ||
+    ChatActivity.streaming ||
+    ChatActivity.recommending ||
+    ChatActivity.committing ||
+    ChatActivity.cancelling ||
+    ChatActivity.deleting => true,
+    _ => false,
+  };
 
-  /// 兼容既有 UI/测试命名；现在分类和推荐请求也属于响应中。
   bool get isResponding => isBusy;
+  bool get canSend =>
+      activity == ChatActivity.idle &&
+      sessionId != null &&
+      !legacyContextIncomplete;
 
   bool get canRegenerate {
-    if (isBusy || messages.length < 2) return false;
+    if (isBusy || turns.isEmpty) return false;
+    final turn = turns.last;
+    if (turn.sessionId != sessionId) return false;
+    if (turn.status == ConversationTurnStatus.failed ||
+        turn.status == ConversationTurnStatus.interrupted) {
+      return turn.route != ConversationRoute.forkReroute;
+    }
+    if (messages.length < 2) return false;
     final assistant = messages.last;
-    final user = messages[messages.length - 2];
     return assistant.role == ChatRole.assistant &&
         assistant.kind == ChatMessageKind.conversation &&
-        user.role == ChatRole.user;
+        turn.route == ConversationRoute.conversation &&
+        turn.status == ConversationTurnStatus.completed;
   }
 
-  /// [forkAnchor] 用 sentinel 区分「未传」与「显式置 null」，
-  /// 因 ForkRef 本身可空，直接 `?? this.forkAnchor` 无法清空锚点。
-  /// [professorId] 同样支持显式置 null，避免失败分支留下过期导师绑定。
   ChatState copyWith({
-    String? sessionId,
+    Object? sessionId = _sentinel,
     Object? professorId = _sentinel,
     List<ChatMessage>? messages,
     ChatActivity? activity,
     List<String>? followUpQuestions,
     Object? forkAnchor = _sentinel,
+    ConversationSessionKind? kind,
+    Object? rootSessionId = _sentinel,
+    Object? sourceSessionId = _sentinel,
+    Object? sourceTurnId = _sentinel,
+    int? revision,
+    List<ConversationTurn>? turns,
+    Object? activeTurnId = _sentinel,
+    Object? activeAttemptId = _sentinel,
+    Object? errorMessage = _sentinel,
+    bool? legacyContextIncomplete,
   }) => ChatState(
-    sessionId: sessionId ?? this.sessionId,
+    sessionId: identical(sessionId, _sentinel)
+        ? this.sessionId
+        : sessionId as String?,
     professorId: identical(professorId, _sentinel)
         ? this.professorId
         : professorId as String?,
@@ -82,674 +157,648 @@ class ChatState {
     forkAnchor: identical(forkAnchor, _sentinel)
         ? this.forkAnchor
         : forkAnchor as ForkRef?,
+    kind: kind ?? this.kind,
+    rootSessionId: identical(rootSessionId, _sentinel)
+        ? this.rootSessionId
+        : rootSessionId as String?,
+    sourceSessionId: identical(sourceSessionId, _sentinel)
+        ? this.sourceSessionId
+        : sourceSessionId as String?,
+    sourceTurnId: identical(sourceTurnId, _sentinel)
+        ? this.sourceTurnId
+        : sourceTurnId as String?,
+    revision: revision ?? this.revision,
+    turns: turns ?? this.turns,
+    activeTurnId: identical(activeTurnId, _sentinel)
+        ? this.activeTurnId
+        : activeTurnId as String?,
+    activeAttemptId: identical(activeAttemptId, _sentinel)
+        ? this.activeAttemptId
+        : activeAttemptId as String?,
+    errorMessage: identical(errorMessage, _sentinel)
+        ? this.errorMessage
+        : errorMessage as String?,
+    legacyContextIncomplete:
+        legacyContextIncomplete ?? this.legacyContextIncomplete,
   );
 }
 
 class ChatNotifier extends Notifier<ChatState> {
-  int _seq = 0;
+  final UuidV7 _ids = UuidV7();
   int _operation = 0;
-  StreamSubscription<String>? _sub;
-  Completer<void>? _turn;
-  String? _activeAssistantId;
+  int? _activeEventRevision;
+  StreamIterator<ConversationEvent>? _iterator;
 
   @override
   ChatState build() {
     ref.onDispose(() {
       _operation++;
-      final sub = _sub;
-      _sub = null;
-      _completeTurn();
-      if (sub != null) unawaited(sub.cancel());
+      _activeEventRevision = null;
+      final iterator = _iterator;
+      _iterator = null;
+      if (iterator != null) unawaited(iterator.cancel());
     });
     return const ChatState.initial();
   }
 
-  void start({required String sessionId, String? professorId}) {
-    if (state.sessionId == sessionId && state.professorId == professorId) {
-      return;
-    }
+  Future<void> create({String? professorId}) async {
     final token = _beginOperation();
-    final sub = _sub;
-    _sub = null;
-    _activeAssistantId = null;
-    if (sub != null) unawaited(sub.cancel());
-    _completeTurn();
-
-    _seq = 0;
-    state = ChatState(
-      sessionId: sessionId,
+    await _cancelIterator();
+    state = const ChatState.initial().copyWith(
+      activity: ChatActivity.creating,
       professorId: professorId,
-      messages: const [],
-      activity: ChatActivity.idle,
-      followUpQuestions: const [],
     );
-    unawaited(_refreshQuickActions(followUp: '', token: token));
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .createSession(professorId: professorId);
+    if (!_isCurrent(token)) return;
+    switch (result) {
+      case Success<ConversationSession>(:final data):
+        await _hydrate(data.id, token: token);
+      case Failure<ConversationSession>(:final error):
+        state = state.copyWith(
+          activity: ChatActivity.loadFailed,
+          errorMessage: error.message,
+        );
+    }
   }
 
-  Future<void> bootstrapRecommendations(String initialPrompt) async {
-    final prompt = initialPrompt.trim();
-    if (prompt.isEmpty || state.isBusy || state.messages.isNotEmpty) return;
-
+  /// Compatibility entry point. Existing IDs are hydrated. A missing or
+  /// unreadable ID is a load failure and must never become a new empty chat.
+  Future<void> start({required String sessionId, String? professorId}) async {
     final token = _beginOperation();
-    final placeholderId = _nextId();
-    state = state.copyWith(
-      activity: ChatActivity.recommending,
-      messages: [
-        ChatMessage(
-          id: _nextId(),
-          role: ChatRole.user,
-          content: prompt,
-          createdAt: DateTime.now(),
-          relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-        _recommendationPlaceholder(placeholderId),
-      ],
+    await _cancelIterator();
+    state = const ChatState.initial().copyWith(
+      activity: ChatActivity.hydrating,
+      professorId: professorId,
     );
-    await _requestRecommendations(
-      prompt,
-      token: token,
-      placeholderId: placeholderId,
-    );
+    final loaded = await ref
+        .read(conversationRepositoryProvider)
+        .loadSession(sessionId);
+    if (!_isCurrent(token)) return;
+    switch (loaded) {
+      case Success<ConversationAggregate>(:final data):
+        _applyAggregate(data);
+      case Failure<ConversationAggregate>(:final error):
+        state = state.copyWith(
+          activity: ChatActivity.loadFailed,
+          errorMessage: error.message,
+        );
+    }
   }
 
-  /// 从 [sourceSessionId] fork 出新分支并载入其历史，绑死 [professorId]。
-  ///
-  /// 流程：forkSession 拿 forkId → loadHistory 回填消息 → listForks 找到
-  /// 匹配 forkId 的 ForkRef 作为锚点。每次 await 后用 [_isCurrent] 丢弃过期回调。
+  Future<void> bootstrapRecommendations(String initialPrompt) =>
+      send(initialPrompt);
+
   Future<void> startFork({
     required String sourceSessionId,
     required String professorId,
+    String? sourceTurnId,
   }) async {
+    if (sourceSessionId.trim().isEmpty) {
+      await create(professorId: professorId);
+      return;
+    }
     final token = _beginOperation();
-    final sub = _sub;
-    _sub = null;
-    _activeAssistantId = null;
-    if (sub != null) unawaited(sub.cancel());
-    _completeTurn();
-
-    state = state.copyWith(
-      sessionId: null,
-      professorId: professorId,
-      messages: const [],
-      activity: ChatActivity.idle,
-      forkAnchor: null,
-    );
-
-    final repo = ref.read(chatRepositoryProvider);
-    final forkRes = await repo.forkSession(
-      sourceSessionId: sourceSessionId,
+    await _cancelIterator();
+    state = const ChatState.initial().copyWith(
+      activity: ChatActivity.hydrating,
       professorId: professorId,
     );
+    final sourceResult = await ref
+        .read(conversationRepositoryProvider)
+        .loadSession(sourceSessionId);
     if (!_isCurrent(token)) return;
-
-    switch (forkRes) {
-      case Success<String>(:final data):
-        final forkId = data;
-        final historyRes = await repo.loadHistory(sessionId: forkId);
-        if (!_isCurrent(token)) return;
-        final msgs = historyRes is Success<List<ChatMessage>>
-            ? historyRes.data
-            : const <ChatMessage>[];
-        final forksRes = await repo.listForks(mainSessionId: sourceSessionId);
-        if (!_isCurrent(token)) return;
-        ForkRef? anchor;
-        if (forksRes is Success<List<ForkRef>>) {
-          anchor = forksRes.data
-              .cast<ForkRef?>()
-              .firstWhere((f) => f?.forkId == forkId, orElse: () => null);
-        }
-        _seq = msgs.length;
-        state = ChatState(
-          sessionId: forkId,
+    if (sourceResult is! Success<ConversationAggregate>) {
+      state = state.copyWith(
+        activity: ChatActivity.loadFailed,
+        errorMessage: sourceResult is Failure<ConversationAggregate>
+            ? sourceResult.error.message
+            : const UnknownException().message,
+      );
+      return;
+    }
+    final source = sourceResult.data;
+    final resolvedTurnId =
+        sourceTurnId ?? _latestRecommendationTurn(source, professorId);
+    if (resolvedTurnId == null) {
+      state = state.copyWith(
+        activity: ChatActivity.loadFailed,
+        errorMessage: '所选导师不属于可追问的推荐轮次',
+      );
+      return;
+    }
+    final fork = await ref
+        .read(conversationRepositoryProvider)
+        .forkSessionAtTurn(
+          sourceSessionId: source.session.id,
+          sourceTurnId: resolvedTurnId,
           professorId: professorId,
-          messages: msgs,
-          activity: ChatActivity.idle,
-          followUpQuestions: const [],
-          forkAnchor: anchor,
         );
-        unawaited(_refreshQuickActions(followUp: '', token: token));
-      case Failure<String>():
-        if (!_isCurrent(token)) return;
+    if (!_isCurrent(token)) return;
+    switch (fork) {
+      case Success<ConversationSession>(:final data):
+        await _hydrate(data.id, token: token);
+      case Failure<ConversationSession>(:final error):
         state = state.copyWith(
-          activity: ChatActivity.idle,
-          professorId: null,
-          forkAnchor: null,
+          activity: ChatActivity.loadFailed,
+          errorMessage: error.message,
         );
     }
   }
 
-  /// 恢复某 session 的历史。fork 模式下用 [mainSessionId] 经 listForks 重建锚点。
-  ///
-  /// [mainSessionId] 为 null/空 时 fork 锚点降级为 null（顶部条不显示，不崩溃）；
-  /// 路由侧（Task 10）从历史页携带 msid 传入，避免从 `f_<mainSid>_<pid>` 反解
-  /// mainSid（该格式在 mainSid 含 `_` 时有歧义）。
   Future<void> resume({
     required String sessionId,
-    required bool isFork,
+    bool isFork = false,
     String? mainSessionId,
   }) async {
     final token = _beginOperation();
-    final sub = _sub;
-    _sub = null;
-    _activeAssistantId = null;
-    if (sub != null) unawaited(sub.cancel());
-    _completeTurn();
-
-    final repo = ref.read(chatRepositoryProvider);
-    final historyRes = await repo.loadHistory(sessionId: sessionId);
-    if (!_isCurrent(token)) return;
-    final msgs = historyRes is Success<List<ChatMessage>>
-        ? historyRes.data
-        : const <ChatMessage>[];
-
-    ForkRef? anchor;
-    String? professorId;
-    if (isFork && mainSessionId != null && mainSessionId.isNotEmpty) {
-      final forksRes = await repo.listForks(mainSessionId: mainSessionId);
-      if (!_isCurrent(token)) return;
-      if (forksRes is Success<List<ForkRef>>) {
-        anchor = forksRes.data
-            .cast<ForkRef?>()
-            .firstWhere((f) => f?.forkId == sessionId, orElse: () => null);
-        professorId = anchor?.professorId;
-      }
-    }
-
-    _seq = msgs.length;
-    state = ChatState(
-      sessionId: sessionId,
-      professorId: professorId,
-      messages: msgs,
-      activity: ChatActivity.idle,
-      followUpQuestions: const [],
-      forkAnchor: anchor,
+    await _cancelIterator();
+    state = const ChatState.initial().copyWith(
+      activity: ChatActivity.hydrating,
     );
-    unawaited(_refreshQuickActions(followUp: '', token: token));
+    await _hydrate(sessionId, token: token);
   }
 
   Future<void> send(String text) async {
     final content = text.trim();
-    if (content.isEmpty ||
-        state.sessionId == null ||
-        state.sessionId!.isEmpty ||
-        state.isBusy) {
-      return;
-    }
-
-    final token = _beginOperation();
-    final lastResult = _lastRecommendationResult();
+    if (content.isEmpty || !state.canSend) return;
+    final sessionId = state.sessionId!;
+    final requestId = _ids.generate();
+    final optimisticUser = ChatMessage(
+      id: 'pending-$requestId',
+      role: ChatRole.user,
+      content: content,
+      createdAt: DateTime.now(),
+      relatedRecommendations: const [],
+      status: ChatMessageStatus.done,
+    );
     state = state.copyWith(
       activity: ChatActivity.classifying,
-      messages: [
-        ...state.messages,
-        ChatMessage(
-          id: _nextId(),
-          role: ChatRole.user,
-          content: content,
-          createdAt: DateTime.now(),
-          relatedRecommendations: const [],
-          status: ChatMessageStatus.done,
-        ),
-      ],
+      messages: [...state.messages, optimisticUser],
+      errorMessage: null,
     );
-
-    var needsRecommendations = false;
-    try {
-      needsRecommendations = await ref
-          .read(recommendationNeedClassifierProvider)
-          .needRecommendations(content, lastResult: lastResult);
-    } catch (_) {
-      needsRecommendations = false;
-    }
-    if (!_isCurrent(token)) return;
-
-    if (needsRecommendations) {
-      if (state.forkAnchor != null) {
-        await _emitForkReroute(content, token: token);
-        return;
-      }
-      final placeholderId = _nextId();
-      state = state.copyWith(
-        activity: ChatActivity.recommending,
-        messages: [
-          ...state.messages,
-          _recommendationPlaceholder(placeholderId),
-        ],
-      );
-      await _requestRecommendations(
-        content,
-        token: token,
-        placeholderId: placeholderId,
-      );
-      return;
-    }
-
-    await _streamConversation(content, token: token);
-  }
-
-  Future<void> retryRecommendation(String assistantMessageId) async {
-    if (state.isBusy || state.messages.length < 2) return;
-    final assistantIndex = state.messages.indexWhere(
-      (message) => message.id == assistantMessageId,
-    );
-    if (assistantIndex != state.messages.length - 1) return;
-    final assistant = state.messages[assistantIndex];
-    final user = state.messages[assistantIndex - 1];
-    if (assistant.kind != ChatMessageKind.recommendation ||
-        assistant.status != ChatMessageStatus.error ||
-        user.role != ChatRole.user) {
-      return;
-    }
-
-    final token = _beginOperation();
-    final placeholderId = _nextId();
-    state = state.copyWith(
-      messages: [
-        ...state.messages.sublist(0, assistantIndex),
-        _recommendationPlaceholder(placeholderId),
-      ],
-      activity: ChatActivity.recommending,
-    );
-    await _requestRecommendations(
-      user.content,
-      token: token,
-      placeholderId: placeholderId,
+    await _runEvents(
+      ref
+          .read(conversationRepositoryProvider)
+          .submitTurn(
+            sessionId: sessionId,
+            text: content,
+            expectedRevision: state.revision,
+            requestId: requestId,
+          ),
+      sessionId: sessionId,
     );
   }
 
   Future<void> regenerate() async {
     if (!state.canRegenerate) return;
-    await regenerateMessage(state.messages.last.id);
+    await _regenerateLatest();
   }
 
   Future<void> regenerateMessage(String assistantMessageId) async {
-    if (!state.canRegenerate || state.messages.last.id != assistantMessageId) {
+    if (!state.canRegenerate ||
+        state.messages.last.id != assistantMessageId ||
+        state.sessionId == null) {
       return;
     }
-    final user = state.messages[state.messages.length - 2];
-    final token = _beginOperation();
-    state = state.copyWith(
-      messages: state.messages.sublist(0, state.messages.length - 1),
-    );
-    await _streamConversation(user.content, token: token);
+    await _regenerateLatest();
+  }
+
+  Future<void> retryRecommendation(String assistantMessageId) async {
+    if (state.isBusy ||
+        state.sessionId == null ||
+        state.turns.isEmpty ||
+        state.messages.isEmpty ||
+        state.messages.last.id != assistantMessageId ||
+        state.turns.last.route != ConversationRoute.recommendation ||
+        state.turns.last.sessionId != state.sessionId) {
+      return;
+    }
+    await _regenerateLatest();
   }
 
   void setFeedback(String messageId, ChatMessageFeedback feedback) {
     final messages = [...state.messages];
-    final i = messages.indexWhere((message) => message.id == messageId);
-    if (i == -1) return;
-
-    final message = messages[i];
-    if (message.role != ChatRole.assistant ||
-        message.status != ChatMessageStatus.done) {
+    final index = messages.indexWhere((message) => message.id == messageId);
+    if (index == -1 ||
+        messages[index].role != ChatRole.assistant ||
+        messages[index].status != ChatMessageStatus.done) {
       return;
     }
-
-    messages[i] = message.copyWith(feedback: feedback);
+    final previous = messages[index].feedback;
+    messages[index] = messages[index].copyWith(feedback: feedback);
     state = state.copyWith(messages: messages);
+    unawaited(_persistFeedback(messageId, previous, feedback));
   }
 
-  /// 向后端拉取快捷操作 chip 并写入 state。失败降级到 [defaultChatQuickActions]，
-  /// 成功空不显示，成功非空直接写入（widget 显示时仍归一化过滤问句/cap 4/去重）。
-  /// 过期 token 的回调直接丢弃，防止旧轮覆盖新 state。
-  Future<void> _refreshQuickActions({
-    required String followUp,
-    required int token,
-  }) async {
-    final result = await ref.read(quickActionsSourceProvider).fetch(
-      followUp: followUp,
-      lastResult: _lastRecommendationResult(),
-    );
-    if (!_isCurrent(token)) return; // 过期请求丢弃
-    final actions = result is Success<List<String>> && result.data.isNotEmpty
-        ? result.data
-        : (result is Failure<List<String>>
-            ? defaultChatQuickActions
-            : const <String>[]);
-    state = state.copyWith(followUpQuestions: actions);
-  }
-
-  Future<void> _requestRecommendations(
-    String prompt, {
-    required int token,
-    required String placeholderId,
-  }) async {
-    final sessionId = state.sessionId;
-    if (sessionId == null || sessionId.isEmpty) {
-      _appendRecommendationError(
-        token,
-        const UnknownException().message,
-        placeholderId: placeholderId,
-      );
+  Future<void> abandonInterruptedTurn() async {
+    if (state.activity != ChatActivity.interrupted &&
+        state.activity != ChatActivity.turnFailed) {
       return;
     }
+    state = state.copyWith(activity: ChatActivity.idle, errorMessage: null);
+  }
 
+  Future<void> delete() async {
+    final sessionId = state.sessionId;
+    if (sessionId == null || state.isBusy) return;
+    final token = _beginOperation();
+    await _cancelIterator();
+    state = state.copyWith(activity: ChatActivity.deleting);
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .deleteSession(sessionId);
+    if (!_isCurrent(token)) return;
+    switch (result) {
+      case Success<void>():
+        state = state.copyWith(
+          activity: ChatActivity.deleted,
+          messages: const [],
+          turns: const [],
+          activeTurnId: null,
+          activeAttemptId: null,
+        );
+      case Failure<void>(:final error):
+        state = state.copyWith(
+          activity: ChatActivity.turnFailed,
+          errorMessage: error.message,
+        );
+    }
+  }
+
+  Future<void> stop() async {
+    if (state.activity != ChatActivity.streaming &&
+        state.activity != ChatActivity.connecting) {
+      return;
+    }
+    final attemptId = state.activeAttemptId;
+    _operation++;
+    _activeEventRevision = null;
+    state = state.copyWith(activity: ChatActivity.cancelling);
+    await _cancelIterator();
+    if (attemptId != null) {
+      await ref.read(conversationRepositoryProvider).cancelAttempt(attemptId);
+    }
+    final sessionId = state.sessionId;
+    if (sessionId != null) {
+      final token = _beginOperation();
+      await _hydrate(sessionId, token: token);
+    }
+  }
+
+  Future<void> _runEvents(
+    Stream<ConversationEvent> stream, {
+    required String sessionId,
+  }) async {
+    final token = _beginOperation();
+    await _cancelIterator();
+    final iterator = StreamIterator<ConversationEvent>(stream);
+    _iterator = iterator;
     try {
-      final result = await ref
-          .read(recommendationRepositoryProvider)
-          .getRecommendations(
-            prompt: prompt,
-            profile: ref.read(profileProvider),
-            sessionId: sessionId,
-          );
+      while (await iterator.moveNext()) {
+        if (!_isCurrent(token)) return;
+        final event = iterator.current;
+        if (!_acceptEvent(event, sessionId)) continue;
+        await _handleEvent(event, token: token);
+      }
+      if (_isCurrent(token) && state.isBusy) {
+        await _hydrate(sessionId, token: token);
+      }
+    } catch (error) {
       if (!_isCurrent(token)) return;
+      final message = error is AppException
+          ? error.message
+          : const UnknownException().message;
+      await _hydrate(sessionId, token: token);
+      if (!_isCurrent(token) || state.activity == ChatActivity.loadFailed) {
+        return;
+      }
+      state = state.copyWith(
+        activity: ChatActivity.turnFailed,
+        errorMessage: message,
+        messages: [
+          ...state.messages,
+          ChatMessage(
+            id: _ids.generate(),
+            role: ChatRole.assistant,
+            content: message,
+            createdAt: DateTime.now(),
+            relatedRecommendations: const [],
+            status: ChatMessageStatus.error,
+          ),
+        ],
+      );
+    } finally {
+      if (_iterator == iterator) _iterator = null;
+      await iterator.cancel();
+    }
+  }
 
-      switch (result) {
-        case Success<RecommendationResult>(:final data):
-          final resolvedSessionId = data.sessionId.isEmpty
-              ? sessionId
-              : data.sessionId;
-          await ref
-              .read(chatRepositoryProvider)
-              .seedRecommendationTurn(
-                sessionId: resolvedSessionId,
-                userPrompt: prompt,
-                result: data,
-              );
-          final placeholder = state.messages.firstWhere(
-            (m) => m.id == placeholderId,
-            orElse: () => ChatMessage(
-              id: placeholderId,
+  Future<void> _handleEvent(
+    ConversationEvent event, {
+    required int token,
+  }) async {
+    switch (event) {
+      case ConversationAcknowledged():
+        _activeEventRevision = event.revision;
+        state = state.copyWith(
+          activeTurnId: event.turnId,
+          activeAttemptId: event.attemptId,
+        );
+      case ConversationRouted(:final route):
+        final kind = switch (route) {
+          ConversationRoute.recommendation => ChatMessageKind.recommendation,
+          ConversationRoute.forkReroute => ChatMessageKind.forkReroute,
+          ConversationRoute.conversation => ChatMessageKind.conversation,
+        };
+        final activity = switch (route) {
+          ConversationRoute.recommendation => ChatActivity.recommending,
+          ConversationRoute.forkReroute => ChatActivity.committing,
+          ConversationRoute.conversation => ChatActivity.connecting,
+        };
+        state = state.copyWith(
+          activity: activity,
+          messages: [
+            ...state.messages,
+            ChatMessage(
+              id: 'pending-${event.attemptId}',
               role: ChatRole.assistant,
               content: '',
               createdAt: DateTime.now(),
               relatedRecommendations: const [],
-              status: ChatMessageStatus.done,
-              kind: ChatMessageKind.recommendation,
+              status: ChatMessageStatus.sending,
+              kind: kind,
             ),
+          ],
+        );
+      case ConversationDelta(:final text):
+        final id = 'pending-${event.attemptId}';
+        final messages = [...state.messages];
+        final index = messages.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          messages[index] = messages[index].copyWith(
+            content: '${messages[index].content}$text',
+            status: ChatMessageStatus.streaming,
           );
+        }
+        state = state.copyWith(
+          activity: ChatActivity.streaming,
+          messages: messages,
+        );
+      case ConversationCompleted(:final quickActions):
+        state = state.copyWith(activity: ChatActivity.committing);
+        await _hydrate(event.sessionId, token: token);
+        if (_isCurrent(token)) {
           state = state.copyWith(
-            sessionId: resolvedSessionId,
             activity: ChatActivity.idle,
-            followUpQuestions: data.followUpQuestions,
+            followUpQuestions: quickActions,
+            activeTurnId: null,
+            activeAttemptId: null,
+          );
+          _activeEventRevision = null;
+        }
+      case ConversationFailed(:final message):
+        await _hydrate(event.sessionId, token: token);
+        if (_isCurrent(token)) {
+          final kind = state.turns.isEmpty
+              ? ChatMessageKind.conversation
+              : switch (state.turns.last.route) {
+                  ConversationRoute.recommendation =>
+                    ChatMessageKind.recommendation,
+                  ConversationRoute.forkReroute => ChatMessageKind.forkReroute,
+                  _ => ChatMessageKind.conversation,
+                };
+          state = state.copyWith(
+            activity: ChatActivity.turnFailed,
+            errorMessage: message,
+            activeTurnId: null,
+            activeAttemptId: null,
             messages: [
-              for (final m in state.messages)
-                if (m.id == placeholderId)
-                  placeholder.copyWith(
-                    content: _openingLine(data),
-                    relatedRecommendations: data.recommendations,
-                    status: ChatMessageStatus.done,
-                    kind: ChatMessageKind.recommendation,
-                  )
-                else
-                  m,
+              ...state.messages,
+              ChatMessage(
+                id: 'failed-${event.attemptId}',
+                role: ChatRole.assistant,
+                content: message,
+                createdAt: DateTime.now(),
+                relatedRecommendations: const [],
+                status: ChatMessageStatus.error,
+                kind: kind,
+              ),
             ],
           );
-          _persist();
-          unawaited(
-            ref
-                .read(historyRepositoryProvider)
-                .addFromResult(prompt: prompt, result: data),
-          );
-        case Failure<RecommendationResult>(:final error):
-          _appendRecommendationError(
-            token,
-            error.message,
-            placeholderId: placeholderId,
-          );
-      }
-    } catch (error) {
-      _appendRecommendationError(
-        token,
-        _messageFor(error),
-        placeholderId: placeholderId,
-      );
+          _activeEventRevision = null;
+        }
     }
   }
 
-  ChatMessage _recommendationPlaceholder(String id) => ChatMessage(
-        id: id,
-        role: ChatRole.assistant,
-        content: '',
-        createdAt: DateTime.now(),
-        relatedRecommendations: const [],
-        status: ChatMessageStatus.sending,
-        kind: ChatMessageKind.recommendation,
-      );
-
-  void _appendRecommendationError(
-    int token,
-    String message, {
-    required String placeholderId,
-  }) {
+  Future<void> _hydrate(String sessionId, {required int token}) async {
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .loadSession(sessionId);
     if (!_isCurrent(token)) return;
-    state = state.copyWith(
-      activity: ChatActivity.idle,
-      messages: [
-        for (final m in state.messages)
-          if (m.id == placeholderId)
-            ChatMessage(
-              id: placeholderId,
-              role: ChatRole.assistant,
-              content: message,
-              createdAt: m.createdAt,
-              relatedRecommendations: const [],
-              status: ChatMessageStatus.error,
-              kind: ChatMessageKind.recommendation,
-            )
-          else
-            m,
-      ],
-    );
-    _persist();
+    switch (result) {
+      case Success<ConversationAggregate>(:final data):
+        _applyAggregate(data);
+      case Failure<ConversationAggregate>(:final error):
+        state = state.copyWith(
+          activity: ChatActivity.loadFailed,
+          errorMessage: error.message,
+          messages: const [],
+          turns: const [],
+        );
+    }
   }
 
-  /// fork 内识别到再推荐意图时不走产卡，而是发一条重路由提示消息，
-  /// 引导用户回首页重挑一组导师。空推荐卡片、状态 done、不可重新生成。
-  Future<void> _emitForkReroute(String userPrompt, {required int token}) async {
-    // userPrompt 仅作为触发上下文，重路由文案不引用其内容。
-    if (!_isCurrent(token)) return;
-    final anchor = state.forkAnchor;
-    final name = anchor?.professorName ?? '这位导师';
-    final msg = ChatMessage(
-      id: _nextId(),
-      role: ChatRole.assistant,
-      content: '这里咱们专注聊$name教授。想看新的导师推荐，回首页重挑一组吧～',
-      createdAt: DateTime.now(),
-      relatedRecommendations: const [],
-      status: ChatMessageStatus.done,
-      kind: ChatMessageKind.forkReroute,
-    );
-    state = state.copyWith(
-      messages: [...state.messages, msg],
-      activity: ChatActivity.idle,
-    );
-    _persist();
-  }
-
-  Future<void> _streamConversation(String content, {required int token}) async {
-    if (!_isCurrent(token)) return;
-    final placeholder = ChatMessage(
-      id: _nextId(),
-      role: ChatRole.assistant,
-      content: '',
-      createdAt: DateTime.now(),
-      relatedRecommendations: const [],
-      status: ChatMessageStatus.sending,
-      kind: ChatMessageKind.conversation,
-    );
-    state = state.copyWith(
-      messages: [...state.messages, placeholder],
-      activity: ChatActivity.streaming,
-    );
-
-    final assistantId = placeholder.id;
-    final buffer = StringBuffer();
-    final turn = Completer<void>();
-    _turn = turn;
-    _activeAssistantId = assistantId;
-
-    try {
-      _sub = ref
-          .read(chatRepositoryProvider)
-          .streamReply(
-            sessionId: state.sessionId!,
-            message: content,
-            professorId: state.professorId,
+  void _applyAggregate(ConversationAggregate aggregate) {
+    final session = aggregate.session;
+    final professor = session.professorId == null
+        ? null
+        : ref.read(mockDbProvider).getProfessor(session.professorId!);
+    final anchor = session.kind == ConversationSessionKind.fork
+        ? ForkRef(
+            forkId: session.id,
+            mainSessionId: session.rootSessionId,
+            professorId: session.professorId ?? '',
+            professorName: professor?.name ?? '该导师',
+            university: professor?.university ?? '',
+            college: professor?.college,
+            createdAt: session.createdAt,
           )
-          .listen(
-            (delta) {
-              if (!_isCurrent(token)) return;
-              buffer.write(delta);
-              _setAssistant(
-                assistantId,
-                buffer.toString(),
-                ChatMessageStatus.streaming,
-              );
-            },
-            onError: (Object error) {
-              if (_isCurrent(token)) {
-                final detail = _messageFor(error);
-                final partial = buffer.toString();
-                _setAssistant(
-                  assistantId,
-                  partial.isEmpty ? detail : '$partial\n\n生成中断：$detail',
-                  ChatMessageStatus.error,
-                );
-                state = state.copyWith(activity: ChatActivity.idle);
-                _persist();
-              }
-              _clearActiveTurn(turn: turn, assistantId: assistantId);
-            },
-            onDone: () {
-              if (_isCurrent(token)) {
-                _setAssistant(
-                  assistantId,
-                  buffer.toString(),
-                  ChatMessageStatus.done,
-                );
-                state = state.copyWith(activity: ChatActivity.idle);
-                _persist();
-                unawaited(
-                  _refreshQuickActions(followUp: content, token: token),
-                );
-              }
-              _clearActiveTurn(turn: turn, assistantId: assistantId);
-            },
-            cancelOnError: true,
-          );
-    } catch (error) {
-      if (_isCurrent(token)) {
-        _setAssistant(assistantId, _messageFor(error), ChatMessageStatus.error);
-        state = state.copyWith(activity: ChatActivity.idle);
-        _persist();
-      }
-      _clearActiveTurn(turn: turn, assistantId: assistantId);
-    }
-
-    await turn.future;
-  }
-
-  Future<void> stop() async {
-    if (state.activity != ChatActivity.streaming) return;
-
-    _operation++;
-    final assistantId = _activeAssistantId;
-    final sub = _sub;
-    _sub = null;
-    _activeAssistantId = null;
-
-    if (assistantId != null) {
-      final i = state.messages.indexWhere(
-        (message) => message.id == assistantId,
-      );
-      if (i != -1) {
-        _setAssistant(
-          assistantId,
-          state.messages[i].content,
-          ChatMessageStatus.done,
-        );
-      }
-    }
-    _persist();
-
-    state = state.copyWith(activity: ChatActivity.idle);
-    _completeTurn();
-    if (sub != null) await sub.cancel();
-  }
-
-  void _setAssistant(String id, String content, ChatMessageStatus status) {
-    final messages = [...state.messages];
-    final i = messages.indexWhere((message) => message.id == id);
-    if (i == -1) return;
-    messages[i] = messages[i].copyWith(content: content, status: status);
-    state = state.copyWith(messages: messages);
-  }
-
-  /// 把当前可见消息（含卡片、kind）落盘，供 fork/resume 还原。
-  /// sessionId 缺失时静默跳过（初始化态无会话）。
-  void _persist() {
-    final sessionId = state.sessionId;
-    if (sessionId == null || sessionId.isEmpty) return;
-    unawaited(
-      ref.read(chatRepositoryProvider).persistMessages(sessionId, state.messages),
+        : null;
+    final latestStatus = aggregate.turns.isEmpty
+        ? null
+        : aggregate.turns.last.status;
+    final activity = switch (latestStatus) {
+      ConversationTurnStatus.interrupted => ChatActivity.interrupted,
+      ConversationTurnStatus.failed => ChatActivity.turnFailed,
+      _ => ChatActivity.idle,
+    };
+    state = ChatState(
+      sessionId: session.id,
+      professorId: session.professorId,
+      messages: aggregate.messages,
+      activity: activity,
+      followUpQuestions: state.followUpQuestions,
+      forkAnchor: anchor,
+      kind: session.kind,
+      rootSessionId: session.rootSessionId,
+      sourceSessionId: session.sourceSessionId,
+      sourceTurnId: session.sourceTurnId,
+      revision: session.revision,
+      turns: aggregate.turns,
+      legacyContextIncomplete: session.legacyContextIncomplete,
     );
   }
 
-  void _clearActiveTurn({
-    required Completer<void> turn,
-    required String assistantId,
-  }) {
-    if (_turn == turn && _activeAssistantId == assistantId) {
-      _turn = null;
-      _sub = null;
-      _activeAssistantId = null;
-    }
-    if (!turn.isCompleted) turn.complete();
-  }
-
-  int _beginOperation() => ++_operation;
-
-  bool _isCurrent(int token) => token == _operation;
-
-  void _completeTurn() {
-    final turn = _turn;
-    _turn = null;
-    if (turn != null && !turn.isCompleted) turn.complete();
-  }
-
-  String _messageFor(Object error) =>
-      error is AppException ? error.message : const UnknownException().message;
-
-  String _nextId() => 'm_${_seq++}';
-
-  String _openingLine(RecommendationResult result) {
-    final count = result.recommendations.length;
-    if (count == 0) {
-      return '暂未找到完全符合条件的导师，可尝试放宽学校、地区或研究方向限制。';
-    }
-    final interests = result.queryUnderstanding.researchInterests;
-    final locations = result.queryUnderstanding.preferredLocations;
-    final parts = <String>[
-      if (interests.isNotEmpty) '关注${interests.join('、')}',
-      if (locations.isNotEmpty) '偏好${locations.join('、')}',
-    ];
-    final understood = parts.isEmpty ? '' : '我理解你${parts.join('、')}。';
-    return '$understood为你挑了 $count 位合适的导师，可左右滑动查看：';
-  }
-
-  RecommendationResult? _lastRecommendationResult() {
-    for (final message in state.messages.reversed) {
-      if (message.role == ChatRole.assistant &&
-          message.relatedRecommendations.isNotEmpty) {
-        return RecommendationResult(
-          sessionId: state.sessionId ?? '',
-          queryUnderstanding: const QueryUnderstanding(
-            researchInterests: [],
-            preferredLocations: [],
-            preferredUniversities: [],
-            uncertainties: [],
-          ),
-          recommendations: message.relatedRecommendations,
-          followUpQuestions: state.followUpQuestions,
-        );
+  String? _latestRecommendationTurn(
+    ConversationAggregate aggregate,
+    String professorId,
+  ) {
+    for (var i = aggregate.messages.length - 1; i >= 0; i--) {
+      final message = aggregate.messages[i];
+      if (message.kind != ChatMessageKind.recommendation ||
+          !message.relatedRecommendations.any(
+            (r) => r.professorId == professorId,
+          )) {
+        continue;
+      }
+      var turnIndex = -1;
+      for (var j = 0; j <= i; j++) {
+        if (aggregate.messages[j].role == ChatRole.user) turnIndex++;
+      }
+      if (turnIndex >= 0 && turnIndex < aggregate.turns.length) {
+        return aggregate.turns[turnIndex].id;
       }
     }
     return null;
   }
+
+  Future<void> _cancelIterator() async {
+    final iterator = _iterator;
+    _iterator = null;
+    if (iterator != null) await iterator.cancel();
+  }
+
+  Future<void> _regenerateLatest() async {
+    if (!state.canRegenerate || state.sessionId == null) return;
+    final turn = state.turns.last;
+    final messages = [...state.messages];
+    if (messages.isNotEmpty && messages.last.role == ChatRole.assistant) {
+      messages.removeLast();
+    }
+    final activity = switch (turn.route) {
+      null => ChatActivity.classifying,
+      ConversationRoute.recommendation => ChatActivity.recommending,
+      ConversationRoute.forkReroute => ChatActivity.committing,
+      ConversationRoute.conversation => ChatActivity.connecting,
+    };
+    state = state.copyWith(
+      activity: activity,
+      messages: messages,
+      errorMessage: null,
+    );
+    await _runEvents(
+      ref
+          .read(conversationRepositoryProvider)
+          .regenerateTurn(
+            sessionId: state.sessionId!,
+            turnId: turn.id,
+            expectedRevision: state.revision,
+            requestId: _ids.generate(),
+          ),
+      sessionId: state.sessionId!,
+    );
+  }
+
+  Future<void> _persistFeedback(
+    String messageId,
+    ChatMessageFeedback previous,
+    ChatMessageFeedback requested,
+  ) async {
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .setMessageFeedback(messageId, requested);
+    if (!ref.mounted) return;
+    if (result is Success<void>) return;
+    final messages = [...state.messages];
+    final index = messages.indexWhere((message) => message.id == messageId);
+    if (index == -1 || messages[index].feedback != requested) return;
+    messages[index] = messages[index].copyWith(feedback: previous);
+    state = state.copyWith(
+      messages: messages,
+      errorMessage: result is Failure<void>
+          ? result.error.message
+          : const UnknownException().message,
+    );
+  }
+
+  bool _acceptEvent(ConversationEvent event, String sessionId) {
+    if (event.sessionId != sessionId) {
+      return false;
+    }
+    if (event is ConversationAcknowledged) {
+      if (state.activeTurnId != null || state.activeAttemptId != null) {
+        return false;
+      }
+      if (event.revision != state.revision &&
+          event.revision != state.revision + 1) {
+        return false;
+      }
+      return true;
+    }
+    if (state.activeTurnId == null || state.activeAttemptId == null) {
+      throw const ValidationException('会话事件缺少 ack');
+    }
+    if (event.turnId != state.activeTurnId ||
+        event.attemptId != state.activeAttemptId) {
+      return false;
+    }
+    final pendingAssistantId = 'pending-${event.attemptId}';
+    final hasPendingAssistant = state.messages.any(
+      (message) => message.id == pendingAssistantId,
+    );
+    if (event is ConversationRouted && hasPendingAssistant) {
+      return false;
+    }
+    if ((event is ConversationDelta || event is ConversationCompleted) &&
+        !hasPendingAssistant) {
+      throw const ValidationException('生成事件早于路由事件');
+    }
+    final baseRevision = _activeEventRevision;
+    if (baseRevision == null) {
+      throw const ValidationException('会话事件缺少 revision 基线');
+    }
+    if (event is ConversationCompleted) {
+      final validRevision =
+          event.revision == baseRevision || event.revision == baseRevision + 1;
+      if (!validRevision ||
+          event.session.id != sessionId ||
+          event.session.revision != event.revision) {
+        return false;
+      }
+      return true;
+    }
+    if (event is ConversationFailed) {
+      if (event.revision != baseRevision &&
+          event.revision != baseRevision + 1) {
+        return false;
+      }
+      return true;
+    }
+    if (event.revision != baseRevision) {
+      return false;
+    }
+    return true;
+  }
+
+  int _beginOperation() {
+    _activeEventRevision = null;
+    return ++_operation;
+  }
+
+  bool _isCurrent(int token) => token == _operation;
 }
 
-/// 每个 ChatPage 用自己的作用域对象读取一个实例，页面退出后自动释放。
 final chatProvider = NotifierProvider.autoDispose
     .family<ChatNotifier, ChatState, Object>((_) => ChatNotifier());

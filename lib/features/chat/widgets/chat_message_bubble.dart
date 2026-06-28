@@ -45,7 +45,9 @@ class ChatMessageBubble extends StatelessWidget {
 
     final scheme = Theme.of(context).colorScheme;
     final isUser = message.role == ChatRole.user;
-    final isError = message.status == ChatMessageStatus.error;
+    final isError =
+        message.status == ChatMessageStatus.error ||
+        message.status == ChatMessageStatus.interrupted;
     final isStreaming = message.status == ChatMessageStatus.streaming;
     final bubbleColor = isUser
         ? scheme.primaryContainer

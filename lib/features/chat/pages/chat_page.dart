@@ -8,6 +8,8 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/recommendation.dart';
+import '../../../domain/entities/chat_message.dart';
+import '../../../domain/entities/conversation_session.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
@@ -28,6 +30,7 @@ class ChatPage extends ConsumerStatefulWidget {
     this.forkMode = false,
     this.mainSessionId,
     this.forkId,
+    this.sourceTurnId,
   });
 
   /// 旧入口（从推荐页 FAB / 详情页「继续追问」）：携带已有会话 id 进纯追问。
@@ -42,6 +45,7 @@ class ChatPage extends ConsumerStatefulWidget {
   final bool forkMode;
   final String? mainSessionId;
   final String? forkId;
+  final String? sourceTurnId;
 
   @override
   ConsumerState<ChatPage> createState() => _ChatPageState();
@@ -65,6 +69,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       if (!mounted) return;
       if (_configurationBlocked) return;
       final notifier = ref.read(_provider.notifier);
+      if (widget.sessionId != null && widget.sessionId!.trim().isNotEmpty) {
+        await notifier.resume(sessionId: widget.sessionId!.trim());
+        return;
+      }
       if (widget.forkMode && widget.forkId != null) {
         await notifier.resume(
           sessionId: widget.forkId!,
@@ -77,19 +85,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         await notifier.startFork(
           sourceSessionId: widget.mainSessionId ?? '',
           professorId: widget.professorId ?? '',
+          sourceTurnId: widget.sourceTurnId,
         );
         return;
       }
-      final sessionId = widget.sessionId?.trim();
-      notifier.start(
-        sessionId: sessionId == null || sessionId.isEmpty
-            ? _newSessionId()
-            : sessionId,
-        professorId: widget.professorId,
-      );
+      await notifier.create(professorId: widget.professorId);
       if (widget.initialPrompt != null &&
           widget.initialPrompt!.trim().isNotEmpty) {
-        notifier.bootstrapRecommendations(widget.initialPrompt!);
+        await notifier.bootstrapRecommendations(widget.initialPrompt!);
       }
     });
   }
@@ -134,7 +137,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     // 首页带 initialPrompt 进来是新会话（对话式推荐首轮），不应显示「继续追问」
     // 这种「延续旧会话」的语义——对齐 ChatGPT App：新对话就是新对话页。
     final isNewSession = widget.initialPrompt != null;
-    final showWelcome = widget.initialPrompt == null;
+    final isLoadingSession =
+        state.activity == ChatActivity.unloaded ||
+        state.activity == ChatActivity.creating ||
+        state.activity == ChatActivity.hydrating ||
+        state.activity == ChatActivity.deleting;
+    final showWelcome = widget.initialPrompt == null && !isLoadingSession;
     if (state.messages.length != _messageCount) {
       _messageCount = state.messages.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -152,10 +160,63 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         children: [
           const Positioned.fill(child: CoolScaffoldBackground()),
           blocked
-              ? ErrorView(message: const MissingLlmConfigurationException().message)
+              ? ErrorView(
+                  message: const MissingLlmConfigurationException().message,
+                )
+              : state.activity == ChatActivity.loadFailed
+              ? ErrorView(
+                  message: state.errorMessage ?? '会话加载失败',
+                  onRetry: () {
+                    final sid = widget.sessionId ?? widget.forkId;
+                    if (sid != null && sid.isNotEmpty) {
+                      ref.read(_provider.notifier).resume(sessionId: sid);
+                    } else {
+                      ref
+                          .read(_provider.notifier)
+                          .create(professorId: widget.professorId);
+                    }
+                  },
+                )
               : SafeArea(
                   child: Column(
                     children: [
+                      if (state.activity == ChatActivity.creating ||
+                          state.activity == ChatActivity.hydrating ||
+                          state.activity == ChatActivity.deleting)
+                        _ChatStateNotice(
+                          message: switch (state.activity) {
+                            ChatActivity.creating => '正在创建会话…',
+                            ChatActivity.hydrating => '正在恢复会话与上下文…',
+                            ChatActivity.deleting => '正在删除会话…',
+                            _ => '',
+                          },
+                          showProgress: true,
+                        ),
+                      if (state.activity == ChatActivity.interrupted ||
+                          state.activity == ChatActivity.turnFailed)
+                        _ChatStateNotice(
+                          message:
+                              state.errorMessage ??
+                              (state.activity == ChatActivity.interrupted
+                                  ? '上次生成已中断，部分内容已保存。'
+                                  : '本轮处理失败，可以重试同一轮。'),
+                          primaryLabel: state.canRegenerate ? '重试本轮' : null,
+                          onPrimary: state.canRegenerate
+                              ? () => ref.read(_provider.notifier).regenerate()
+                              : null,
+                          secondaryLabel: '放弃本轮',
+                          onSecondary: () => ref
+                              .read(_provider.notifier)
+                              .abandonInterruptedTurn(),
+                        ),
+                      if (state.legacyContextIncomplete)
+                        _ChatStateNotice(
+                          message: '旧分支的来源推荐轮次无法准确恢复，当前仅供只读查看。',
+                          primaryLabel: '新建会话',
+                          onPrimary: () => ref
+                              .read(_provider.notifier)
+                              .create(professorId: state.professorId),
+                        ),
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
@@ -165,58 +226,84 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                             20,
                             12,
                           ),
-                      itemCount: state.messages.length + (showWelcome ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (showWelcome && index == 0) {
-                          return const AnimatedEntrance(
-                            index: 0,
-                            slideOffset: Offset(0, 12),
-                            duration: Duration(milliseconds: 300),
-                            child: _WelcomeCard(),
-                          );
-                        }
-                        final messageIndex = showWelcome ? index - 1 : index;
-                        return AnimatedEntrance(
-                          index: index,
-                          slideOffset: const Offset(0, 12),
-                          duration: const Duration(milliseconds: 300),
-                          child: ChatMessageBubble(
-                            key: ValueKey(state.messages[messageIndex].id),
-                            message: state.messages[messageIndex],
-                            onTapRecommendation: (id) =>
-                                context.push('/professor/$id'),
-                            onOpenHomepage: _openHomepage,
-                            onRerouteHome: () => context.go('/home'),
-                            onRetryRecommendation: (id) => ref
-                                .read(_provider.notifier)
-                                .retryRecommendation(id),
-                            onRegenerate: (id) => ref
-                                .read(_provider.notifier)
-                                .regenerateMessage(id),
-                            onFeedback: (id, feedback) => ref
-                                .read(_provider.notifier)
-                                .setFeedback(id, feedback),
-                          ),
-                        );
-                      },
-                    ),
+                          itemCount:
+                              state.messages.length + (showWelcome ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (showWelcome && index == 0) {
+                              return AnimatedEntrance(
+                                index: 0,
+                                slideOffset: const Offset(0, 12),
+                                duration: const Duration(milliseconds: 300),
+                                child: _WelcomeCard(
+                                  professorName:
+                                      state.forkAnchor?.professorName,
+                                ),
+                              );
+                            }
+                            final messageIndex = showWelcome
+                                ? index - 1
+                                : index;
+                            return AnimatedEntrance(
+                              index: index,
+                              slideOffset: const Offset(0, 12),
+                              duration: const Duration(milliseconds: 300),
+                              child: ChatMessageBubble(
+                                key: ValueKey(state.messages[messageIndex].id),
+                                message: state.messages[messageIndex],
+                                onTapRecommendation: (id) {
+                                  final sid =
+                                      state.kind == ConversationSessionKind.fork
+                                      ? state.sourceSessionId
+                                      : state.sessionId;
+                                  final turnId = _turnIdForMessageIndex(
+                                    state,
+                                    messageIndex,
+                                  );
+                                  final query = <String, String>{
+                                    if (sid != null) 'msid': sid,
+                                    if (turnId != null) 'stid': turnId,
+                                  };
+                                  context.push(
+                                    Uri(
+                                      path: '/professor/$id',
+                                      queryParameters: query.isEmpty
+                                          ? null
+                                          : query,
+                                    ).toString(),
+                                  );
+                                },
+                                onOpenHomepage: _openHomepage,
+                                onRerouteHome: () => context.go('/home'),
+                                onRetryRecommendation: (id) => ref
+                                    .read(_provider.notifier)
+                                    .retryRecommendation(id),
+                                onRegenerate: (id) => ref
+                                    .read(_provider.notifier)
+                                    .regenerateMessage(id),
+                                onFeedback: (id, feedback) => ref
+                                    .read(_provider.notifier)
+                                    .setFeedback(id, feedback),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      ChatQuickActions(
+                        actions: state.followUpQuestions,
+                        enabled: state.canSend,
+                        onTap: _send,
+                      ),
+                      ChatInputBar(
+                        controller: _controller,
+                        isBusy: !state.canSend,
+                        canStop: state.activity == ChatActivity.streaming,
+                        isNewSession: isNewSession,
+                        onSubmit: _send,
+                        onStop: () => ref.read(_provider.notifier).stop(),
+                      ),
+                    ],
                   ),
-                  ChatQuickActions(
-                    actions: state.followUpQuestions,
-                    enabled: !state.isBusy,
-                    onTap: _send,
-                  ),
-                  ChatInputBar(
-                    controller: _controller,
-                    isBusy: state.isBusy,
-                    canStop: state.activity == ChatActivity.streaming,
-                    isNewSession: isNewSession,
-                    onSubmit: _send,
-                    onStop: () => ref.read(_provider.notifier).stop(),
-                  ),
-                ],
-              ),
-            ),
+                ),
           if (state.forkAnchor != null)
             Positioned(
               top: 0,
@@ -228,7 +315,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   anchor: state.forkAnchor!,
                   onTap: () => context.push(
                     '/professor/${state.forkAnchor!.professorId}'
-                    '?msid=${Uri.encodeComponent(state.forkAnchor!.mainSessionId)}',
+                    '?msid=${Uri.encodeComponent(state.sourceSessionId ?? state.forkAnchor!.mainSessionId)}'
+                    '${state.sourceTurnId == null ? '' : '&stid=${Uri.encodeComponent(state.sourceTurnId!)}'}',
                   ),
                   // fork 追问页：把「返回」「重新生成」收进锚点条同一行，
                   // 避免它们作为独立 Positioned 与锚点条在顶部重叠。
@@ -284,12 +372,71 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     );
   }
 
-  String _newSessionId() =>
-      's_chat_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}';
+  String? _turnIdForMessageIndex(ChatState state, int messageIndex) {
+    if (messageIndex < 0 || state.turns.isEmpty) return null;
+    var assistantOrdinal = -1;
+    for (var i = 0; i <= messageIndex && i < state.messages.length; i++) {
+      if (state.messages[i].role == ChatRole.user) assistantOrdinal++;
+    }
+    if (assistantOrdinal < 0 || assistantOrdinal >= state.turns.length) {
+      return null;
+    }
+    return state.turns[assistantOrdinal].id;
+  }
+}
+
+class _ChatStateNotice extends StatelessWidget {
+  const _ChatStateNotice({
+    required this.message,
+    this.showProgress = false,
+    this.primaryLabel,
+    this.onPrimary,
+    this.secondaryLabel,
+    this.onSecondary,
+  });
+
+  final String message;
+  final bool showProgress;
+  final String? primaryLabel;
+  final VoidCallback? onPrimary;
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            if (showProgress) ...[
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(child: Text(message)),
+            if (secondaryLabel != null)
+              TextButton(onPressed: onSecondary, child: Text(secondaryLabel!)),
+            if (primaryLabel != null)
+              FilledButton.tonal(
+                onPressed: onPrimary,
+                child: Text(primaryLabel!),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard();
+  const _WelcomeCard({this.professorName});
+
+  final String? professorName;
 
   @override
   Widget build(BuildContext context) {
@@ -310,12 +457,22 @@ class _WelcomeCard extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 8),
-              Text('有什么想追问的？', style: textTheme.titleMedium),
+              Expanded(
+                child: Text(
+                  professorName == null
+                      ? '有什么想追问的？'
+                      : '关于$professorName教授，想继续问什么？',
+                  style: textTheme.titleMedium,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            '我可以基于上一步的推荐继续解答。试试问我：为什么推荐、相似导师、只看某地、是否适合硕士 / 博士。',
+            professorName == null
+                ? '我可以基于上一步的推荐继续解答。试试问我：为什么推荐、相似导师、只看某地、是否适合硕士 / 博士。'
+                : '我会参考上一轮的需求与推荐依据，但这里仅显示围绕该教授的新对话。'
+                      '可以问：为什么适合我、研究方向、硕博匹配、联系前准备。',
             style: textTheme.bodyMedium,
           ),
         ],
