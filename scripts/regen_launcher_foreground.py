@@ -75,6 +75,9 @@ def render_foreground(size: int) -> Image.Image:
 
 
 DENSITIES = {
+    # Keep the API 26+ anydpi fallback in sync. Android prefers this resource
+    # over density-specific files when resolving the adaptive icon layer.
+    "mipmap-anydpi-v26": 108,
     "mipmap-mdpi": 108,
     "mipmap-hdpi": 162,
     "mipmap-xhdpi": 216,

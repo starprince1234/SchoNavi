@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Full-color non-adaptive icon for launchers that incorrectly synthesize a
+  solid themed icon from an adaptive icon's outer mask (notably Lawnchair on
+  Android 12). The new resource name also invalidates launcher icon caches.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M20.3,0 H87.7 C98.9,0 108,9.1 108,20.3 V87.7 C108,98.9 98.9,108 87.7,108 H20.3 C9.1,108 0,98.9 0,87.7 V20.3 C0,9.1 9.1,0 20.3,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108">
+                <item android:color="#FF0F172A" android:offset="0" />
+                <item android:color="#FF312E81" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:fillColor="#FF06B6D4"
+        android:pathData="M27,65.88 C38.88,36.72 54,23.76 81,24.84 C72.36,50.76 57.24,65.88 27,65.88 Z" />
+    <path
+        android:pathData="M33.48,75.6 L74.52,75.6"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="8.424" />
+</vector>

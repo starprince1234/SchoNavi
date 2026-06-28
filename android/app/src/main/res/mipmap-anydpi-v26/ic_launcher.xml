@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SchoNavi 自适应启动图标（Android 8.0+ / API 26+）。
-     前景 ic_launcher_foreground = 品牌标（圆角方底渐变 + cyan 帆叶 + 白航向线），
+     前景 ic_launcher_foreground = 透明底上的 cyan 帆叶 + 白航向线，
      背景 ic_launcher_background = 纯色 indigo 深底，与 logo 收尾色一致避免遮罩白边。
      几何复刻自 lib/shared/widgets/scho_navi_logo.dart _MarkPainter。
      API <26 回退到各密度 mipmap-*/ic_launcher.png（传统整图）。 -->
