@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../data/ai/ai_chat_repository.dart';
 import '../../data/ai/ai_comparison_repository.dart';
@@ -15,11 +16,16 @@ import '../../data/ai/llm_quick_actions_source.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
 import '../../data/http/http_chat_repository.dart';
+import '../../data/http/http_conversation_repository.dart';
 import '../../data/http/http_comparison_repository.dart';
 import '../../data/http/http_competition_recommendation_repository.dart';
 import '../../data/http/http_favorite_repository.dart';
 import '../../data/http/http_history_repository.dart';
 import '../../data/local/local_chat_history_store.dart';
+import '../../data/local/conversation_database.dart';
+import '../../data/local/conversation_legacy_migrator.dart';
+import '../../data/local/drift_conversation_store.dart';
+import '../../data/local/local_conversation_repository.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
@@ -39,6 +45,7 @@ import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/home_prompt.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../../domain/repositories/conversation_repository.dart';
 import '../../domain/repositories/comparison_repository.dart';
 import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
@@ -54,6 +61,7 @@ import '../../shared/utils/recommendation_intent_router.dart';
 import '../../shared/utils/recommendation_need_classifier.dart';
 import '../../shared/utils/quick_actions_source.dart';
 import '../ai/deepseek_llm_client.dart';
+import '../auth/anonymous_credential_store.dart';
 import '../ai/llm_client.dart';
 import '../ai/llm_trace.dart';
 import '../ai/missing_llm_client.dart';
@@ -187,6 +195,52 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
       );
     case DataSource.http:
       return HttpChatRepository(ref.watch(dioProvider));
+  }
+});
+
+final anonymousCredentialStoreProvider = Provider<AnonymousCredentialStore>(
+  (ref) => const SecureAnonymousCredentialStore(FlutterSecureStorage()),
+);
+
+final conversationDatabaseProvider = Provider<ConversationDatabase>((ref) {
+  final database = ConversationDatabase();
+  ref.onDispose(database.close);
+  return database;
+});
+
+final conversationStoreProvider = Provider<DriftConversationStore>((ref) {
+  return DriftConversationStore(ref.watch(conversationDatabaseProvider));
+});
+
+final conversationLegacyMigratorProvider = Provider<ConversationLegacyMigrator>(
+  (ref) {
+    return ConversationLegacyMigrator(
+      store: ref.watch(conversationStoreProvider),
+      legacyStore: ref.watch(localStoreProvider),
+    );
+  },
+);
+
+final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  switch (cfg.dataSource) {
+    case DataSource.llm:
+      return LocalConversationRepository(
+        store: ref.watch(conversationStoreProvider),
+        llm: ref.watch(llmClientProvider),
+        recommendations: ref.watch(recommendationRepositoryProvider),
+        classifier: ref.watch(recommendationNeedClassifierProvider),
+        quickActions: ref.watch(quickActionsSourceProvider),
+        db: ref.watch(mockDbProvider),
+        profile: () => ref.read(profileRepositoryProvider).load(),
+        initialize: () =>
+            ref.read(conversationLegacyMigratorProvider).migrateIfNeeded(),
+      );
+    case DataSource.http:
+      return HttpConversationRepository(
+        ref.watch(dioProvider),
+        ref.watch(anonymousCredentialStoreProvider),
+      );
   }
 });
 

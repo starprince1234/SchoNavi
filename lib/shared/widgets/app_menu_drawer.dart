@@ -54,19 +54,22 @@ class AppMenuDrawer extends ConsumerWidget {
             Expanded(
               child: historyAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => _EmptyHint(
-                  icon: Icons.error_outline,
-                  message: '历史读取失败',
-                ),
+                error: (_, _) =>
+                    _EmptyHint(icon: Icons.error_outline, message: '历史读取失败'),
                 data: (items) {
-                  if (items.isEmpty) {
+                  final competitions = items
+                      .where(
+                        (item) => item.type == SearchHistoryType.competition,
+                      )
+                      .toList(growable: false);
+                  if (competitions.isEmpty) {
                     return _EmptyHint(
                       icon: Icons.manage_search_outlined,
-                      message: '暂无搜索历史',
+                      message: '暂无竞赛搜索历史',
                     );
                   }
                   return _RecentSearchPanel(
-                    items: items,
+                    items: competitions,
                     onTap: (item) {
                       Haptics.light();
                       Navigator.of(context).pop();
@@ -112,11 +115,7 @@ class _ProfileHeader extends StatelessWidget {
             CircleAvatar(
               radius: 24,
               backgroundColor: AppColors.indigoSoft,
-              child: Icon(
-                Icons.person,
-                color: AppColors.indigo,
-                size: 26,
-              ),
+              child: Icon(Icons.person, color: AppColors.indigo, size: 26),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -127,25 +126,22 @@ class _ProfileHeader extends StatelessWidget {
                   Text(
                     '我的档案',
                     style: textTheme.titleMedium?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Text(
                     '查看并编辑个人信息',
                     style: textTheme.bodySmall?.copyWith(
-                          color: AppColors.inkSoft,
-                        ),
+                      color: AppColors.inkSoft,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.inkSoft,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.inkSoft),
           ],
         ),
       ),
@@ -175,9 +171,9 @@ class _DrawerTile extends StatelessWidget {
         title: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.ink,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         minLeadingWidth: 24,
         horizontalTitleGap: 12,
@@ -254,9 +250,9 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
               Text(
                 '最近',
                 style: textTheme.labelLarge?.copyWith(
-                      color: AppColors.inkSoft,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppColors.inkSoft,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -269,8 +265,8 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
                     decoration: InputDecoration(
                       hintText: '搜索',
                       hintStyle: textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).hintColor,
-                          ),
+                        color: Theme.of(context).hintColor,
+                      ),
                       prefixIcon: const Icon(Icons.search, size: 16),
                       suffixIcon: _query.isEmpty
                           ? null
@@ -287,8 +283,7 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       isDense: true,
                     ),
                   ),
@@ -304,8 +299,10 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
                   message: '没有匹配的最近搜索',
                 )
               : ListView.builder(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   itemCount: filtered.length.clamp(0, 8),
                   itemBuilder: (context, index) {
                     final item = filtered[index];
@@ -347,11 +344,7 @@ class _HistoryTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color: AppColors.inkSoft,
-                ),
+                Icon(icon, size: 16, color: AppColors.inkSoft),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -359,10 +352,10 @@ class _HistoryTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],

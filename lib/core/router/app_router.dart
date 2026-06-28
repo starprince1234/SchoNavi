@@ -79,6 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           child: ProfessorPage(
             professorId: state.pathParameters['id']!,
             mainSessionId: state.uri.queryParameters['msid'],
+            sourceTurnId: state.uri.queryParameters['stid'],
           ),
         ),
       ),
@@ -93,6 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             forkMode: state.uri.queryParameters['fork'] == 'true',
             mainSessionId: state.uri.queryParameters['msid'],
             forkId: state.uri.queryParameters['fid'],
+            sourceTurnId: state.uri.queryParameters['stid'],
           ),
         ),
       ),
