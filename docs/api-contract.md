@@ -579,7 +579,7 @@ Request:
       "official_url": "https://example.com"
     }
   },
-  "target_date": "2026-10-01",
+  "target_date": "2026-10-01T00:00:00Z",
   "weekly_commitment": "hours6to10",
   "experience_level": "intermediate",
   "phase_keys": ["research", "team_building", "prototyping", "polishing", "submission"],
