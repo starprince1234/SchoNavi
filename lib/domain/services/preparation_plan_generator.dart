@@ -125,14 +125,6 @@ class PreparationPlanGenerator {
       today: today,
       targetDate: targetDate,
     );
-    // schedule 的 key 可能因合并而形如 "a+b"；建立 phaseKey -> 段映射。
-    // 由于合并是从末尾向前合并，被合并阶段的 key 不会出现在 schedule 末位
-    // 之外的独立段中。这里按出现顺序映射到 phases（被合并阶段共享同一段）。
-    final segmentByKey = <String, _Segment>{};
-    for (var i = 0; i < schedule.length; i++) {
-      final seg = schedule[i];
-      segmentByKey[seg.key] = _Segment(seg.startDate, seg.endDate);
-    }
 
     // 构建每阶段的 tasks：required + 预算选中的 optional + AI 合并的 optional。
     final planPhases = <PreparationPhase>[];
