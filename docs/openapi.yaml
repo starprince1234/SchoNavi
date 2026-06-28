@@ -406,6 +406,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AchievementDraftEnvelope'
+  /preparation-plans/generate:
+    post:
+      summary: Generate personalized optional tasks and advice for a preparation plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreparationPlanGenerateRequest'
+      responses:
+        '200':
+          description: Personalized preparation plan augmentation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparationPlanGenerateEnvelope'
   /profile:
     get:
       summary: Load current profile.
@@ -577,6 +593,81 @@ components:
         code: { type: integer }
         message: { type: string }
         data: true
+    CompetitionRulesSummary:
+      type: object
+      required: [signup_time, contest_time, team_size, format, organizer]
+      properties:
+        signup_time: { type: string }
+        contest_time: { type: string }
+        team_size: { type: string }
+        format: { type: string }
+        organizer: { type: string }
+        official_url: { type: string }
+    CompetitionSnapshot:
+      type: object
+      required: [id, name, category, rules_summary]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        rules_summary:
+          $ref: '#/components/schemas/CompetitionRulesSummary'
+    WeeklyCommitment:
+      type: string
+      enum: [hours3to5, hours6to10, hours11to15, hours16plus]
+    ExperienceLevel:
+      type: string
+      enum: [beginner, intermediate, experienced]
+    PreparationPlanGenerateRequest:
+      type: object
+      required: [competition, target_date, weekly_commitment, experience_level, phase_keys]
+      properties:
+        competition:
+          $ref: '#/components/schemas/CompetitionSnapshot'
+        target_date: { type: string, format: date }
+        weekly_commitment:
+          $ref: '#/components/schemas/WeeklyCommitment'
+        experience_level:
+          $ref: '#/components/schemas/ExperienceLevel'
+        phase_keys:
+          type: array
+          items: { type: string }
+        user_profile:
+          $ref: '#/components/schemas/UserProfile'
+    PreparationOptionalTaskSuggestion:
+      type: object
+      required: [title, estimated_hours]
+      properties:
+        template_key: { type: string }
+        title: { type: string, minLength: 1 }
+        estimated_hours: { type: number }
+    PreparationPhasePersonalization:
+      type: object
+      required: [key, optional_tasks]
+      properties:
+        key: { type: string }
+        optional_tasks:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/PreparationOptionalTaskSuggestion'
+        personalized_advice: { type: string }
+    PreparationPlanGenerateResult:
+      type: object
+      required: [phases]
+      properties:
+        phases:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationPhasePersonalization'
+        global_advice: { type: string }
+    PreparationPlanGenerateEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PreparationPlanGenerateResult'
     AnonymousIdentity:
       type: object
       required: [owner_id, access_token]

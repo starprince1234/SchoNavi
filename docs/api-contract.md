@@ -558,6 +558,69 @@ Response data:
 }
 ```
 
+### POST `/preparation-plans/generate`
+
+Generate personalized optional tasks and advice for a competition preparation plan.
+
+Request:
+
+```json
+{
+  "competition": {
+    "id": "comp_ai_creative",
+    "name": "人工智能创新应用大赛",
+    "category": "计算机类",
+    "rules_summary": {
+      "signup_time": "2026-07-01 ~ 2026-09-01",
+      "contest_time": "2026-10-01 ~ 2026-11-01",
+      "team_size": "1-5人",
+      "format": "作品赛",
+      "organizer": "主办方",
+      "official_url": "https://example.com"
+    }
+  },
+  "target_date": "2026-10-01",
+  "weekly_commitment": "hours6to10",
+  "experience_level": "intermediate",
+  "phase_keys": ["research", "team_building", "prototyping", "polishing", "submission"],
+  "user_profile": {}
+}
+```
+
+`weekly_commitment` values: `hours3to5`, `hours6to10`, `hours11to15`,
+`hours16plus`.
+
+`experience_level` values: `beginner`, `intermediate`, `experienced`.
+
+`phase_keys` is the client-side allowed phase key set. The server must only
+return phases whose `key` is in this set.
+
+`user_profile` is optional and follows the `UserProfile` shape.
+
+Response data:
+
+```json
+{
+  "phases": [
+    {
+      "key": "research",
+      "optional_tasks": [
+        { "template_key": "read_rules", "title": "仔细阅读官方规则", "estimated_hours": 2 },
+        { "title": "收集往届优秀作品", "estimated_hours": 3 }
+      ],
+      "personalized_advice": "建议重点理解评分维度。"
+    }
+  ],
+  "global_advice": "整体时间较紧，建议优先完成核心功能。"
+}
+```
+
+`optional_tasks` contains at most 3 items per phase. `template_key` is optional;
+when present it must be unique within the phase. `estimated_hours` is a number.
+
+Common errors: `40001` invalid request, `42201` validation failed, `50001`
+server error.
+
 ### Profile
 
 - `GET /profile`: returns `UserProfile`
