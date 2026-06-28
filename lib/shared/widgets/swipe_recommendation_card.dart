@@ -69,35 +69,71 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                // 职称弱化为 labelSmall，与姓名形成「重—弱」节奏。
                                 Text(
                                   r.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: AppColors.inkFaint,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                // 学校行提级：indigo 图标 + 单行，形成「中」档视觉锚点。
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.school_outlined,
+                                      size: 13,
+                                      color: AppColors.indigo,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        '${r.university} / ${r.college}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(width: 8),
-                          MatchLevelChip(level: r.matchLevel),
+                          MatchLevelChip(
+                            level: r.matchLevel,
+                            matchScore: r.matchScore,
+                          ),
                         ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${r.university} / ${r.college}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
                       _CompactFields(fields: r.researchFields),
                       const SizedBox(height: 8),
-                      Text(
-                        r.reason,
-                        style: theme.textTheme.bodyMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      // 推荐理由引述化：cyan 竖条锚点。
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 3,
+                              margin: const EdgeInsets.only(right: 8, top: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.cyan,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                r.reason,
+                                style: theme.textTheme.bodyMedium,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const Spacer(),
                       if (widget.onOpenHomepagePressed != null ||
@@ -108,6 +144,8 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                               TextButton.icon(
                                 style: TextButton.styleFrom(
                                   minimumSize: const Size(44, 44),
+                                  foregroundColor: AppColors.cyan,
+                                  iconColor: AppColors.cyan,
                                 ),
                                 onPressed: () {
                                   Haptics.light();
@@ -128,23 +166,41 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                                 child: AnimatedScale(
                                   scale: _favoriteDown ? 0.85 : 1.0,
                                   duration: const Duration(milliseconds: 120),
-                                  child: IconButton(
-                                    constraints: const BoxConstraints(
-                                      minWidth: 44,
-                                      minHeight: 44,
+                                  // 按下态 + 已收藏态：indigoSoft 背景晕；已收藏追加 glow 外发光。
+                                  child: AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 150),
+                                    decoration: BoxDecoration(
+                                      color: (_favoriteDown ||
+                                              widget.isFavorite)
+                                          ? AppColors.indigoSoft
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: widget.isFavorite
+                                          ? const [AppColors.shadowGlow]
+                                          : null,
                                     ),
-                                    tooltip: widget.isFavorite
-                                        ? '取消收藏'
-                                        : '收藏导师',
-                                    icon: Icon(
-                                      widget.isFavorite
-                                          ? Icons.bookmark
-                                          : Icons.bookmark_border,
+                                    child: IconButton(
+                                      constraints: const BoxConstraints(
+                                        minWidth: 44,
+                                        minHeight: 44,
+                                      ),
+                                      tooltip: widget.isFavorite
+                                          ? '取消收藏'
+                                          : '收藏导师',
+                                      icon: Icon(
+                                        widget.isFavorite
+                                            ? Icons.bookmark
+                                            : Icons.bookmark_border,
+                                        color: widget.isFavorite
+                                            ? AppColors.indigo
+                                            : null,
+                                      ),
+                                      onPressed: () {
+                                        Haptics.light();
+                                        widget.onFavoritePressed!();
+                                      },
                                     ),
-                                    onPressed: () {
-                                      Haptics.light();
-                                      widget.onFavoritePressed!();
-                                    },
                                   ),
                                 ),
                               ),
@@ -189,7 +245,7 @@ class _CompactFields extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 118),
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.panel,
+              color: AppColors.indigoSoft,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
@@ -199,7 +255,7 @@ class _CompactFields extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppColors.ink,
+                color: AppColors.indigoPressed,
               ),
             ),
           ),
@@ -207,7 +263,7 @@ class _CompactFields extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.panel,
+              color: AppColors.cyanSoft,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
@@ -215,7 +271,7 @@ class _CompactFields extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppColors.inkSoft,
+                color: AppColors.cyan,
               ),
             ),
           ),

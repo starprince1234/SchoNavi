@@ -36,12 +36,21 @@ class RecommendationCarousel extends ConsumerStatefulWidget {
 class _RecommendationCarouselState
     extends ConsumerState<RecommendationCarousel> {
   late final PageController _controller;
+  // 连续页值（含动画中间态），驱动纵深降权。每帧由 listener 推送。
+  double _pageFloat = 0;
   int _page = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = PageController(viewportFraction: 0.86);
+    _controller.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final page = _controller.hasClients ? (_controller.page ?? 0.0) : 0.0;
+    if ((page - _pageFloat).abs() < 0.001) return;
+    setState(() => _pageFloat = page);
   }
 
   @override
@@ -63,8 +72,21 @@ class _RecommendationCarouselState
 
   @override
   void dispose() {
+    _controller.removeListener(_onScroll);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 非当前卡降权：距中心越远 scale 越小、opacity 越低，在 |Δ|≤1 内线性。
+  ({double scale, double opacity}) _dampFor(int index) {
+    final delta = (index - _pageFloat).abs();
+    if (delta >= 1) return (scale: 0.92, opacity: 0.55);
+    // 当前张 delta=0 → scale 1 / opacity 1；邻张 delta=1 → 0.92 / 0.55。
+    final t = delta; // 0..1
+    return (
+      scale: 1 - (1 - 0.92) * t,
+      opacity: 1 - (1 - 0.55) * t,
+    );
   }
 
   @override
@@ -72,6 +94,8 @@ class _RecommendationCarouselState
     if (widget.recommendations.isEmpty) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final paperColor = AppColors.paperOf(isDark);
     final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final effectiveHeight =
         widget.height ?? (250 + (textScale - 1).clamp(0, 1) * 54);
@@ -79,43 +103,70 @@ class _RecommendationCarouselState
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          height: effectiveHeight,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.recommendations.length,
-            onPageChanged: (index) {
-              Haptics.selection();
-              if (mounted) setState(() => _page = index);
-            },
-            physics: const BouncingScrollPhysics(),
-            itemBuilder: (context, index) {
-              final r = widget.recommendations[index];
-              final isFavorite = ref
-                  .watch(favoriteStatusProvider(r.professorId))
-                  .maybeWhen(data: (v) => v, orElse: () => false);
-              return Semantics(
-                label:
-                    '第 ${index + 1} 张，共 ${widget.recommendations.length} 张，'
-                    '${r.name}，${r.university}',
-                container: true,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: SwipeRecommendationCard(
-                    recommendation: r,
-                    isFavorite: isFavorite,
-                    onTap: () => widget.onTap(r.professorId),
-                    onFavoritePressed: () => ref
-                        .read(favoriteRepositoryProvider)
-                        .toggle(FavoriteItem.fromRecommendation(r)),
-                    onOpenHomepagePressed: widget.onOpenHomepage == null
-                        ? null
-                        : () => widget.onOpenHomepage!(r),
+        Stack(
+          children: [
+            SizedBox(
+              height: effectiveHeight,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: widget.recommendations.length,
+                onPageChanged: (index) {
+                  Haptics.selection();
+                  if (mounted) setState(() => _page = index);
+                },
+                physics: const BouncingScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final r = widget.recommendations[index];
+                  final isFavorite = ref
+                      .watch(favoriteStatusProvider(r.professorId))
+                      .maybeWhen(data: (v) => v, orElse: () => false);
+                  final d = _dampFor(index);
+                  return Semantics(
+                    label:
+                        '第 ${index + 1} 张，共 ${widget.recommendations.length} 张，'
+                        '${r.name}，${r.university}',
+                    container: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: AnimatedScale(
+                        scale: d.scale,
+                        duration: const Duration(milliseconds: 60),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 60),
+                          opacity: d.opacity,
+                          child: SwipeRecommendationCard(
+                            recommendation: r,
+                            isFavorite: isFavorite,
+                            onTap: () => widget.onTap(r.professorId),
+                            onFavoritePressed: () => ref
+                                .read(favoriteRepositoryProvider)
+                                .toggle(FavoriteItem.fromRecommendation(r)),
+                            onOpenHomepagePressed: widget.onOpenHomepage == null
+                                ? null
+                                : () => widget.onOpenHomepage!(r),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // 边缘渐隐遮罩：暗示「还有更多可滑」。IgnorePointer 不拦截手势。
+            if (widget.recommendations.length > 1) ...[
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Row(
+                    children: [
+                      _EdgeFade(color: paperColor, side: _EdgeSide.left),
+                      const Spacer(),
+                      _EdgeFade(color: paperColor, side: _EdgeSide.right),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            ],
+          ],
         ),
         if (widget.recommendations.length > 1) ...[
           const SizedBox(height: 10),
@@ -123,13 +174,15 @@ class _RecommendationCarouselState
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.recommendations.length, (i) {
               final active = i == _page;
-              return Container(
+              return AnimatedContainer(
                 key: Key('rec-indicator-$i'),
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: active ? 7 : 6,
-                height: active ? 7 : 6,
+                width: active ? 20 : 6,
+                height: 6,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(999),
                   color: active
                       ? AppColors.indigo
                       : scheme.outline.withValues(alpha: 0.4),
@@ -139,6 +192,34 @@ class _RecommendationCarouselState
           ),
         ],
       ],
+    );
+  }
+}
+
+enum _EdgeSide { left, right }
+
+/// 横向渐隐遮罩：从 [color] 端渐变到透明，宽度 28，营造「可滑」边缘暗示。
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade({required this.color, required this.side});
+
+  final Color color;
+  final _EdgeSide side;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: side == _EdgeSide.left
+              ? Alignment.centerLeft
+              : Alignment.centerRight,
+          end: side == _EdgeSide.left
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          colors: [color, color.withValues(alpha: 0)],
+        ),
+      ),
     );
   }
 }

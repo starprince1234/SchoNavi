@@ -10,11 +10,12 @@ double clampInterval(double t, double a, double b) {
 
 /// progress 驱动的 SchoNavi 品牌标 CustomPainter。
 ///
-/// 三段错峰绘制（progress 0→1）：
-/// - 圆角方底（slate→indigo 渐变）：[0.0, 0.30] opacity 0→1 + scale 0.7→1.0。
-/// - cyan 帆叶：[0.20, 0.70] 沿贝塞尔曲线 trim 生长（PathMetric.extractPath）。
-/// - 白航向线：[0.60, 0.90] 从左到右横向画出（圆头描边）。
+/// 三段错峰绘制（progress 0→1，总时长 2.0s）：
+/// - 圆角方底（slate→indigo 渐变）：[0.0, 0.28] opacity 0→1 + scale 0.7→1.0。
+/// - cyan 帆叶：[0.18, 0.68] 沿贝塞尔曲线 trim 生长（PathMetric.extractPath）。
+/// - 白航向线：[0.58, 0.88] 从左到右横向画出（圆头描边）。
 ///
+/// 节奏在 1.8s→2.0s 延长后重平衡：帆叶区间略前置、收尾留白收窄，避免生长仓促。
 /// 绘制语义沿用 [SchoNaviLogo._MarkPainter]：圆角方 + 帆叶（学校+导航/成长）+
 /// 白航向线。progress=0 时不绘制帆叶与航向线。
 class SplashLogoPainter extends CustomPainter {
@@ -30,7 +31,7 @@ class SplashLogoPainter extends CustomPainter {
     // ── 圆角方底：opacity + scale ──
     // 注意：Paint 同时设 shader 与 color 时 color/alpha 被忽略，故用 saveLayer
     // 的 alpha 控制整体透明度（先 save+saveLayer 限定范围 → scale → drawRRect）。
-    final bgT = clampInterval(progress, 0.0, 0.30);
+    final bgT = clampInterval(progress, 0.0, 0.28);
     if (bgT > 0) {
       final scale = 0.7 + 0.3 * bgT; // 0.7→1.0
       canvas.save();
@@ -55,7 +56,7 @@ class SplashLogoPainter extends CustomPainter {
     }
 
     // ── 帆叶：沿贝塞尔 trim 生长 ──
-    final leafT = clampInterval(progress, 0.20, 0.70);
+    final leafT = clampInterval(progress, 0.18, 0.68);
     if (leafT > 0) {
       final fullLeaf = Path()
         ..moveTo(s * 0.25, s * 0.61)
@@ -71,7 +72,7 @@ class SplashLogoPainter extends CustomPainter {
     }
 
     // ── 航向线：从左到右画出 ──
-    final lineT = clampInterval(progress, 0.60, 0.90);
+    final lineT = clampInterval(progress, 0.58, 0.88);
     if (lineT > 0) {
       final startX = s * 0.31;
       final fullEndX = s * 0.69;

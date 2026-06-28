@@ -7,7 +7,7 @@ import '../../../shared/widgets/cool_scaffold_background.dart';
 import '../../../shared/widgets/splash_logo_painter.dart';
 import '../splash_controller.dart';
 
-/// 开屏品牌动画页：1.8s logo 绘制叙事 + 字标入场，可点按跳过，
+/// 开屏品牌动画页：2.0s logo 绘制叙事 + 字标入场，可点按跳过，
 /// isCompleted 后整页 fade 出（200ms）并 [routerProvider].go('/home')。
 ///
 /// onboarding 重定向由 go_router 的 redirect 接管，本页不感知。
@@ -30,7 +30,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
     _controller = ref.read(splashControllerProvider.notifier);
     _ticker = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 2000),
     );
     // Ticker 由页面提供 vsync，控制器通过 attach 挂监听把 value 推给 setProgress。
     _controller.attach(_ticker);
@@ -57,8 +57,8 @@ class _SplashPageState extends ConsumerState<SplashPage>
     final state = ref.watch(splashControllerProvider);
     final textTheme = Theme.of(context).textTheme;
 
-    // 字标：opacity + translate-y，interval [0.75, 1.0]。
-    final wordmarkT = clampInterval(state.progress, 0.75, 1.0);
+    // 字标：opacity + translate-y，interval [0.72, 1.0]。
+    final wordmarkT = clampInterval(state.progress, 0.72, 1.0);
     final wordmarkOpacity = wordmarkT;
     final wordmarkDy = (1 - wordmarkT) * 12.0;
 
