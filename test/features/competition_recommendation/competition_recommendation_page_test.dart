@@ -110,7 +110,7 @@ void main() {
     await tester.pumpWidget(await _wrap(Success(_data([_rec]))));
     await tester.pumpAndSettle();
 
-    expect(find.text('我理解到的竞赛需求'), findsOneWidget);
+    expect(find.text('我理解到的需求'), findsOneWidget);
     expect(find.text('全国大学生数学建模竞赛'), findsOneWidget);
     expect(find.text('访问官网'), findsOneWidget);
   });
