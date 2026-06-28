@@ -4,10 +4,12 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scho_navi/core/auth/anonymous_credential_store.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/http/http_chat_repository.dart';
+import 'package:scho_navi/data/http/http_conversation_repository.dart';
 import 'package:scho_navi/data/http/http_history_repository.dart';
 import 'package:scho_navi/data/http/http_professor_repository.dart';
 import 'package:scho_navi/data/http/http_recommendation_repository.dart';
@@ -35,6 +37,19 @@ class _FakeAdapter implements HttpClientAdapter {
   }
 }
 
+class _MemoryCredentials implements AnonymousCredentialStore {
+  String? token = 'test-token';
+
+  @override
+  Future<void> clear() async => token = null;
+
+  @override
+  Future<String?> readToken() async => token;
+
+  @override
+  Future<void> writeToken(String token) async => this.token = token;
+}
+
 void main() {
   test('AppConfig resolves HTTP mode from API_BASE_URL', () {
     final cfg = AppConfig.resolve(
@@ -47,24 +62,27 @@ void main() {
     expect(cfg.llm.apiKey, 'sk-test');
   });
 
-  test('HttpRecommendationRepository posts contract request and decodes envelope', () async {
-    RequestOptions? captured;
-    final repo = HttpRecommendationRepository(
-      _dio((options) async {
-        captured = options;
-        return _jsonFixture('mentor_recommendation_success.json');
-      }),
-    );
+  test(
+    'HttpRecommendationRepository posts contract request and decodes envelope',
+    () async {
+      RequestOptions? captured;
+      final repo = HttpRecommendationRepository(
+        _dio((options) async {
+          captured = options;
+          return _jsonFixture('mentor_recommendation_success.json');
+        }),
+      );
 
-    final result = await repo.getRecommendations(prompt: '医学影像');
+      final result = await repo.getRecommendations(prompt: '医学影像');
 
-    expect(captured!.path, '/api/v1/recommendations/mentors');
-    expect(captured!.method, 'POST');
-    expect((captured!.data as Map)['prompt'], '医学影像');
-    final data = (result as Success).data;
-    expect(data.sessionId, 's_123');
-    expect(data.recommendations.single.professorId, 'p_001');
-  });
+      expect(captured!.path, '/api/v1/recommendations/mentors');
+      expect(captured!.method, 'POST');
+      expect((captured!.data as Map)['prompt'], '医学影像');
+      final data = (result as Success).data;
+      expect(data.sessionId, 's_123');
+      expect(data.recommendations.single.professorId, 'p_001');
+    },
+  );
 
   test('HttpProfessorRepository decodes professor envelope', () async {
     final repo = HttpProfessorRepository(
@@ -108,7 +126,11 @@ void main() {
     final repo = HttpProfessorRepository(
       _dio(
         (_) async => _jsonString(
-          jsonEncode({'code': 0, 'message': 'ok', 'data': {'bad': true}}),
+          jsonEncode({
+            'code': 0,
+            'message': 'ok',
+            'data': {'bad': true},
+          }),
         ),
       ),
     );
@@ -139,6 +161,85 @@ void main() {
     expect(captured!.queryParameters['professor_id'], 'p_001');
     expect(deltas, ['你', '好']);
   });
+
+  test(
+    'HttpConversationRepository hides inherited fork turns from old backend',
+    () async {
+      final repo = HttpConversationRepository(
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {
+                'session': {
+                  'id': 'fork-1',
+                  'kind': 'fork',
+                  'root_session_id': 'main-1',
+                  'source_session_id': 'main-1',
+                  'source_turn_id': 'source-turn',
+                  'professor_id': 'p_001',
+                  'revision': 1,
+                },
+                'turns': [
+                  {
+                    'id': 'source-turn',
+                    'session_id': 'main-1',
+                    'ordinal': 0,
+                    'status': 'completed',
+                    'user_message_id': 'source-user',
+                  },
+                  {
+                    'id': 'fork-turn',
+                    'session_id': 'fork-1',
+                    'ordinal': 0,
+                    'status': 'completed',
+                    'user_message_id': 'fork-user',
+                  },
+                ],
+                'messages': [
+                  _conversationMessageJson(
+                    id: 'source-user',
+                    turnId: 'source-turn',
+                    role: 'user',
+                    content: '推荐计算机视觉导师',
+                  ),
+                  _conversationMessageJson(
+                    id: 'source-assistant',
+                    turnId: 'source-turn',
+                    role: 'assistant',
+                    content: '为你推荐张三',
+                  ),
+                  _conversationMessageJson(
+                    id: 'fork-user',
+                    turnId: 'fork-turn',
+                    role: 'user',
+                    content: '张三为什么适合我',
+                  ),
+                  _conversationMessageJson(
+                    id: 'fork-assistant',
+                    turnId: 'fork-turn',
+                    role: 'assistant',
+                    content: '因为研究方向匹配',
+                  ),
+                ],
+              },
+            }),
+          ),
+        ),
+        _MemoryCredentials(),
+      );
+
+      final result = await repo.loadSession('fork-1');
+
+      final aggregate = (result as Success).data;
+      expect(aggregate.turns.map((turn) => turn.id), ['fork-turn']);
+      expect(aggregate.messages.map((message) => message.content), [
+        '张三为什么适合我',
+        '因为研究方向匹配',
+      ]);
+    },
+  );
 
   test('HttpHistoryRepository lists search history from envelope', () async {
     RequestOptions? captured;
@@ -180,7 +281,10 @@ void main() {
       now: () => DateTime.utc(2026, 6, 15, 10),
     );
 
-    await repo.addFromResult(prompt: '医学影像 上海', result: _recommendationResult());
+    await repo.addFromResult(
+      prompt: '医学影像 上海',
+      result: _recommendationResult(),
+    );
 
     expect(captured!.path, '/api/v1/history');
     expect(captured!.method, 'POST');
@@ -196,25 +300,32 @@ void main() {
     });
   });
 
-  test('HttpHistoryRepository deletes one item and clears all history', () async {
-    final captured = <RequestOptions>[];
-    final repo = HttpHistoryRepository(
-      _dio((options) async {
-        captured.add(options);
-        return _jsonString(
-          jsonEncode({'code': 0, 'message': 'ok', 'data': {'removed': true}}),
-        );
-      }),
-    );
+  test(
+    'HttpHistoryRepository deletes one item and clears all history',
+    () async {
+      final captured = <RequestOptions>[];
+      final repo = HttpHistoryRepository(
+        _dio((options) async {
+          captured.add(options);
+          return _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {'removed': true},
+            }),
+          );
+        }),
+      );
 
-    await repo.remove('s_123');
-    await repo.clear();
+      await repo.remove('s_123');
+      await repo.clear();
 
-    expect(captured[0].path, '/api/v1/history/s_123');
-    expect(captured[0].method, 'DELETE');
-    expect(captured[1].path, '/api/v1/history');
-    expect(captured[1].method, 'DELETE');
-  });
+      expect(captured[0].path, '/api/v1/history/s_123');
+      expect(captured[0].method, 'DELETE');
+      expect(captured[1].path, '/api/v1/history');
+      expect(captured[1].method, 'DELETE');
+    },
+  );
 }
 
 Dio _dio(Future<ResponseBody> Function(RequestOptions options) handler) {
@@ -262,6 +373,23 @@ Map<String, dynamic> _historyJson(String sessionId) => <String, dynamic>{
   'research_interests': ['医学影像'],
   'preferred_locations': ['上海'],
   'recommendation_count': 1,
+};
+
+Map<String, dynamic> _conversationMessageJson({
+  required String id,
+  required String turnId,
+  required String role,
+  required String content,
+}) => <String, dynamic>{
+  'id': id,
+  'turn_id': turnId,
+  'role': role,
+  'content': content,
+  'created_at': '2026-06-28T10:00:00.000Z',
+  'status': 'done',
+  'kind': 'conversation',
+  'feedback': 'none',
+  'related_recommendations': <dynamic>[],
 };
 
 RecommendationResult _recommendationResult() => const RecommendationResult(

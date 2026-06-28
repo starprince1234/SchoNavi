@@ -33,16 +33,18 @@ class _MemLocalStore implements LocalStore {
   Future<void> clear() async => _m.clear();
 }
 
-ChatMessage _msg(String id, String content,
-        {ChatRole role = ChatRole.assistant}) =>
-    ChatMessage(
-      id: id,
-      role: role,
-      content: content,
-      createdAt: DateTime(2026, 6, 27),
-      relatedRecommendations: const [],
-      status: ChatMessageStatus.done,
-    );
+ChatMessage _msg(
+  String id,
+  String content, {
+  ChatRole role = ChatRole.assistant,
+}) => ChatMessage(
+  id: id,
+  role: role,
+  content: content,
+  createdAt: DateTime(2026, 6, 27),
+  relatedRecommendations: const [],
+  status: ChatMessageStatus.done,
+);
 
 void main() {
   late LocalChatHistoryStore store;
@@ -60,6 +62,8 @@ void main() {
       final loaded = await store.load('s1');
       expect(loaded, isNotNull);
       expect(loaded!.length, 2);
+      expect(loaded[0].id, 'm1');
+      expect(loaded[1].id, 'm2');
       expect(loaded[0].content, 'hi');
       expect(loaded[1].content, 'yo');
     });
@@ -119,16 +123,28 @@ void main() {
 
   group('ForkRef 持久化', () {
     test('saveFork + listForks 按时间倒序', () async {
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p1', mainSessionId: 's1', professorId: 'p1',
-        professorName: '李', university: '清华', college: 'cs',
-        createdAt: DateTime(2026, 6, 27, 10),
-      ));
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p2', mainSessionId: 's1', professorId: 'p2',
-        professorName: '王', university: '北大', college: null,
-        createdAt: DateTime(2026, 6, 27, 14),
-      ));
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p1',
+          mainSessionId: 's1',
+          professorId: 'p1',
+          professorName: '李',
+          university: '清华',
+          college: 'cs',
+          createdAt: DateTime(2026, 6, 27, 10),
+        ),
+      );
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p2',
+          mainSessionId: 's1',
+          professorId: 'p2',
+          professorName: '王',
+          university: '北大',
+          college: null,
+          createdAt: DateTime(2026, 6, 27, 14),
+        ),
+      );
       final forks = await store.listForks('s1');
       expect(forks.length, 2);
       expect(forks[0].forkId, 'f_s1_p2'); // 14:00 在前
@@ -137,8 +153,12 @@ void main() {
 
     test('findFork 命中已有', () async {
       final ref = ForkRef(
-        forkId: 'f_s1_p1', mainSessionId: 's1', professorId: 'p1',
-        professorName: '李', university: '清华', college: 'cs',
+        forkId: 'f_s1_p1',
+        mainSessionId: 's1',
+        professorId: 'p1',
+        professorName: '李',
+        university: '清华',
+        college: 'cs',
         createdAt: DateTime(2026, 6, 27),
       );
       await store.saveFork(ref);
@@ -147,16 +167,28 @@ void main() {
     });
 
     test('deleteFork 仅删指定 fork', () async {
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p1', mainSessionId: 's1', professorId: 'p1',
-        professorName: '李', university: '清华', college: null,
-        createdAt: DateTime(2026, 6, 27),
-      ));
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p2', mainSessionId: 's1', professorId: 'p2',
-        professorName: '王', university: '北大', college: null,
-        createdAt: DateTime(2026, 6, 27),
-      ));
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p1',
+          mainSessionId: 's1',
+          professorId: 'p1',
+          professorName: '李',
+          university: '清华',
+          college: null,
+          createdAt: DateTime(2026, 6, 27),
+        ),
+      );
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p2',
+          mainSessionId: 's1',
+          professorId: 'p2',
+          professorName: '王',
+          university: '北大',
+          college: null,
+          createdAt: DateTime(2026, 6, 27),
+        ),
+      );
       await store.deleteFork('f_s1_p1');
       final forks = await store.listForks('s1');
       expect(forks.length, 1);
@@ -164,16 +196,28 @@ void main() {
     });
 
     test('listForks 隔离不同主 session', () async {
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p1', mainSessionId: 's1', professorId: 'p1',
-        professorName: '李', university: '清华', college: null,
-        createdAt: DateTime(2026, 6, 27),
-      ));
-      await store.saveFork(ForkRef(
-        forkId: 'f_s2_p1', mainSessionId: 's2', professorId: 'p1',
-        professorName: '李', university: '清华', college: null,
-        createdAt: DateTime(2026, 6, 27),
-      ));
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p1',
+          mainSessionId: 's1',
+          professorId: 'p1',
+          professorName: '李',
+          university: '清华',
+          college: null,
+          createdAt: DateTime(2026, 6, 27),
+        ),
+      );
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s2_p1',
+          mainSessionId: 's2',
+          professorId: 'p1',
+          professorName: '李',
+          university: '清华',
+          college: null,
+          createdAt: DateTime(2026, 6, 27),
+        ),
+      );
       expect((await store.listForks('s1')).length, 1);
       expect((await store.listForks('s2')).length, 1);
     });
@@ -211,11 +255,17 @@ void main() {
     });
 
     test('deleteFork 同时删除 fork 消息历史', () async {
-      await store.saveFork(ForkRef(
-        forkId: 'f_s1_p1', mainSessionId: 's1', professorId: 'p1',
-        professorName: '李', university: '清华', college: null,
-        createdAt: DateTime(2026, 6, 27),
-      ));
+      await store.saveFork(
+        ForkRef(
+          forkId: 'f_s1_p1',
+          mainSessionId: 's1',
+          professorId: 'p1',
+          professorName: '李',
+          university: '清华',
+          college: null,
+          createdAt: DateTime(2026, 6, 27),
+        ),
+      );
       await store.save('f_s1_p1', [_msg('m1', 'fork msg')]);
       expect(await store.load('f_s1_p1'), isNotNull);
       await store.deleteFork('f_s1_p1');
