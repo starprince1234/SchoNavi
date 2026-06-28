@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/result/result.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../domain/entities/favorite_item.dart';
 import '../../../domain/entities/professor.dart';
+import '../../../domain/entities/conversation_session.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/loading_view.dart';
@@ -22,12 +24,14 @@ class ProfessorPage extends ConsumerWidget {
     super.key,
     required this.professorId,
     this.mainSessionId,
+    this.sourceTurnId,
   });
 
   final String professorId;
 
   /// 从 fork 追问入口带来的主会话 id，供 Task 11 的 FAB 继续在该教授下追问使用。
   final String? mainSessionId;
+  final String? sourceTurnId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,12 +40,11 @@ class ProfessorPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('导师详情')),
       floatingActionButton: async.maybeWhen(
         data: (p) => FloatingActionButton.extended(
-          onPressed: () => context.push(
-            '/chat?fork=true&msid=${Uri.encodeComponent(mainSessionId ?? '')}'
-            '&pid=${Uri.encodeComponent(p.id)}',
-          ),
+          onPressed: () => _openConversation(context, ref, p.id),
           icon: const Icon(Icons.chat_bubble_outline),
-          label: const Text('继续追问'),
+          label: Text(
+            mainSessionId != null && sourceTurnId != null ? '继续追问' : '咨询该导师',
+          ),
         ),
         orElse: () => null,
       ),
@@ -54,6 +57,36 @@ class ProfessorPage extends ConsumerWidget {
         data: (p) => _Detail(professor: p),
       ),
     );
+  }
+
+  Future<void> _openConversation(
+    BuildContext context,
+    WidgetRef ref,
+    String professorId,
+  ) async {
+    final repository = ref.read(conversationRepositoryProvider);
+    final Result<ConversationSession> result;
+    if (mainSessionId != null &&
+        mainSessionId!.isNotEmpty &&
+        sourceTurnId != null &&
+        sourceTurnId!.isNotEmpty) {
+      result = await repository.forkSessionAtTurn(
+        sourceSessionId: mainSessionId!,
+        sourceTurnId: sourceTurnId!,
+        professorId: professorId,
+      );
+    } else {
+      result = await repository.createSession(professorId: professorId);
+    }
+    if (!context.mounted) return;
+    switch (result) {
+      case Success<ConversationSession>(:final data):
+        context.push('/chat?sid=${Uri.encodeComponent(data.id)}');
+      case Failure<ConversationSession>(:final error):
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
   }
 }
 
@@ -164,10 +197,7 @@ class _Detail extends ConsumerWidget {
           index: 2,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              'AI 内容仅供准备参考，请自行核对事实。',
-              style: textTheme.bodySmall,
-            ),
+            child: Text('AI 内容仅供准备参考，请自行核对事实。', style: textTheme.bodySmall),
           ),
         ),
         const SizedBox(height: 12),
@@ -197,11 +227,7 @@ class _Detail extends ConsumerWidget {
           child: FieldChips(fields: p.researchFields),
         ),
         const SizedBox(height: 12),
-        section(
-          5,
-          title: '简介',
-          child: Text(orNa(p.bio)),
-        ),
+        section(5, title: '简介', child: Text(orNa(p.bio))),
         const SizedBox(height: 12),
         section(
           6,
@@ -240,10 +266,7 @@ class _Detail extends ConsumerWidget {
 }
 
 class _FavoriteButton extends StatefulWidget {
-  const _FavoriteButton({
-    required this.isFavorite,
-    required this.onPressed,
-  });
+  const _FavoriteButton({required this.isFavorite, required this.onPressed});
 
   final bool isFavorite;
   final VoidCallback onPressed;

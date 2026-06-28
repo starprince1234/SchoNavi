@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
@@ -17,15 +15,7 @@ final recommendationProvider =
         profile: profile,
       );
       return switch (result) {
-        Success(:final data) => () {
-          unawaited(
-            ref.read(historyRepositoryProvider).addFromResult(
-              prompt: prompt,
-              result: data,
-            ),
-          );
-          return data;
-        }(),
+        Success(:final data) => data,
         Failure(:final error) => throw error,
       };
     });

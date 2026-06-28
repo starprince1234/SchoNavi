@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../domain/entities/fork_ref.dart';
+import '../../../domain/entities/conversation_session.dart';
 import '../../../domain/entities/search_history_item.dart';
-import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
+
+final conversationHistoryProvider = FutureProvider<List<ConversationSession>>((
+  ref,
+) async {
+  final result = await ref.watch(conversationRepositoryProvider).listSessions();
+  return switch (result) {
+    Success<List<ConversationSession>>(:final data) => data,
+    Failure<List<ConversationSession>>(:final error) => throw error,
+  };
+});
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -19,173 +29,117 @@ class HistoryPage extends ConsumerStatefulWidget {
 }
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
+  final TextEditingController _search = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged);
+    _search.addListener(_changed);
   }
 
-  void _onSearchChanged() {
-    setState(() {
-      _query = _searchController.text;
-    });
-  }
+  void _changed() => setState(() {});
 
   @override
   void dispose() {
-    _searchController.removeListener(_onSearchChanged);
-    _searchController.dispose();
+    _search
+      ..removeListener(_changed)
+      ..dispose();
     super.dispose();
-  }
-
-  List<SearchHistoryItem> _filter(List<SearchHistoryItem> items) {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return items;
-    return items.where((item) {
-      final typeLabel = _historyTypeLabel(item.type);
-      return item.prompt.toLowerCase().contains(query) ||
-          item.summary.toLowerCase().contains(query) ||
-          typeLabel.contains(query) ||
-          item.researchInterests.any(
-            (field) => field.toLowerCase().contains(query),
-          ) ||
-          item.preferredLocations.any(
-            (location) => location.toLowerCase().contains(query),
-          );
-    }).toList();
-  }
-
-  Future<void> _deleteSession(SearchHistoryItem item) async {
-    final chat = ref.read(chatRepositoryProvider);
-    final forksRes = await chat.listForks(mainSessionId: item.sessionId);
-    if (forksRes is Success<List<ForkRef>>) {
-      for (final f in forksRes.data) {
-        await chat.deleteFork(forkId: f.forkId);
-      }
-    }
-    if (!mounted) return;
-    await ref.read(historyRepositoryProvider).remove(item.sessionId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(searchHistoryProvider);
+    final conversations = ref.watch(conversationHistoryProvider);
+    final legacy = ref.watch(searchHistoryProvider);
+    final competitions =
+        legacy.asData?.value
+            .where((item) => item.type == SearchHistoryType.competition)
+            .toList() ??
+        const <SearchHistoryItem>[];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('历史'),
         actions: [
-          async.maybeWhen(
-            data: (items) => items.isEmpty
-                ? const SizedBox.shrink()
-                : IconButton(
-                    tooltip: '清空历史',
-                    icon: const Icon(Icons.delete_sweep_outlined),
-                    onPressed: () => _confirmClear(context, ref),
-                  ),
-            orElse: () => const SizedBox.shrink(),
-          ),
+          if ((conversations.asData?.value.isNotEmpty ?? false) ||
+              competitions.isNotEmpty)
+            IconButton(
+              tooltip: '清空历史',
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: _clearAll,
+            ),
         ],
       ),
-      body: async.when(
-        loading: () => ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: 3,
-          itemBuilder: (_, _) => const _HistoryTileSkeleton(),
-        ),
-        error: (_, _) => const EmptyView(message: '历史读取失败，可稍后重试'),
-        data: (items) {
-          if (items.isEmpty) {
-            return const EmptyView(message: '暂无搜索历史');
+      body: conversations.when(
+        loading: () => const _LoadingList(),
+        error: (_, _) => const EmptyView(message: '会话历史读取失败，可稍后重试'),
+        data: (sessions) {
+          final query = _search.text.trim().toLowerCase();
+          final filteredSessions = sessions.where((session) {
+            if (query.isEmpty) return true;
+            return (session.title ?? '导师咨询').toLowerCase().contains(query);
+          }).toList();
+          final filteredCompetitions = competitions.where((item) {
+            if (query.isEmpty) return true;
+            return item.prompt.toLowerCase().contains(query) ||
+                item.summary.toLowerCase().contains(query);
+          }).toList();
+          if (sessions.isEmpty && competitions.isEmpty) {
+            return const EmptyView(message: '暂无历史');
           }
-
-          final filtered = _filter(items);
-
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: SizedBox(
-                  height: 38,
-                  child: TextField(
-                    controller: _searchController,
-                    textInputAction: TextInputAction.search,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    decoration: InputDecoration(
-                      hintText: '搜索',
-                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).hintColor,
+                child: TextField(
+                  controller: _search,
+                  decoration: InputDecoration(
+                    hintText: '搜索会话',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: _search.clear,
                           ),
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 16),
-                              onPressed: () {
-                                _searchController.clear();
-                              },
-                            ),
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                      isDense: true,
-                    ),
                   ),
                 ),
               ),
-              if (filtered.isEmpty)
-                const Expanded(
-                  child: EmptyView(message: '没有匹配的搜索记录'),
-                )
-              else
-                Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.indigo,
-                    onRefresh: () async {
-                      ref.invalidate(searchHistoryProvider);
-                      await ref.read(searchHistoryProvider.future);
-                    },
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final item = filtered[index];
-                        return AnimatedEntrance(
-                          index: index,
-                          child: Dismissible(
-                            key: ValueKey(item.sessionId),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.error,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Icon(Icons.delete, color: Colors.white),
-                            ),
-                            onDismissed: (_) async {
-                              Haptics.medium();
-                              await _deleteSession(item);
-                              if (mounted) {
-                                ScaffoldMessenger.of(this.context).showSnackBar(
-                                  const SnackBar(content: Text('已删除')),
-                                );
-                              }
-                            },
-                            child: _HistoryTile(item: item),
-                          ),
-                        );
-                      },
-                    ),
+              Expanded(
+                child: RefreshIndicator(
+                  color: AppColors.indigo,
+                  onRefresh: () async {
+                    ref.invalidate(conversationHistoryProvider);
+                    ref.invalidate(searchHistoryProvider);
+                    await ref.read(conversationHistoryProvider.future);
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      for (final session in filteredSessions)
+                        _SessionTile(
+                          key: ValueKey(session.id),
+                          session: session,
+                          onDeleted: () =>
+                              ref.invalidate(conversationHistoryProvider),
+                        ),
+                      for (final competition in filteredCompetitions)
+                        _CompetitionTile(
+                          key: ValueKey('competition-${competition.sessionId}'),
+                          item: competition,
+                          onDeleted: () =>
+                              ref.invalidate(searchHistoryProvider),
+                        ),
+                      if (filteredSessions.isEmpty &&
+                          filteredCompetitions.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 80),
+                          child: Center(child: Text('没有匹配的历史记录')),
+                        ),
+                    ],
                   ),
                 ),
+              ),
             ],
           );
         },
@@ -193,231 +147,254 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
-  Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
+  Future<void> _clearAll() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('清空历史'),
-        content: const Text('确定清空全部搜索历史吗？'),
+        content: const Text('这会删除全部会话、分支和竞赛历史，且不可恢复。'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('清空'),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed != true) return;
+    final sessions = await ref.read(conversationHistoryProvider.future);
+    for (final session in sessions) {
+      final result = await ref
+          .read(conversationRepositoryProvider)
+          .deleteSession(session.id);
+      if (result is Failure<void> && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(result.error.message)));
+        return;
+      }
+    }
+    try {
       await ref.read(historyRepositoryProvider).clear();
+      ref.invalidate(conversationHistoryProvider);
+      ref.invalidate(searchHistoryProvider);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 }
 
-class _HistoryTile extends ConsumerStatefulWidget {
-  const _HistoryTile({required this.item});
+class _SessionTile extends ConsumerStatefulWidget {
+  const _SessionTile({
+    super.key,
+    required this.session,
+    required this.onDeleted,
+  });
 
-  final SearchHistoryItem item;
+  final ConversationSession session;
+  final VoidCallback onDeleted;
 
   @override
-  ConsumerState<_HistoryTile> createState() => _HistoryTileState();
+  ConsumerState<_SessionTile> createState() => _SessionTileState();
 }
 
-class _HistoryTileState extends ConsumerState<_HistoryTile> {
+class _SessionTileState extends ConsumerState<_SessionTile> {
   bool _expanded = false;
-  List<ForkRef>? _forks;
   bool _loading = false;
+  List<ConversationSession> _forks = const [];
 
   Future<void> _toggle() async {
+    if (_expanded) {
+      setState(() => _expanded = false);
+      return;
+    }
     setState(() {
-      _expanded = !_expanded;
-      if (!_expanded) _forks = null;
+      _expanded = true;
+      _loading = true;
     });
-    if (_expanded && _forks == null && !_loading) {
-      setState(() => _loading = true);
-      final res = await ref
-          .read(chatRepositoryProvider)
-          .listForks(mainSessionId: widget.item.sessionId);
-      if (mounted) {
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .listForks(widget.session.rootSessionId);
+    if (!mounted) return;
+    switch (result) {
+      case Success<List<ConversationSession>>(:final data):
         setState(() {
-          _forks = res is Success<List<ForkRef>> ? res.data : const [];
+          _forks = data;
           _loading = false;
         });
-      }
+      case Failure<List<ConversationSession>>(:final error):
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final session = widget.session;
     return Card(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: _toggle,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.item.prompt,
-                      style: textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: _expanded ? 0.125 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.add,
-                      size: 16,
-                      color: Color(0xFF6A6385),
-                    ),
-                  ),
-                ],
+          Dismissible(
+            key: ValueKey('root-${session.id}'),
+            direction: DismissDirection.endToStart,
+            confirmDismiss: (_) => _delete(session.id),
+            background: _deleteBackground(context),
+            child: ListTile(
+              title: Text(session.title ?? _kindLabel(session.kind)),
+              subtitle: Text(
+                '${_kindLabel(session.kind)} · ${_formatDate(session.updatedAt)}',
+              ),
+              onTap: () =>
+                  context.push('/chat?sid=${Uri.encodeComponent(session.id)}'),
+              trailing: IconButton(
+                tooltip: _expanded ? '收起分支' : '查看分支',
+                icon: Icon(_expanded ? Icons.expand_less : Icons.account_tree),
+                onPressed: _toggle,
               ),
             ),
           ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 200),
-            crossFadeState:
-                _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            firstChild: const SizedBox(width: double.infinity),
-            secondChild: _buildForks(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildForks(BuildContext context) {
-    if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.all(14),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-    final forks = _forks ?? const <ForkRef>[];
-    if (forks.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        child: Text('暂无追问历史',
-            style: Theme.of(context).textTheme.bodySmall),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(height: 1),
-          for (final f in forks)
-                _ForkSubTile(
-                  fork: f,
-                  onDeleted: () => setState(
-                    () => _forks?.removeWhere((x) => x.forkId == f.forkId),
+          if (_expanded)
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (_forks.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('暂无追问分支'),
+                ),
+              )
+            else
+              for (final fork in _forks)
+                Dismissible(
+                  key: ValueKey('fork-${fork.id}'),
+                  direction: DismissDirection.endToStart,
+                  confirmDismiss: (_) => _delete(fork.id, forkOnly: true),
+                  background: _deleteBackground(context),
+                  child: ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.subdirectory_arrow_right),
+                    title: Text(_professorName(ref, fork.professorId)),
+                    subtitle: Text(_formatDate(fork.updatedAt)),
+                    onTap: () => context.push(
+                      '/chat?sid=${Uri.encodeComponent(fork.id)}',
+                    ),
                   ),
                 ),
         ],
       ),
     );
   }
+
+  Future<bool> _delete(String id, {bool forkOnly = false}) async {
+    Haptics.medium();
+    final result = await ref
+        .read(conversationRepositoryProvider)
+        .deleteSession(id);
+    if (!mounted) return false;
+    switch (result) {
+      case Success<void>():
+        if (forkOnly) {
+          setState(() => _forks = _forks.where((f) => f.id != id).toList());
+        } else {
+          widget.onDeleted();
+        }
+        return true;
+      case Failure<void>(:final error):
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+        return false;
+    }
+  }
 }
 
-class _ForkSubTile extends ConsumerWidget {
-  const _ForkSubTile({required this.fork, required this.onDeleted});
+class _CompetitionTile extends ConsumerWidget {
+  const _CompetitionTile({
+    super.key,
+    required this.item,
+    required this.onDeleted,
+  });
 
-  final ForkRef fork;
+  final SearchHistoryItem item;
   final VoidCallback onDeleted;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final subtitle = (fork.college == null || fork.college!.isEmpty)
-        ? fork.university
-        : '${fork.university} · ${fork.college}';
-    return Dismissible(
-      key: ValueKey(fork.forkId),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Theme.of(context).colorScheme.error,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      onDismissed: (_) async {
-        await ref.read(chatRepositoryProvider).deleteFork(forkId: fork.forkId);
+  Widget build(BuildContext context, WidgetRef ref) => Dismissible(
+    key: ValueKey(item.sessionId),
+    direction: DismissDirection.endToStart,
+    confirmDismiss: (_) async {
+      try {
+        await ref.read(historyRepositoryProvider).remove(item.sessionId);
         onDeleted();
+        return true;
+      } catch (error) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已删除追问')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error.toString())));
         }
-      },
+        return false;
+      }
+    },
+    background: _deleteBackground(context),
+    child: Card(
       child: ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        leading: CircleAvatar(
-          radius: 15,
-          backgroundColor: AppColors.indigo,
-          child: Text(
-            fork.avatarLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        title: Text(
-          fork.professorName,
-          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(subtitle, style: textTheme.bodySmall),
-        trailing: Text(_formatTime(fork.createdAt), style: textTheme.bodySmall),
-        onTap: () => context.push(
-          '/chat?fork=true&fid=${Uri.encodeComponent(fork.forkId)}'
-          '&msid=${Uri.encodeComponent(fork.mainSessionId)}',
-        ),
+        title: Text(item.prompt),
+        subtitle: Text('竞赛 · ${item.summary}'),
       ),
-    );
-  }
+    ),
+  );
 }
 
-class _HistoryTileSkeleton extends StatelessWidget {
-  const _HistoryTileSkeleton();
+class _LoadingList extends StatelessWidget {
+  const _LoadingList();
 
   @override
-  Widget build(BuildContext context) {
-    return const Card(
+  Widget build(BuildContext context) => ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: 3,
+    itemBuilder: (_, _) => const Card(
       child: Padding(
-        padding: EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Expanded(
-              child: ShimmerSkeleton(height: 16, width: double.infinity),
-            ),
-            SizedBox(width: 8),
-            ShimmerSkeleton(height: 16, width: 16),
-          ],
-        ),
+        padding: EdgeInsets.all(16),
+        child: ShimmerSkeleton(height: 18, width: double.infinity),
       ),
-    );
-  }
+    ),
+  );
 }
 
-String _formatTime(DateTime v) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${two(v.hour)}:${two(v.minute)}';
-}
+Widget _deleteBackground(BuildContext context) => Container(
+  color: Theme.of(context).colorScheme.error,
+  alignment: Alignment.centerRight,
+  padding: const EdgeInsets.only(right: 20),
+  child: const Icon(Icons.delete, color: Colors.white),
+);
 
-String _historyTypeLabel(SearchHistoryType type) => switch (type) {
-  SearchHistoryType.competition => '竞赛',
-  SearchHistoryType.mentor => '导师',
+String _kindLabel(ConversationSessionKind kind) => switch (kind) {
+  ConversationSessionKind.general => '导师推荐',
+  ConversationSessionKind.professor => '导师咨询',
+  ConversationSessionKind.fork => '追问分支',
 };
+
+String _professorName(WidgetRef ref, String? id) {
+  if (id == null) return '导师追问';
+  return ref.read(mockDbProvider).getProfessor(id)?.name ?? '导师追问';
+}
+
+String _formatDate(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}-'
+    '${value.day.toString().padLeft(2, '0')} '
+    '${value.hour.toString().padLeft(2, '0')}:'
+    '${value.minute.toString().padLeft(2, '0')}';

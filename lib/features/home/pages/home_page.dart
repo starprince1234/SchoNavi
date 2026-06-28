@@ -11,6 +11,7 @@ import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/home_prompt.dart';
+import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../chat/providers/chat_provider.dart';
 import '../../chat/widgets/chat_message_bubble.dart';
@@ -174,15 +175,16 @@ class _HomePageState extends ConsumerState<HomePage> {
       _inConversation = true;
     });
     final promptValue = prompt;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final notifier = ref.read(_chatProvider.notifier);
       if (!_inConversationStarted) {
         _inConversationStarted = true;
-        notifier.start(sessionId: _newSessionId(), professorId: null);
-        notifier.bootstrapRecommendations(promptValue);
+        await notifier.create();
+        if (!mounted) return;
+        await notifier.bootstrapRecommendations(promptValue);
       } else {
-        notifier.send(promptValue);
+        await notifier.send(promptValue);
       }
     });
     _controller.clear();
@@ -206,9 +208,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     ref.invalidate(_chatProvider);
     _controller.clear();
   }
-
-  String _newSessionId() =>
-      's_chat_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}';
 
   void _scrollConversationToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -427,7 +426,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           AnimatedEntrance(
             index: 0,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              // 顶部留白 24：避开状态栏后给品牌字标足够呼吸，避免落地态局促。
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
               child: Column(
                 children: [
                   // 品牌标，居中 Hero：矢量 logo + indigo→cyan 渐变字标。
@@ -502,6 +502,61 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     return Column(
       children: [
+        if (state.activity == ChatActivity.creating ||
+            state.activity == ChatActivity.hydrating)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 56, 20, 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text('正在创建并恢复会话上下文…'),
+              ],
+            ),
+          ),
+        if (state.activity == ChatActivity.loadFailed ||
+            state.activity == ChatActivity.turnFailed ||
+            state.activity == ChatActivity.interrupted)
+          Material(
+            color: scheme.surfaceContainerHighest,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 12, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      state.errorMessage ??
+                          (state.activity == ChatActivity.interrupted
+                              ? '上次生成已中断，部分内容已保存。'
+                              : '会话处理失败，请重试。'),
+                    ),
+                  ),
+                  if (state.canRegenerate)
+                    TextButton(
+                      onPressed: () =>
+                          ref.read(_chatProvider.notifier).regenerate(),
+                      child: const Text('重试本轮'),
+                    ),
+                  TextButton(
+                    onPressed: state.activity == ChatActivity.loadFailed
+                        ? _startNewConversation
+                        : () => ref
+                              .read(_chatProvider.notifier)
+                              .abandonInterruptedTurn(),
+                    child: Text(
+                      state.activity == ChatActivity.loadFailed
+                          ? '新建会话'
+                          : '放弃本轮',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         Expanded(
           child: ListView.builder(
             controller: _conversationScrollController,
@@ -518,14 +573,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                   message: message,
                   onTapRecommendation: (id) {
                     final mainSid = ref.read(_chatProvider).sessionId;
-                    final encoded = mainSid != null && mainSid.isNotEmpty
-                        ? Uri.encodeComponent(mainSid)
-                        : null;
-                    if (encoded == null) {
-                      context.push('/professor/$id');
-                    } else {
-                      context.push('/professor/$id?msid=$encoded');
-                    }
+                    final turnId = _turnIdForMessageIndex(state, index);
+                    final query = <String, String>{
+                      if (mainSid != null && mainSid.isNotEmpty)
+                        'msid': mainSid,
+                      if (turnId != null) 'stid': turnId,
+                    };
+                    context.push(
+                      Uri(
+                        path: '/professor/$id',
+                        queryParameters: query.isEmpty ? null : query,
+                      ).toString(),
+                    );
                   },
                   onOpenHomepage: _openHomepage,
                   onRetryRecommendation: (id) =>
@@ -542,7 +601,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         ChatQuickActions(
           actions: state.followUpQuestions,
-          enabled: !state.isBusy,
+          enabled: state.canSend,
           onTap: _sendFollowUp,
         ),
       ],
@@ -557,7 +616,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     final canStop = chatState?.activity == ChatActivity.streaming;
     final hint = _inConversation ? '继续描述你的需求…' : '给 SchoNavi 发送消息';
     final focusBorder = Border.all(
-      color: _focused ? AppColors.indigo : scheme.outline.withValues(alpha: 0.4),
+      color: _focused
+          ? AppColors.indigo
+          : scheme.outline.withValues(alpha: 0.4),
       width: _focused ? 2 : 1,
     );
     return AnimatedEntrance(
@@ -688,5 +749,14 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
       ),
     );
+  }
+
+  String? _turnIdForMessageIndex(ChatState state, int messageIndex) {
+    var turnIndex = -1;
+    for (var i = 0; i <= messageIndex && i < state.messages.length; i++) {
+      if (state.messages[i].role == ChatRole.user) turnIndex++;
+    }
+    if (turnIndex < 0 || turnIndex >= state.turns.length) return null;
+    return state.turns[turnIndex].id;
   }
 }
