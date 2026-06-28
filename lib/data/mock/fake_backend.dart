@@ -6,6 +6,9 @@ import 'package:dio/dio.dart';
 
 import 'fake_chat_quick_actions_backend.dart';
 import 'fake_chat_route_backend.dart';
+import 'fake_preparation_backend.dart';
+
+export 'fake_preparation_backend.dart' show PreparationFakeRegistration;
 
 /// Dio 层「假后端」：拦截 `/api/v1/*` 请求，按 `(method, path)` 分派到
 /// 已注册的 handler，返回符合 API 信封约定的 [ResponseBody]。
@@ -14,7 +17,8 @@ import 'fake_chat_route_backend.dart';
 /// 解码），只换 transport。测试 override `dioProvider` 注入本适配器，即可
 /// 在无真后端时走真实链路；未来经 config 接入可让 http 模式离线演示。
 ///
-/// 已注册 `/chat/route` 与 `/chat/quick-actions`。**未注册路径返回 404 信封**，让
+/// 已注册 `/chat/route`、`/chat/quick-actions` 与
+/// `/preparation-plans/generate`。**未注册路径返回 404 信封**，让
 /// 尚未 fake 的端点显式失败——缺口一目了然，便于后续逐步补齐端点。
 class FakeBackendAdapter implements HttpClientAdapter {
   FakeBackendAdapter() : _handlers = _defaultHandlers();
@@ -50,6 +54,8 @@ class FakeBackendAdapter implements HttpClientAdapter {
     return {
       _RouteKey('POST', '/api/v1/chat/route'): chatRouteHandler,
       _RouteKey('POST', '/api/v1/chat/quick-actions'): chatQuickActionsHandler,
+      _RouteKey('POST', '/api/v1/preparation-plans/generate'):
+          preparationGenerateHandler,
     };
   }
 
