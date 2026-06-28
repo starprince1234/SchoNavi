@@ -47,43 +47,41 @@ void main() {
         tester.view.reset();
       });
 
-      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      // 单一一致的视口设置：375x800 @ 1.0 dpr，1.5x 文本缩放。
       tester.view.devicePixelRatio = 1.0;
       tester.view.physicalSize = const Size(375, 800);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
 
-      await tester.pumpWidget(MediaQuery(
-        data: const MediaQueryData(
-          size: Size(375, 800),
-          devicePixelRatio: 1.0,
-          textScaler: TextScaler.linear(1.5),
-        ),
-        child: MaterialApp(
-          theme: ThemeData(
-            brightness: Brightness.dark,
-            useMaterial3: true,
-          ),
+      // 与生产布局一致：MaterialApp + Scaffold(body: Column(Expanded(Padding(view))))
+      // —— 不额外包裹 SingleChildScrollView，让真实的 RenderFlex 溢出能被捕获。
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
           home: Scaffold(
-            body: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: CompetitionHomeResultView(
-                  state: CompetitionHomeResult(_denseResult()),
-                  prompt: '我想参加一个适合我的算法和人工智能方向的国家级竞赛，'
-                      '希望今年秋天报名，可以组队。',
-                  onAdjust: () {},
-                  onRetry: (_) async {},
+            body: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 56, 20, 12),
+                    child: CompetitionHomeResultView(
+                      state: CompetitionHomeResult(_denseResult()),
+                      prompt: '我想参加一个适合我的算法和人工智能方向的国家级竞赛，'
+                          '希望今年秋天报名，可以组队。',
+                      onAdjust: () {},
+                      onRetry: (_) async {},
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
-      ));
+      );
 
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(CompetitionHomeResultView), findsOneWidget);
       expect(find.text('调整条件'), findsOneWidget);
     },
-    tags: ['a11y'],
   );
 }
