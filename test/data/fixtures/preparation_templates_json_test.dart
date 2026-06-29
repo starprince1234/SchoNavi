@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
+import 'package:scho_navi/data/fixtures/competition_timeline_defaults.dart';
+import 'package:scho_navi/domain/entities/preparation_plan.dart';
 
 Future<Map<String, dynamic>> _load(String path) async {
   final raw = await rootBundle.loadString(path);
@@ -33,5 +35,33 @@ void main() {
   test('competition_overrides.json 含 comp_icpc', () async {
     final m = await _load('assets/preparation_templates/competition_overrides.json');
     expect(m['comp_icpc'], isNotNull);
+  });
+
+  test('ICPC override phase keys 全部属窗口型骨架', () async {
+    const windowKeys = {
+      'team_formation',
+      'rules_review',
+      'skill_training',
+      'mock_event',
+      'final_check'
+    };
+    final m = await _load('assets/preparation_templates/competition_overrides.json');
+    final phases = (m['comp_icpc'] as Map)['phases'] as List;
+    for (final phase in phases) {
+      expect(windowKeys, contains((phase as Map)['key']));
+    }
+  });
+
+  group('competition_timeline_defaults', () {
+    test('ICPC 与蓝桥杯默认窗口型', () {
+      expect(CompetitionTimelineDefaults.defaultFor('comp_icpc'),
+          CompetitionTimelineType.eventWindow);
+      expect(CompetitionTimelineDefaults.defaultFor('comp_lanqiao'),
+          CompetitionTimelineType.eventWindow);
+    });
+
+    test('未知赛事返回 null', () {
+      expect(CompetitionTimelineDefaults.defaultFor('comp_unknown'), isNull);
+    });
   });
 }
