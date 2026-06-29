@@ -14,11 +14,25 @@ import 'fake_backend.dart';
 Future<ResponseBody> preparationAssistantHandler(
   RequestOptions options,
 ) async {
+  // 解析请求体的 request_id 并 echo（兼容缺失：默认空串）。
+  String requestId = '';
+  final data = options.data;
+  if (data is Map) {
+    requestId = (data['request_id']?.toString()) ?? '';
+  } else if (data is String) {
+    try {
+      final decoded = jsonDecode(data);
+      if (decoded is Map) {
+        requestId = (decoded['request_id']?.toString()) ?? '';
+      }
+    } catch (_) {}
+  }
   return ResponseBody.fromString(
     jsonEncode({
       'code': 0,
       'message': 'ok',
       'data': {
+        'request_id': requestId,
         'reply': '我整理了两项可单独确认的调整。',
         'change_set': {
           'id': 'cs_fake_1',
