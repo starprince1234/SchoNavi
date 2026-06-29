@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,7 @@ import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
 import 'package:scho_navi/domain/repositories/preparation_plan_repository.dart';
 import 'package:scho_navi/features/preparation/widgets/assistant_drawer.dart';
+import 'package:scho_navi/features/preparation/widgets/plan_change_card_view.dart';
 import 'package:scho_navi/features/preparation/providers/preparation_providers.dart';
 
 /// 助手抽屉 widget 测试（P4a.5）。
@@ -104,14 +107,18 @@ Future<ProviderContainer> _bootstrap({
   return container;
 }
 
-Widget _harness(ProviderContainer container, {String planId = 'pp_1'}) =>
+Widget _harness(
+  ProviderContainer container, {
+  String planId = 'pp_1',
+  PreparationPlan? plan,
+}) =>
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         home: Scaffold(
           body: PreparationAssistantDrawer(
             planId: planId,
-            plan: _plan(id: planId),
+            plan: plan ?? _plan(id: planId),
           ),
         ),
       ),
@@ -248,19 +255,200 @@ void main() {
     );
   });
 
-  /// 生成卡片后手工改计划（revision 自 1→2），再点接受 → revision 不匹配 →
-  /// 本 change set 剩余 pending 卡全部标 stale（含被点的卡）。
-  testWidgets('手工编辑后剩余卡变 stale', (t) async {
-    final container = await _bootstrap(savePlan: true);
-    await t.pumpWidget(_harness(container));
+  /// 接受 deleteTask 卡 → 仓库写入新计划（删除目标任务）+ 卡标「已应用」
+  /// + revision 自 1→2。覆盖 moveTask/addTask 之外的第三类改动卡接受路径
+  /// （review Finding 2：drawer 级 deleteTask 接受未测）。
+  testWidgets('接受 deleteTask 写回计划并刷新 revision', (t) async {
+    // 自定义计划：defense_prep 含一个 optional 任务（required 任务不可删）。
+    final plan = _plan().copyWith(
+      phases: [
+        _plan().phases.first,
+        PreparationPhase(
+          key: 'defense_prep',
+          title: '答辩准备',
+          startDate: DateTime(2026, 5, 31),
+          endDate: DateTime(2026, 6, 10),
+          tasks: [
+            PreparationTask(
+              id: 'task_optional_drill',
+              title: '可选模拟答辩',
+              kind: PreparationTaskKind.optional,
+              estimatedHours: 2,
+              dueDate: DateTime(2026, 6, 5),
+            ),
+          ],
+        ),
+      ],
+    );
+    final fakeRepo = _ConflictRepo(plan);
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'));
+    final adapter = FakeBackendAdapter();
+    adapter.register(
+      'POST',
+      '/api/v1/preparation-plans/pp_1/assistant',
+      (options) async => ResponseBody.fromString(
+        jsonEncode({
+          'code': 0,
+          'message': 'ok',
+          'data': {
+            'reply': '该任务可删除。',
+            'change_set': {
+              'id': 'cs_del_1',
+              'base_plan_revision': 1,
+              'cards': [
+                {
+                  'id': 'cc_del',
+                  'type': 'delete_task',
+                  'target_task_id': 'task_optional_drill',
+                  'summary': '删除【可选模拟答辩】',
+                  'rationale': '与正式答辩重复。',
+                  'status': 'pending',
+                },
+              ],
+            },
+          },
+        }),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
+    );
+    dio.httpClientAdapter = adapter;
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig(
+            dataSource: DataSource.http,
+            api: const ApiConfig(baseUrl: 'https://fake.local'),
+          ),
+        ),
+        dioProvider.overrideWithValue(dio),
+        preparationPlanRepositoryProvider.overrideWithValue(fakeRepo),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(dio.close);
+
+    await t.pumpWidget(_harness(container, plan: plan));
     await t.pumpAndSettle();
 
-    await t.enterText(find.byType(TextField), '往后挪');
+    await t.enterText(find.byType(TextField), '删掉模拟答辩');
     await t.pump();
     await t.tap(find.byIcon(Icons.arrow_upward));
     await t.pumpAndSettle();
 
-    // 手工改计划：勾选完成任务触发 save，revision 1→2（expectedRevision 仍 1）。
+    expect(fakeRepo.findById('pp_1')!.revision, 1);
+    await t.tap(find.text('接受').first);
+    await t.pumpAndSettle();
+
+    expect(fakeRepo.saveCount, 1);
+    expect(fakeRepo.findById('pp_1')!.revision, 2);
+    final defense = fakeRepo
+        .findById('pp_1')!
+        .phases
+        .firstWhere((p) => p.key == 'defense_prep');
+    expect(
+      defense.tasks.any((tk) => tk.id == 'task_optional_drill'),
+      isFalse,
+    );
+  });
+
+  /// 生成卡片后手工改计划（revision 自 1→2），再点接受 → revision 不匹配 →
+  /// 本 change set 剩余 pending 卡全部标 stale（含被点的卡与其它未点的 pending 卡）。
+  ///
+  /// 用自定义 handler 返回两张可接受 pending 卡（两张 addTask，分别落到
+  /// defense_prep 的不同 dueDate），确保 cascade 真正命中多张 pending 卡——
+  /// 而非单卡被点后顺便标 stale（review Finding 3）。
+  testWidgets('手工编辑后剩余卡变 stale', (t) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'));
+    final adapter = FakeBackendAdapter();
+    adapter.register(
+      'POST',
+      '/api/v1/preparation-plans/pp_1/assistant',
+      (options) async => ResponseBody.fromString(
+        jsonEncode({
+          'code': 0,
+          'message': 'ok',
+          'data': {
+            'reply': '我整理了两项可单独确认的调整。',
+            'change_set': {
+              'id': 'cs_two_pending',
+              'base_plan_revision': 1,
+              'cards': [
+                {
+                  'id': 'cc_add_a',
+                  'type': 'add_task',
+                  'target_phase_key': 'defense_prep',
+                  'new_task': {
+                    'title': '第一次模拟答辩',
+                    'estimated_hours': 3,
+                    'due_date': '2026-06-05',
+                    'note': '记录评委追问',
+                  },
+                  'summary': '答辩准备阶段新增一次模拟答辩',
+                  'rationale': '在正式答辩前预留复盘时间。',
+                  'status': 'pending',
+                },
+                {
+                  'id': 'cc_add_b',
+                  'type': 'add_task',
+                  'target_phase_key': 'defense_prep',
+                  'new_task': {
+                    'title': '第二次模拟答辩',
+                    'estimated_hours': 3,
+                    'due_date': '2026-06-08',
+                    'note': '复盘改进',
+                  },
+                  'summary': '答辩准备阶段再增一次模拟答辩',
+                  'rationale': '巩固表达。',
+                  'status': 'pending',
+                },
+              ],
+            },
+          },
+        }),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
+    );
+    dio.httpClientAdapter = adapter;
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig(
+            dataSource: DataSource.http,
+            api: const ApiConfig(baseUrl: 'https://fake.local'),
+          ),
+        ),
+        dioProvider.overrideWithValue(dio),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(dio.close);
+    // 预置计划 revision=1（与 base_plan_revision 对齐）。
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(id: 'pp_1', revision: 0));
+
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), '加两次模拟答辩');
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_upward));
+    await t.pumpAndSettle();
+
+    // 两张 pending 卡均可接受。
+    expect(find.text('接受'), findsNWidgets(2));
+
+    // 手工改计划：save 触发 revision 1→2（expectedRevision 仍 1）。
     await container.read(preparationPlanRepositoryProvider).save(
           _plan(id: 'pp_1', revision: 1).copyWith(
             personalizedSummary: '手动备注',
@@ -270,15 +458,16 @@ void main() {
     await t.tap(find.text('接受').first);
     await t.pumpAndSettle();
 
-    // 被点的卡标 stale（可见）；接受按钮消失（stale 卡不可接受）。
+    // 被点的卡标 stale；接受按钮全部消失（两张 pending 卡均被 cascade 标 stale）。
     expect(find.text('已过期'), findsWidgets);
     expect(find.textContaining('计划已变化'), findsWidgets);
     expect(find.text('接受'), findsNothing);
-    // cascade：剩余 pending 卡落盘为 stale（moveTask 卡本就 rejected 不受影响）。
+    // cascade：两张 pending 卡均落盘为 stale，无残留 pending。
     final store = container.read(assistantHistoryStoreProvider);
     final persisted = await store.list('pp_1');
     final statuses = persisted.last.cardStatuses;
-    expect(statuses.values, contains(ChangeCardStatus.stale));
+    expect(statuses['cc_add_a'], ChangeCardStatus.stale);
+    expect(statuses['cc_add_b'], ChangeCardStatus.stale);
     expect(statuses.values, isNot(contains(ChangeCardStatus.pending)));
   });
 
@@ -308,7 +497,10 @@ void main() {
     );
   });
 
-  /// 保存失败（ConflictException）卡保持 pending + 显示错误。
+  /// 保存失败（真实 CAS 竞争 ConflictException）卡保持 pending + 显示错误。
+  ///
+  /// 用忠实 CAS 仓库：drawer findById 读到 revision=1（匹配 expectedRevision），
+  /// 但 save 时模拟另一写入者抢先 bump revision → 抛 ConflictException。
   testWidgets('保存失败卡保持 pending', (t) async {
     final plan = _plan();
     final fakeRepo = _ConflictRepo(plan);
@@ -339,17 +531,45 @@ void main() {
     await t.tap(find.byIcon(Icons.arrow_upward));
     await t.pumpAndSettle();
 
+    // 模拟 findById 与 save 之间并发写入：save 内 CAS 校验失败。
+    fakeRepo.raceNextSave();
     await t.tap(find.text('接受').first);
     await t.pumpAndSettle();
 
     // 卡仍 pending（待确认），接受按钮仍可点，错误文案可见。
     expect(find.text('待确认'), findsWidgets);
     expect(find.textContaining('数据已变化'), findsOneWidget);
+    // 仓库未被本次 accept 落盘（CAS 失败）。
+    expect(fakeRepo.saveCount, 0);
   });
 
   /// 已 applied 的卡再点接受幂等（不重复写计划、revision 不再变）。
+  ///
+  /// 用计数仓库：第一次接受 saveCount=1、revision 1→2、新增一个任务；
+  /// 再次直接调用同一卡的 onAccept 回调（绕过已消失的接受按钮）→ 命中
+  /// `if (current == applied) return` 守卫，不二次落盘、不重复新增任务。
   testWidgets('已应用卡再点接受幂等', (t) async {
-    final container = await _bootstrap(savePlan: true);
+    final plan = _plan();
+    final fakeRepo = _ConflictRepo(plan);
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'))
+      ..httpClientAdapter = FakeBackendAdapter();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig(
+            dataSource: DataSource.http,
+            api: const ApiConfig(baseUrl: 'https://fake.local'),
+          ),
+        ),
+        dioProvider.overrideWithValue(dio),
+        preparationPlanRepositoryProvider.overrideWithValue(fakeRepo),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(dio.close);
+
     await t.pumpWidget(_harness(container));
     await t.pumpAndSettle();
 
@@ -358,22 +578,58 @@ void main() {
     await t.tap(find.byIcon(Icons.arrow_upward));
     await t.pumpAndSettle();
 
+    // 第一次接受：唯一可接受的 addTask 卡（cc_fake_add）落盘一次，revision 1→2，
+    // defense_prep 新增「第二次模拟答辩」任务。
     await t.tap(find.text('接受').first);
     await t.pumpAndSettle();
-    final repo = container.read(preparationPlanRepositoryProvider);
-    expect(repo.findById('pp_1')!.revision, 2);
+    expect(fakeRepo.saveCount, 1);
+    expect(fakeRepo.findById('pp_1')!.revision, 2);
+    final defenseAfterFirst = fakeRepo
+        .findById('pp_1')!
+        .phases
+        .firstWhere((p) => p.key == 'defense_prep');
+    final taskCountAfterFirst = defenseAfterFirst.tasks.length;
+    expect(
+      defenseAfterFirst.tasks.any((tk) => tk.title == '第二次模拟答辩'),
+      isTrue,
+    );
 
-    // 再次点「已应用」态的卡——按钮已禁用，无新写入。
-    expect(find.text('接受'), findsNothing);
-    expect(repo.findById('pp_1')!.revision, 2);
+    // 接受按钮已被「已应用」替换；直接重新调用该 applied 卡的 onAccept 回调，
+    // 模拟重复点击——应命中 `if (current == applied) return` 守卫，不二次落盘、
+    // 不重复新增任务、revision 不再变。
+    final appliedCardFinder = find.byWidgetPredicate(
+      (w) => w is PlanChangeCardView && w.status == ChangeCardStatus.applied,
+    );
+    expect(appliedCardFinder, findsOneWidget);
+    final cardView = t.widget<PlanChangeCardView>(appliedCardFinder);
+    expect(cardView.onAccept, isNotNull);
+    cardView.onAccept!();
+    await t.pumpAndSettle();
+
+    expect(fakeRepo.saveCount, 1);
+    expect(fakeRepo.findById('pp_1')!.revision, 2);
+    final defenseAfterSecond = fakeRepo
+        .findById('pp_1')!
+        .phases
+        .firstWhere((p) => p.key == 'defense_prep');
+    expect(defenseAfterSecond.tasks.length, taskCountAfterFirst);
   });
 }
 
-/// 始终抛 [ConflictException] 的仓库，用于测试保存失败分支。
+/// 模拟真实仓库 CAS 语义的仓库（与 [LocalPreparationPlanRepository.save]
+/// 对齐）：内存维护一份计划；save 时若 `existing.revision != plan.revision`
+/// 抛 [ConflictException]，否则落盘 `plan.copyWith(revision: plan.revision+1)`
+/// 并返回。`saveCount` 供幂等测试断言 save 调用次数。
 class _ConflictRepo implements PreparationPlanRepository {
-  _ConflictRepo(this._plan);
+  _ConflictRepo(PreparationPlan plan) : _plan = plan;
 
-  final PreparationPlan _plan;
+  PreparationPlan _plan;
+  int saveCount = 0;
+
+  /// 一次性标志：下一次 save 时在 CAS 校验前并发改写内存计划 revision，
+  /// 使 drawer 的 findById（已读到匹配 revision）与 save 之间发生真实竞争，
+  /// 从而触发 [ConflictException] 分支（而非 stale-cascade 分支）。
+  bool _raceNextSave = false;
 
   @override
   PreparationPlan? findById(String id) => id == _plan.id ? _plan : null;
@@ -389,10 +645,28 @@ class _ConflictRepo implements PreparationPlanRepository {
     yield [_plan];
   }
 
+  /// 标记下一次 save 触发并发竞争：模拟 findById 与 save 之间另一写入者
+  /// 抢先 bump 了 revision。
+  void raceNextSave() => _raceNextSave = true;
+
   @override
   Future<PreparationPlan> save(PreparationPlan plan) async {
-    throw const ConflictException();
+    if (_raceNextSave) {
+      _raceNextSave = false;
+      _plan = _plan.copyWith(revision: _plan.revision + 1);
+    }
+    final existing = _plan;
+    if (existing.revision != plan.revision) {
+      throw const ConflictException();
+    }
+    final updated = plan.copyWith(revision: plan.revision + 1);
+    _plan = updated;
+    saveCount++;
+    return updated;
   }
+
+  /// 模拟并发写入：外部直接覆盖内存计划（用于 stale / conflict 测试）。
+  void simulateConcurrentWrite(PreparationPlan plan) => _plan = plan;
 
   @override
   Future<void> archive(String id) async {}
