@@ -19,6 +19,7 @@ import '../../../domain/repositories/preparation_level_diagnoser.dart';
 import '../../../domain/repositories/preparation_plan_assistant.dart';
 import '../../../domain/repositories/preparation_template_provider.dart';
 import '../../../domain/services/preparation_plan_generator.dart';
+import 'preparation_assistant_controller.dart';
 
 /// 备赛计划仓库：基于 [LocalPreparationPlanRepository] + SharedPreferences。
 /// 非 autoDispose——跨页面需长期持有；app 关闭时由 [ref.onDispose] 关闭 stream。
@@ -103,3 +104,10 @@ final activePlanForCompetitionProvider =
       final repo = ref.watch(preparationPlanRepositoryProvider);
       return repo.activeForCompetition(competitionId);
     });
+
+/// 备赛助手会话 controller：非 autoDispose，关闭抽屉不销毁在途请求。
+final preparationAssistantControllerProvider =
+    NotifierProvider.family<PreparationAssistantController,
+        PreparationAssistantControllerState, String>(
+  PreparationAssistantController.new,
+);
