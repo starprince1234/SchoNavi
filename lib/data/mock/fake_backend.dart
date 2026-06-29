@@ -7,8 +7,11 @@ import 'package:dio/dio.dart';
 import 'fake_chat_quick_actions_backend.dart';
 import 'fake_chat_route_backend.dart';
 import 'fake_preparation_backend.dart';
+import 'fake_preparation_diagnose_backend.dart';
 
 export 'fake_preparation_backend.dart' show PreparationFakeRegistration;
+export 'fake_preparation_diagnose_backend.dart'
+    show DiagnosisFakeRegistration;
 
 /// Dio 层「假后端」：拦截 `/api/v1/*` 请求，按 `(method, path)` 分派到
 /// 已注册的 handler，返回符合 API 信封约定的 [ResponseBody]。
@@ -56,6 +59,8 @@ class FakeBackendAdapter implements HttpClientAdapter {
       _RouteKey('POST', '/api/v1/chat/quick-actions'): chatQuickActionsHandler,
       _RouteKey('POST', '/api/v1/preparation-plans/generate'):
           preparationGenerateHandler,
+      _RouteKey('POST', '/api/v1/preparation-plans/diagnose'):
+          preparationDiagnoseHandler,
     };
   }
 

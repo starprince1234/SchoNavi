@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../data/ai/ai_preparation_personalizer.dart';
+import '../../../data/ai/ai_preparation_level_diagnoser.dart';
 import '../../../data/http/http_preparation_personalizer.dart';
+import '../../../data/http/http_preparation_level_diagnoser.dart';
 import '../../../data/local/local_preparation_plan_repository.dart';
 import '../../../data/local/local_preparation_template_provider.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
+import '../../../domain/repositories/preparation_level_diagnoser.dart';
 import '../../../domain/repositories/preparation_template_provider.dart';
 import '../../../domain/services/preparation_plan_generator.dart';
 
@@ -35,6 +38,18 @@ final preparationPersonalizerProvider = Provider<PreparationPersonalizer>((
     DataSource.llm => AiPreparationPersonalizer(ref.watch(llmClientProvider)),
     DataSource.http =>
       HttpPreparationPersonalizer(ref.watch(dioProvider)),
+  };
+});
+
+/// 备赛水平诊断器：按 [DataSource] 切换 LLM / HTTP 实现。
+final preparationLevelDiagnoserProvider = Provider<PreparationLevelDiagnoser>((
+  ref,
+) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm =>
+      AiPreparationLevelDiagnoser(ref.watch(llmClientProvider)),
+    DataSource.http =>
+      HttpPreparationLevelDiagnoser(ref.watch(dioProvider)),
   };
 });
 
