@@ -690,6 +690,75 @@ void main() {
       expect(result.first.status, ChangeCardStatus.rejected);
       expect(result.first.rejectionCode, 'phase_schedule_invalid');
     });
+
+    test('相邻阶段相接（start == prevEnd）-> rejected（闭区间共享同日=重叠）', () {
+      // 阶段 A 重设为 5/5–5/22，阶段 B 保持 5/22–5/28（B.start == A.end）。
+      // 日期为闭区间，5/22 同属两个阶段，视为重叠，应拒绝。
+      final result = PlanChangeValidator.validate(
+        _changeSet([
+          _card(
+            type: ChangeCardType.reschedulePhase,
+            phaseSchedule: [
+              PhaseScheduleDraft(
+                phaseKey: 'p1',
+                startDate: DateTime(2026, 5, 5),
+                endDate: DateTime(2026, 5, 22),
+              ),
+            ],
+          ),
+        ]),
+        _snapshot(
+          phases: [
+            _phase(
+              'p1',
+              startDate: DateTime(2026, 5, 10),
+              endDate: DateTime(2026, 5, 22),
+            ),
+            _phase(
+              'p2',
+              startDate: DateTime(2026, 5, 22),
+              endDate: DateTime(2026, 5, 28),
+            ),
+          ],
+        ),
+      );
+      expect(result.first.status, ChangeCardStatus.rejected);
+      expect(result.first.rejectionCode, 'phase_schedule_invalid');
+    });
+
+    test('相邻阶段无空档邻接（start == prevEnd+1）-> pending', () {
+      // 阶段 A 重设为 5/5–5/22，阶段 B 保持 5/23–5/28（B.start == A.end+1）。
+      // 这是 scheduler 自身输出模式（cursor = endDate + 1 day），应通过。
+      final result = PlanChangeValidator.validate(
+        _changeSet([
+          _card(
+            type: ChangeCardType.reschedulePhase,
+            phaseSchedule: [
+              PhaseScheduleDraft(
+                phaseKey: 'p1',
+                startDate: DateTime(2026, 5, 5),
+                endDate: DateTime(2026, 5, 22),
+              ),
+            ],
+          ),
+        ]),
+        _snapshot(
+          phases: [
+            _phase(
+              'p1',
+              startDate: DateTime(2026, 5, 10),
+              endDate: DateTime(2026, 5, 22),
+            ),
+            _phase(
+              'p2',
+              startDate: DateTime(2026, 5, 23),
+              endDate: DateTime(2026, 5, 28),
+            ),
+          ],
+        ),
+      );
+      expect(result.first.status, ChangeCardStatus.pending);
+    });
   });
 
   group('appendAdvice', () {
@@ -960,6 +1029,60 @@ void main() {
         }),
         throwsA(isA<FormatException>()),
       );
+    });
+
+    test('new_task.estimated_hours 非整数抛 FormatException（不静默截断）', () {
+      // spec §3.5：estimatedHours 1–200 整数。4.5 不应被截为 4 后通过校验。
+      expect(
+        () => PlanChangeSetDto.fromJson({
+          'reply': 'x',
+          'change_set': {
+            'id': 'cs_1',
+            'base_plan_revision': 0,
+            'cards': [
+              {
+                'id': 'c1',
+                'type': 'add_task',
+                'target_phase_key': 'p1',
+                'new_task': {
+                  'title': 't',
+                  'estimated_hours': 4.5,
+                  'due_date': '2026-06-05',
+                },
+                'summary': '',
+                'rationale': '',
+              },
+            ],
+          },
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('new_task.estimated_hours 整数（如 4.0）合法解码', () {
+      // 4.0 数值上等于整数，不应被拒。
+      final dto = PlanChangeSetDto.fromJson({
+        'reply': 'x',
+        'change_set': {
+          'id': 'cs_1',
+          'base_plan_revision': 0,
+          'cards': [
+            {
+              'id': 'c1',
+              'type': 'add_task',
+              'target_phase_key': 'p1',
+              'new_task': {
+                'title': 't',
+                'estimated_hours': 4.0,
+                'due_date': '2026-06-05',
+              },
+              'summary': '',
+              'rationale': '',
+            },
+          ],
+        },
+      });
+      expect(dto.changeSet.cards.first.newTask!.estimatedHours, 4);
     });
 
     test('toJson/fromJson 往返保持 reply 与 changeSet', () {

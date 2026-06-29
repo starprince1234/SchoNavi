@@ -128,6 +128,13 @@ NewTaskDraft? _decodeNewTask(Object? raw) {
       'new_task.estimated_hours missing or not a number',
     );
   }
+  // spec §3.5：estimatedHours 1–200 整数。非整数（如 4.5）拒绝，
+  // 不得静默截断（否则 4.7 被截为 4 后仍落入合法区间而通过校验）。
+  if (hours != hours.roundToDouble()) {
+    throw const FormatException(
+      'new_task.estimated_hours must be an integer',
+    );
+  }
   final due = _decodeDay(json['due_date'] ?? json['dueDate']);
   if (due == null) {
     throw const FormatException('new_task.due_date missing');
