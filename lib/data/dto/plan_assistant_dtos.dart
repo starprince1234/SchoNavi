@@ -14,6 +14,7 @@ Map<String, dynamic> planAssistantRequestToJson(PlanAssistantRequest req) {
     'base_plan_revision': req.basePlanRevision,
     'plan_snapshot': req.planSnapshot.toJson(),
     'user_message': req.userMessage,
+    'request_id': req.requestId,
     if (req.history.isNotEmpty)
       'history': req.history
           .map((h) => <String, dynamic>{
@@ -41,15 +42,23 @@ Map<String, dynamic> planAssistantRequestToJson(PlanAssistantRequest req) {
 /// 解码失败（结构非对象、type 非法、日期格式错误等）抛 [FormatException]，
 /// 由调用方兜底转 `Failure(ServerException)`，不得写计划（spec §3.5 末条）。
 class AssistantReplyDto {
-  AssistantReplyDto({required this.reply, required this.changeSet});
+  AssistantReplyDto({
+    required this.reply,
+    required this.changeSet,
+    this.requestId = '',
+  });
 
   final String reply;
   final PlanChangeSet changeSet;
+
+  /// 服务端 echo 的请求标识（缺失时为空串，兼容旧 fake）。
+  final String requestId;
 
   /// 从 JSON `data` 解码并跑共享 validator。
   ///
   /// [planSnapshot] 为请求携带的计划快照，validator 据此标记 rejected 卡。
   /// 注意：validator 最多保留前 5 张卡（spec §3.5），此处沿用其截断结果。
+  /// `request_id` 缺失时降级为空串，兼容旧 fake/HTTP 响应。
   factory AssistantReplyDto.fromJson(
     Map<String, dynamic> json,
     PlanSnapshot planSnapshot,
@@ -59,11 +68,13 @@ class AssistantReplyDto {
     return AssistantReplyDto(
       reply: raw.reply,
       changeSet: raw.changeSet.copyWith(cards: validated),
+      requestId: (json['request_id']?.toString()) ?? '',
     );
   }
 
   AssistantReply toEntity() => AssistantReply(
         reply: reply,
         changeSet: changeSet,
+        requestId: requestId,
       );
 }
