@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/domain/entities/assistant_turn.dart';
-import 'package:scho_navi/domain/entities/plan_change_card.dart';
 
 void main() {
   test('toJson/fromJson 往返 requestId', () {
