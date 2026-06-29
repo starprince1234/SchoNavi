@@ -79,6 +79,7 @@ Future<void> _pump(
   ChatMessage message, {
   void Function(String)? onTap,
   void Function(String)? onRetryRecommendation,
+  void Function(String)? onRetry,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -91,6 +92,7 @@ Future<void> _pump(
             message: message,
             onTapRecommendation: onTap ?? (_) {},
             onRetryRecommendation: onRetryRecommendation,
+            onRegenerate: onRetry == null ? null : (id) => onRetry!(id),
           ),
         ),
       ),
@@ -141,7 +143,7 @@ void main() {
     expect(find.text('正在思考'), findsOneWidget);
   });
 
-  testWidgets('错误消息用纯文本展示文案', (tester) async {
+  testWidgets('助手错误态显示圆圈红感叹号与查看详情', (tester) async {
     await _pump(
       tester,
       _msg(
@@ -150,9 +152,49 @@ void main() {
         status: ChatMessageStatus.error,
       ),
     );
+    await tester.pumpAndSettle();
+
+    // 圆圈红感叹号图标
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    // 默认折叠，不直接展示错误文案
+    expect(find.text('服务异常，请稍后重试'), findsNothing);
+    // 「查看详情」按钮存在
+    expect(find.text('查看详情'), findsOneWidget);
+  });
+
+  testWidgets('点击查看详情展开错误文案', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '服务异常，请稍后重试',
+        status: ChatMessageStatus.error,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('查看详情'));
+    await tester.pumpAndSettle();
 
     expect(find.text('服务异常，请稍后重试'), findsOneWidget);
-    expect(find.byType(GptMarkdown), findsNothing);
+  });
+
+  testWidgets('错误态有重试按钮回调', (tester) async {
+    String? retried;
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '服务异常，请稍后重试',
+        status: ChatMessageStatus.error,
+      ),
+      onRetry: (_) => retried = 'm_0',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('重试'), findsOneWidget);
+    await tester.tap(find.text('重试'));
+    expect(retried, 'm_0');
   });
 
   testWidgets('嵌入推荐卡片可点击回调', (tester) async {

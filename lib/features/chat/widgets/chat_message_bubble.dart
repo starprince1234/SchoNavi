@@ -301,14 +301,64 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _AssistantErrorView extends StatelessWidget {
+class _AssistantErrorView extends StatefulWidget {
   const _AssistantErrorView({required this.message, this.onRetry});
+
   final ChatMessage message;
   final VoidCallback? onRetry;
 
   @override
+  State<_AssistantErrorView> createState() => _AssistantErrorViewState();
+}
+
+class _AssistantErrorViewState extends State<_AssistantErrorView> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    // P0.2 会重写为圆圈红感叹号 + 查看详情。
-    return Text(message.content);
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, size: 20, color: cs.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '生成失败，可查看详情或重试',
+                  style: TextStyle(color: cs.onSurface),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                child: Text(_expanded ? '收起' : '查看详情'),
+              ),
+              if (widget.onRetry != null)
+                FilledButton.tonal(
+                  onPressed: widget.onRetry,
+                  child: const Text('重试'),
+                ),
+            ],
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 28),
+              child: Text(
+                widget.message.content,
+                style: TextStyle(color: cs.error, fontSize: 13),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
