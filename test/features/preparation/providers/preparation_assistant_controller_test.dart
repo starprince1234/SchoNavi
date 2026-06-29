@@ -72,6 +72,30 @@ Future<ProviderContainer> _container({bool savePlan = false}) async {
   return container;
 }
 
+AssistantReply _replyWithAddCard() => AssistantReply(
+      reply: '加一次模拟答辩',
+      changeSet: PlanChangeSet(
+        id: 'cs_1',
+        basePlanRevision: 1,
+        cards: [
+          PlanChangeCard(
+            id: 'cc_add',
+            type: ChangeCardType.addTask,
+            targetPhaseKey: 'defense_prep',
+            summary: '答辩准备阶段新增一次模拟答辩',
+            rationale: '在正式答辩前预留复盘时间。',
+            status: ChangeCardStatus.pending,
+            newTask: NewTaskDraft(
+              title: '第二次模拟答辩',
+              estimatedHours: 3,
+              dueDate: DateTime(2026, 6, 5),
+            ),
+          ),
+        ],
+      ),
+      requestId: 'req_x',
+    );
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -264,5 +288,91 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(Duration.zero);
     expect(ctrl.state.turns, hasLength(1));
+  });
+
+  test('clearContext 清空 turns 但不删计划', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('问');
+    completer.complete(_replyWithAddCard());
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(ctrl.state.turns, hasLength(1));
+
+    await ctrl.clearContext();
+    expect(ctrl.state.turns, isEmpty);
+    expect(ctrl.state.cardStatuses, isEmpty);
+    expect(ctrl.state.currentPlan, isNotNull); // 计划仍在
+    final persisted = await container
+        .read(assistantHistoryStoreProvider)
+        .list('pp_1');
+    expect(persisted, isEmpty);
+    expect(
+      container.read(preparationPlanRepositoryProvider).findById('pp_1'),
+      isNotNull,
+    );
+  });
+
+  test('sending 中 clearContext 被忽略', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('问'); // sending
+    await ctrl.clearContext(); // 应被忽略
+    expect(ctrl.state.sending, isTrue);
+    completer.complete(
+      const AssistantReply(
+        reply: '答',
+        changeSet: PlanChangeSet(
+          id: 'cs_1',
+          basePlanRevision: 1,
+          cards: [],
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(ctrl.state.turns, hasLength(1)); // send 仍完成
   });
 }
