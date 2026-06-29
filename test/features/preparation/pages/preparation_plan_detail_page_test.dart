@@ -8,45 +8,47 @@ import 'package:scho_navi/features/preparation/pages/preparation_plan_detail_pag
 import 'package:scho_navi/features/preparation/providers/preparation_providers.dart';
 
 PreparationPlan _plan() => PreparationPlan(
-      id: 'p1',
-      competition: CompetitionSnapshot(
-          id: 'c1',
-          name: 'ACM-ICPC',
-          category: '计算机类',
-          rulesSummary: CompetitionRulesSummary(
-              signupTime: '',
-              contestTime: '',
-              teamSize: '',
-              format: '',
-              organizer: '',
-              officialUrl: null)),
-      targetDate: DateTime(2026, 9, 1),
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.beginner,
-      status: PreparationPlanStatus.active,
-      phases: [
-        PreparationPhase(
-          key: 'team_formation',
-          title: '组队',
-          startDate: DateTime(2026, 6, 28),
-          endDate: DateTime(2026, 7, 5),
-          tasks: [
-            PreparationTask(
-              id: 't1',
-              templateKey: 'team_form',
-              title: '组建队伍',
-              kind: PreparationTaskKind.required,
-              estimatedHours: 3,
-              dueDate: DateTime(2026, 7, 1),
-            ),
-          ],
+  id: 'p1',
+  competition: CompetitionSnapshot(
+    id: 'c1',
+    name: 'ACM-ICPC',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 9, 1),
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases: [
+    PreparationPhase(
+      key: 'team_formation',
+      title: '组队',
+      startDate: DateTime(2026, 6, 28),
+      endDate: DateTime(2026, 7, 5),
+      tasks: [
+        PreparationTask(
+          id: 't1',
+          templateKey: 'team_form',
+          title: '组建队伍',
+          kind: PreparationTaskKind.required,
+          estimatedHours: 3,
+          dueDate: DateTime(2026, 7, 1),
         ),
       ],
-      tightSchedule: false,
-      overload: false,
-      createdAt: DateTime(2026, 6, 28),
-      updatedAt: DateTime(2026, 6, 28),
-    );
+    ),
+  ],
+  tightSchedule: false,
+  overload: false,
+  createdAt: DateTime(2026, 6, 28),
+  updatedAt: DateTime(2026, 6, 28),
+);
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));
@@ -57,9 +59,9 @@ void main() {
   /// preparation_plan_form_page_test.dart.
   Future<ProviderContainer> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
     return container;
   }
@@ -70,8 +72,7 @@ void main() {
     await t.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child:
-            MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
       ),
     );
     await t.pumpAndSettle();
@@ -86,15 +87,15 @@ void main() {
     await t.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child:
-            MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
       ),
     );
     await t.pumpAndSettle();
     await t.tap(find.byType(Checkbox));
     await t.pumpAndSettle();
-    final plan =
-        container.read(preparationPlanRepositoryProvider).findById('p1')!;
+    final plan = container
+        .read(preparationPlanRepositoryProvider)
+        .findById('p1')!;
     expect(plan.phases[0].tasks[0].completed, isTrue);
   });
 
@@ -104,8 +105,7 @@ void main() {
     await t.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child:
-            MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
       ),
     );
     await t.pumpAndSettle();
@@ -119,16 +119,18 @@ void main() {
     final pastPlan = PreparationPlan(
       id: 'pPast',
       competition: CompetitionSnapshot(
-          id: 'c1',
-          name: 'ACM-ICPC',
-          category: '计算机类',
-          rulesSummary: CompetitionRulesSummary(
-              signupTime: '',
-              contestTime: '',
-              teamSize: '',
-              format: '',
-              organizer: '',
-              officialUrl: null)),
+        id: 'c1',
+        name: 'ACM-ICPC',
+        category: '计算机类',
+        rulesSummary: CompetitionRulesSummary(
+          signupTime: '',
+          contestTime: '',
+          teamSize: '',
+          format: '',
+          organizer: '',
+          officialUrl: null,
+        ),
+      ),
       targetDate: DateTime(2026, 9, 1),
       weeklyCommitment: WeeklyCommitment.hours6to10,
       experienceLevel: ExperienceLevel.beginner,
@@ -162,8 +164,7 @@ void main() {
     await t.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child:
-            MaterialApp(home: PreparationPlanDetailPage(planId: 'pPast')),
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'pPast')),
       ),
     );
     await t.pumpAndSettle();
@@ -173,6 +174,58 @@ void main() {
     // 点击日期行触发 showDatePicker；钳制后不应抛断言。
     await t.tap(find.textContaining('截止：'));
     await t.pump();
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('详情页渲染锚点条（提交型显示提交+答辩）', (t) async {
+    final plan = _plan().copyWith(
+      timelineType: CompetitionTimelineType.submission,
+      defenseDate: DateTime(2026, 9, 10),
+    );
+    final container = await bootstrap();
+    await container.read(preparationPlanRepositoryProvider).save(plan);
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.textContaining('提交'), findsOneWidget);
+    expect(find.textContaining('答辩'), findsOneWidget);
+  });
+
+  testWidgets('defense_prep 阶段添加任务日期区间为提交后', (t) async {
+    // defense_prep 任务应在 [targetDate+1, defenseDate] 区间；
+    // 阶段 endDate 默认在答辩前，钳制后打开 DatePicker 不应抛断言。
+    final plan = _plan().copyWith(
+      timelineType: CompetitionTimelineType.submission,
+      targetDate: DateTime(2026, 9, 1),
+      defenseDate: DateTime(2026, 9, 10),
+      phases: [
+        PreparationPhase(
+          key: 'defense_prep',
+          title: '答辩准备',
+          startDate: DateTime(2026, 9, 2),
+          endDate: DateTime(2026, 9, 8),
+          tasks: const [],
+        ),
+      ],
+    );
+    final container = await bootstrap();
+    await container.read(preparationPlanRepositoryProvider).save(plan);
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.text('添加任务'));
+    await t.pumpAndSettle();
+    await t.tap(find.textContaining('截止：'));
+    await t.pump();
+    // 钳制后初始 dueDate 落在 [targetDate+1, defenseDate]，无断言。
     expect(t.takeException(), isNull);
   });
 }

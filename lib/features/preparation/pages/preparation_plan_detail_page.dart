@@ -8,6 +8,7 @@ import '../../../domain/entities/preparation_template.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
 import '../../../domain/services/preparation_scheduler.dart';
 import '../providers/preparation_providers.dart';
+import '../widgets/preparation_anchor_bar.dart';
 import '../widgets/preparation_countdown.dart';
 import '../widgets/preparation_phase_timeline.dart';
 import '../widgets/preparation_task_list.dart';
@@ -57,12 +58,29 @@ class _PreparationPlanDetailPageState
     return DateTime(now.year, now.month, now.day);
   }
 
+  // 阶段允许的截止日期区间（spec §4.5 双段模型）：
+  // - defense_prep 阶段：[targetDate+1, defenseDate]（答辩准备在提交后）。
+  // - 其它阶段：[today, targetDate]。
+  // 当 defenseDate 缺省（不应出现 defense_prep）时退化为 [today, targetDate]。
+  ({DateTime first, DateTime last}) _phaseDateRange(
+    PreparationPlan plan,
+    String phaseKey,
+  ) {
+    if (phaseKey == 'defense_prep' && plan.defenseDate != null) {
+      final first = plan.targetDate.add(const Duration(days: 1));
+      final last = plan.defenseDate!.isBefore(first)
+          ? first
+          : plan.defenseDate!;
+      return (first: first, last: last);
+    }
+    final last = plan.targetDate.isBefore(_today) ? _today : plan.targetDate;
+    return (first: _today, last: last);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final plan = _plan;
     if (plan == null) {
@@ -72,11 +90,12 @@ class _PreparationPlanDetailPageState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.search_off,
-                  size: 48, color: AppColors.inkFaint),
+              const Icon(Icons.search_off, size: 48, color: AppColors.inkFaint),
               const SizedBox(height: 12),
-              const Text('未找到该计划',
-                  style: TextStyle(color: AppColors.inkSoft, fontSize: 15)),
+              const Text(
+                '未找到该计划',
+                style: TextStyle(color: AppColors.inkSoft, fontSize: 15),
+              ),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.of(context).maybePop(),
@@ -115,6 +134,8 @@ class _PreparationPlanDetailPageState
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           PreparationCountdown(plan: plan, today: _today),
+          const SizedBox(height: 8),
+          PreparationAnchorBar(plan: plan),
           const SizedBox(height: 12),
           PreparationPhaseTimeline(plan: plan, today: _today),
           const SizedBox(height: 12),
@@ -135,11 +156,11 @@ class _PreparationPlanDetailPageState
     final plan = _plan;
     if (plan == null) return;
     final task = plan.phases[phaseIndex].tasks[taskIndex];
-    final newCompletedAt =
-        task.completed ? null : DateTime.now();
+    final newCompletedAt = task.completed ? null : DateTime.now();
     final updatedTask = task.copyWith(completedAt: newCompletedAt);
-    final updatedPhase = plan.phases[phaseIndex]
-        .copyWith(tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask));
+    final updatedPhase = plan.phases[phaseIndex].copyWith(
+      tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask),
+    );
     final updatedPlan = plan.copyWith(
       phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
     );
@@ -152,14 +173,15 @@ class _PreparationPlanDetailPageState
     final plan = _plan;
     if (plan == null) return;
     final phase = plan.phases[phaseIndex];
+    final range = _phaseDateRange(plan, phase.key);
     final result = await showDialog<_TaskEditResult>(
       context: context,
       builder: (_) => _TaskEditDialog(
         initialTitle: '',
         initialNote: '',
         initialDueDate: phase.endDate,
-        firstDate: _today,
-        lastDate: plan.targetDate,
+        firstDate: range.first,
+        lastDate: range.last,
       ),
     );
     if (result == null) return;
@@ -172,8 +194,9 @@ class _PreparationPlanDetailPageState
       note: result.note,
     );
     final updatedPhase = phase.copyWith(tasks: [...phase.tasks, newTask]);
-    final updatedPlan =
-        plan.copyWith(phases: _replaceAt(plan.phases, phaseIndex, updatedPhase));
+    final updatedPlan = plan.copyWith(
+      phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
+    );
     Haptics.selection();
     await _saveAndRefresh(updatedPlan);
   }
@@ -183,14 +206,15 @@ class _PreparationPlanDetailPageState
     final plan = _plan;
     if (plan == null) return;
     final task = plan.phases[phaseIndex].tasks[taskIndex];
+    final range = _phaseDateRange(plan, plan.phases[phaseIndex].key);
     final result = await showDialog<_TaskEditResult>(
       context: context,
       builder: (_) => _TaskEditDialog(
         initialTitle: task.title,
         initialNote: task.note ?? '',
         initialDueDate: task.dueDate,
-        firstDate: _today,
-        lastDate: plan.targetDate,
+        firstDate: range.first,
+        lastDate: range.last,
       ),
     );
     if (result == null) return;
@@ -199,8 +223,9 @@ class _PreparationPlanDetailPageState
       note: result.note,
       dueDate: result.dueDate,
     );
-    final updatedPhase = plan.phases[phaseIndex]
-        .copyWith(tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask));
+    final updatedPhase = plan.phases[phaseIndex].copyWith(
+      tasks: _replaceAt(plan.phases[phaseIndex].tasks, taskIndex, updatedTask),
+    );
     final updatedPlan = plan.copyWith(
       phases: _replaceAt(plan.phases, phaseIndex, updatedPhase),
     );
@@ -262,20 +287,45 @@ class _PreparationPlanDetailPageState
     );
     if (picked == null || !mounted) return;
 
-    final newPhases = _reschedulePhases(
-      phases: plan.phases,
-      today: today,
-      newTargetDate: picked,
-    );
+    final isSubmission =
+        plan.timelineType == CompetitionTimelineType.submission;
+    List<PreparationPhase> newPhases;
+    DateTime? newEventEndDate = plan.eventEndDate;
+    if (isSubmission) {
+      // 提交型：只重排提交前阶段（非 defense_prep），答辩准备段保持不动。
+      final pre = plan.phases.where((p) => p.key != 'defense_prep').toList();
+      final defense = plan.phases
+          .where((p) => p.key == 'defense_prep')
+          .toList();
+      final rescheduledPre = _reschedulePhases(
+        phases: pre,
+        today: today,
+        newTargetDate: picked,
+      );
+      newPhases = [...rescheduledPre, ...defense];
+    } else {
+      // 窗口型：重排全部阶段。若新 targetDate 晚于 eventEndDate，将
+      // eventEndDate 同步抬到 targetDate 以保持「比赛日 <= 结束日」。
+      newPhases = _reschedulePhases(
+        phases: plan.phases,
+        today: today,
+        newTargetDate: picked,
+      );
+      final ev = plan.eventEndDate;
+      if (ev != null && picked.isAfter(ev)) {
+        newEventEndDate = picked;
+      }
+    }
     final updatedPlan = plan.copyWith(
       targetDate: picked,
+      eventEndDate: newEventEndDate,
       phases: newPhases,
     );
     await _saveAndRefresh(updatedPlan);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('目标日期已更新，未完成任务已重新排期')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('目标日期已更新，未完成任务已重新排期')));
   }
 
   /// Re-distribute the new total window across phases proportionally to their
@@ -295,13 +345,15 @@ class _PreparationPlanDetailPageState
 
     // Build template-phase equivalents with weight = current duration (days).
     final templatePhases = phases
-        .map((p) => PreparationTemplatePhase(
-              key: p.key,
-              title: p.title,
-              weight: _durationDays(p.startDate, p.endDate).toDouble(),
-              requiredTasks: const [],
-              optionalTasks: const [],
-            ))
+        .map(
+          (p) => PreparationTemplatePhase(
+            key: p.key,
+            title: p.title,
+            weight: _durationDays(p.startDate, p.endDate).toDouble(),
+            requiredTasks: const [],
+            optionalTasks: const [],
+          ),
+        )
         .toList();
 
     final segments = PreparationScheduler.schedule(
@@ -327,11 +379,13 @@ class _PreparationPlanDetailPageState
             : (newEnd.isAfter(newTargetDate) ? newTargetDate : newEnd);
         return t.copyWith(dueDate: due);
       }).toList();
-      newPhases.add(phases[i].copyWith(
-        startDate: newStart,
-        endDate: newEnd,
-        tasks: newTasks,
-      ));
+      newPhases.add(
+        phases[i].copyWith(
+          startDate: newStart,
+          endDate: newEnd,
+          tasks: newTasks,
+        ),
+      );
     }
     return newPhases;
   }
@@ -533,18 +587,24 @@ class _TaskEditDialogState extends State<_TaskEditDialog> {
             const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading:
-                  const Icon(Icons.event_outlined, color: AppColors.indigo),
+              leading: const Icon(
+                Icons.event_outlined,
+                color: AppColors.indigo,
+              ),
               title: Text(
                 '截止：${_dueDate.year}-${_dueDate.month.toString().padLeft(2, '0')}-${_dueDate.day.toString().padLeft(2, '0')}',
               ),
-              trailing: const Icon(Icons.chevron_right,
-                  color: AppColors.inkFaint),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: AppColors.inkFaint,
+              ),
               onTap: _pickDate,
             ),
             if (_error != null)
-              Text(_error!,
-                  style: const TextStyle(color: AppColors.danger, fontSize: 12)),
+              Text(
+                _error!,
+                style: const TextStyle(color: AppColors.danger, fontSize: 12),
+              ),
           ],
         ),
       ),
