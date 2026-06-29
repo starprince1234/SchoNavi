@@ -72,3 +72,7 @@ class ServerException extends AppException {
 class UnknownException extends AppException {
   const UnknownException() : super('出错了，请稍后重试');
 }
+
+class ConflictException extends AppException {
+  const ConflictException() : super('数据已变化，请刷新后重试');
+}
