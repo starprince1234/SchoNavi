@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
@@ -8,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
+import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/mock/fake_backend.dart';
 import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
+import 'package:scho_navi/domain/repositories/preparation_plan_assistant.dart';
 import 'package:scho_navi/domain/repositories/preparation_plan_repository.dart';
 import 'package:scho_navi/features/preparation/widgets/assistant_drawer.dart';
 import 'package:scho_navi/features/preparation/widgets/plan_change_card_view.dart';
@@ -74,7 +77,7 @@ PreparationPlan _plan({String id = 'pp_1', int revision = 1}) => PreparationPlan
 Future<ProviderContainer> _bootstrap({
   String planId = 'pp_1',
   bool registerCustomPlanId = false,
-  bool savePlan = false,
+  bool savePlan = true,
 }) async {
   final prefs = await SharedPreferences.getInstance();
   final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'))
@@ -614,6 +617,117 @@ void main() {
         .firstWhere((p) => p.key == 'defense_prep');
     expect(defenseAfterSecond.tasks.length, taskCountAfterFirst);
   });
+
+  testWidgets('关闭抽屉后请求完成，重开可见该轮回复', (t) async {
+    final container = await _bootstrap();
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), '关抽屉测试');
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_upward));
+    // 不等完成——模拟用户立刻关抽屉。
+    await t.pump(const Duration(milliseconds: 10));
+
+    // 重新挂载（模拟重开）：controller 非 autoDispose，state 存活。
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    expect(find.textContaining('我整理了两项可单独确认的调整'), findsOneWidget);
+    expect(find.textContaining('关抽屉测试'), findsOneWidget);
+  });
+
+  testWidgets('清理上下文清空历史但计划仍在', (t) async {
+    final container = await _bootstrap(savePlan: true);
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), '第一轮');
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_upward));
+    await t.pumpAndSettle();
+    expect(find.textContaining('第一轮'), findsOneWidget);
+
+    // 点清理上下文图标。
+    await t.tap(find.byIcon(Icons.cleaning_services_outlined));
+    await t.pumpAndSettle();
+    // 二次确认。
+    await t.tap(find.text('清理'));
+    await t.pumpAndSettle();
+
+    // 历史清空。
+    expect(find.textContaining('第一轮'), findsNothing);
+    expect(find.textContaining('我整理了两项可单独确认的调整'), findsNothing);
+    // 计划仍在。
+    expect(
+      container.read(preparationPlanRepositoryProvider).findById('pp_1'),
+      isNotNull,
+    );
+    // store 清空。
+    final persisted =
+        await container.read(assistantHistoryStoreProvider).list('pp_1');
+    expect(persisted, isEmpty);
+  });
+
+  testWidgets('发送中清理上下文按钮禁用', (t) async {
+    // 用 Completer 挂住 send，让 sending 状态可被观测（同步 fake 后端会
+    // 在单个 microtask 内 resolve，pump(10ms) 无法捕捉 sending=true）。
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'))
+      ..httpClientAdapter = FakeBackendAdapter();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig(
+            dataSource: DataSource.http,
+            api: const ApiConfig(baseUrl: 'https://fake.local'),
+          ),
+        ),
+        dioProvider.overrideWithValue(dio),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(dio.close);
+    addTearDown(() {
+      if (!completer.isCompleted) {
+        completer.complete(const AssistantReply(
+          reply: '',
+          changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
+          requestId: '',
+        ));
+      }
+    });
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(id: 'pp_1', revision: 0));
+
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), '发送中');
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_upward));
+    await t.pump(); // 让 send 同步前缀（sending=true）生效并重建一帧。
+
+    // sending 中：清理上下文按钮禁用（onPressed == null）。
+    final clearBtn = t.widget<IconButton>(
+      find.ancestor(
+        of: find.byIcon(Icons.cleaning_services_outlined),
+        matching: find.byType(IconButton),
+      ),
+    );
+    expect(clearBtn.onPressed, isNull);
+    expect(
+      container
+          .read(preparationAssistantControllerProvider('pp_1'))
+          .sending,
+      isTrue,
+    );
+  });
 }
 
 /// 模拟真实仓库 CAS 语义的仓库（与 [LocalPreparationPlanRepository.save]
@@ -673,4 +787,25 @@ class _ConflictRepo implements PreparationPlanRepository {
 
   @override
   Future<void> delete(String id) async {}
+}
+
+/// 可控的助手 fake：通过 [Completer] 挂住 `suggestChanges`，使 `sending`
+/// 状态可被 widget 测试观测（同步 fake 后端会在单 microtask 内 resolve，
+/// 无法用 `pump(10ms)` 捕捉 sending=true）。与 controller 单测中同名类对齐。
+class _ControllableAssistant implements PreparationPlanAssistant {
+  _ControllableAssistant(this.completer);
+
+  final Completer<AssistantReply> completer;
+
+  @override
+  Future<Result<AssistantReply>> suggestChanges(
+    PlanAssistantRequest request,
+  ) async {
+    try {
+      final reply = await completer.future;
+      return Success(reply);
+    } catch (_) {
+      return Failure(ServerException());
+    }
+  }
 }
