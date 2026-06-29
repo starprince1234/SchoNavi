@@ -8,6 +8,7 @@ import '../../../domain/entities/preparation_template.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
 import '../../../domain/services/preparation_scheduler.dart';
 import '../providers/preparation_providers.dart';
+import '../widgets/assistant_drawer.dart';
 import '../widgets/preparation_anchor_bar.dart';
 import '../widgets/preparation_countdown.dart';
 import '../widgets/preparation_phase_timeline.dart';
@@ -268,6 +269,32 @@ class _PreparationPlanDetailPageState
             onAddTask: _addTask,
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'preparation_assistant_${plan.id}',
+        tooltip: 'AI 助手',
+        backgroundColor: AppColors.indigo,
+        foregroundColor: Colors.white,
+        onPressed: () => _openAssistant(plan),
+        child: const Icon(Icons.auto_awesome),
+      ),
+    );
+  }
+
+  void _openAssistant(PreparationPlan plan) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: PreparationAssistantDrawer(planId: plan.id, plan: plan),
       ),
     );
   }

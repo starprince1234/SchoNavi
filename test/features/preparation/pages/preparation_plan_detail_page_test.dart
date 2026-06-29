@@ -229,6 +229,25 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
+  testWidgets('详情页渲染 AI 助手浮动按钮并打开抽屉', (t) async {
+    final container = await bootstrap();
+    await container.read(preparationPlanRepositoryProvider).save(_plan());
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+      ),
+    );
+    await t.pumpAndSettle();
+    final fab = find.byIcon(Icons.auto_awesome);
+    expect(fab, findsOneWidget);
+    await t.tap(fab);
+    await t.pumpAndSettle();
+    // 抽屉标题与输入条出现。
+    expect(find.text('AI 助手'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
   // ── 提交型重排：仅前置阶段被重排，defense_prep 阶段及其未完成任务不变 ────
   // spec §4.5：提交型修改 targetDate 只重排提交前阶段（不重排 defense_prep）。
   // 此前没有测试覆盖 _changeTargetDate 里的 `p.key != 'defense_prep'` 过滤，

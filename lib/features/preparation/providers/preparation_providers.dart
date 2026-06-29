@@ -9,6 +9,7 @@ import '../../../data/ai/ai_preparation_plan_assistant.dart';
 import '../../../data/http/http_preparation_personalizer.dart';
 import '../../../data/http/http_preparation_level_diagnoser.dart';
 import '../../../data/http/http_preparation_plan_assistant.dart';
+import '../../../data/local/assistant_history_store.dart';
 import '../../../data/local/level_diagnosis_store.dart';
 import '../../../data/local/local_preparation_plan_repository.dart';
 import '../../../data/local/local_preparation_template_provider.dart';
@@ -75,6 +76,12 @@ final preparationPlanAssistantProvider = Provider<PreparationPlanAssistant>((
       HttpPreparationPlanAssistant(ref.watch(dioProvider)),
   };
 });
+
+/// 备赛助手对话历史本地存储：按 planId 分组保留每计划最近若干轮对话，
+/// 供助手抽屉渲染历史与向 AI 传递上下文。
+final assistantHistoryStoreProvider = Provider<AssistantHistoryStore>(
+  (ref) => AssistantHistoryStore(ref.watch(localStoreProvider)),
+);
 
 /// 备赛计划生成器：模板 + 个性化器组装 + 排期。
 final preparationPlanGeneratorProvider = Provider<PreparationPlanGenerator>(
