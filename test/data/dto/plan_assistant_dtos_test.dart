@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/calendar_date.dart';
 import 'package:scho_navi/data/dto/plan_assistant_dtos.dart';
-import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
 import 'package:scho_navi/domain/repositories/preparation_plan_assistant.dart';
 import 'package:scho_navi/domain/services/plan_change_validator.dart';
