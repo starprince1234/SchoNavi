@@ -36,6 +36,7 @@ class PlanAssistantRequest {
     required this.basePlanRevision,
     required this.planSnapshot,
     required this.userMessage,
+    required this.requestId,
     this.history = const <AssistantHistoryEntry>[],
   }) : assert(
           planId == planSnapshot.id,
@@ -59,16 +60,26 @@ class PlanAssistantRequest {
 
   /// 最近历史（最多若干轮，由调用方截断）。
   final List<AssistantHistoryEntry> history;
+
+  /// 客户端生成的请求标识，服务端 echo 回来，用于跨抽屉关闭追踪该轮。
+  final String requestId;
 }
 
 /// AI 助手回复（spec §3.4 response）：自然语言 `reply` + 已过共享 validator 的
 /// [PlanChangeSet]。validator 可能将部分卡标为 `rejected`，调用方仍按 Success
 /// 处理（reply 本身有效）；JSON 解析失败才返回 Failure。
 class AssistantReply {
-  const AssistantReply({required this.reply, required this.changeSet});
+  const AssistantReply({
+    required this.reply,
+    required this.changeSet,
+    this.requestId = '',
+  });
 
   final String reply;
   final PlanChangeSet changeSet;
+
+  /// 服务端 echo 的请求标识（缺失时为空串，兼容旧 fake）。
+  final String requestId;
 }
 
 /// 备赛日历 AI 助手：根据计划快照、用户消息和最近历史，输出自然语言回复与

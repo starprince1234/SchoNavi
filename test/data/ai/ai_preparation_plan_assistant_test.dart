@@ -83,6 +83,7 @@ PlanAssistantRequest _req() => PlanAssistantRequest(
       basePlanRevision: 1,
       planSnapshot: _plan(),
       userMessage: '这周期末考没空，往后挪；答辩前留个模拟答辩',
+      requestId: 'req_test',
     );
 
 Map<String, dynamic> _validReplyJson() => {

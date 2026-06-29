@@ -63,6 +63,7 @@ PlanAssistantRequest _req() => PlanAssistantRequest(
       basePlanRevision: 1,
       planSnapshot: _plan(),
       userMessage: '这周期末考没空，往后挪；答辩前留个模拟答辩',
+      requestId: 'req_test',
     );
 
 void main() {
@@ -118,6 +119,7 @@ void main() {
         basePlanRevision: 1,
         planSnapshot: unknownPlan,
         userMessage: 'hi',
+        requestId: 'req_test',
       ),
     );
 
@@ -133,6 +135,7 @@ void main() {
         basePlanRevision: 1,
         planSnapshot: _plan(id: 'pp_other'),
         userMessage: 'hi',
+        requestId: 'req_test',
       ),
       throwsA(isA<AssertionError>()),
     );

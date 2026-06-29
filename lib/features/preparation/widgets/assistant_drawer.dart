@@ -118,6 +118,7 @@ class _PreparationAssistantDrawerState
       planSnapshot: plan,
       userMessage: text,
       history: history,
+      requestId: 'req_${DateTime.now().millisecondsSinceEpoch}',
     );
     final result =
         await ref.read(preparationPlanAssistantProvider).suggestChanges(request);
