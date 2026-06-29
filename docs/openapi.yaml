@@ -836,13 +836,14 @@ components:
         completed_at: { type: [string, 'null'], format: date-time }
     PreparationAssistantRequest:
       type: object
-      required: [calendar_today, base_plan_revision, plan_snapshot, user_message]
+      required: [calendar_today, base_plan_revision, plan_snapshot, user_message, request_id]
       properties:
         calendar_today: { type: string, format: date }
         base_plan_revision: { type: integer, minimum: 0 }
         plan_snapshot:
           $ref: '#/components/schemas/PreparationAssistantPlanSnapshot'
         user_message: { type: string }
+        request_id: { type: string, description: 客户端生成，服务端 echo }
         history:
           type: array
           items:
@@ -917,11 +918,12 @@ components:
             $ref: '#/components/schemas/PreparationChangeCard'
     PreparationAssistantResult:
       type: object
-      required: [reply, change_set]
+      required: [reply, change_set, request_id]
       properties:
         reply: { type: string }
         change_set:
           $ref: '#/components/schemas/PreparationChangeSet'
+        request_id: { type: string, description: echo 自请求 }
     PreparationAssistantEnvelope:
       allOf:
         - $ref: '#/components/schemas/EnvelopeBase'

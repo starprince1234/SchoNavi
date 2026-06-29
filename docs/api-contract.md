@@ -716,6 +716,7 @@ Request:
     "updated_at": "2026-05-01T08:00:00Z"
   },
   "user_message": "这周期末考没空，往后挪；答辩前留个模拟答辩",
+  "request_id": "req_1714521600000",
   "history": [
     {
       "role": "assistant",
@@ -735,12 +736,14 @@ Request:
 - `user_message` is the user's free-text adjustment request.
 - `history` is optional; each turn carries `role` (`user` or `assistant`),
   `content`, and an optional `card_results` list of `{ card_id, status }`.
+- `request_id` 由客户端生成（`req_<ms>`），服务端在响应 `data` 中原样 echo，用于跨抽屉关闭追踪该轮。
 
 Response data:
 
 ```json
 {
   "reply": "我整理了两项可单独确认的调整。",
+  "request_id": "req_1714521600000",
   "change_set": {
     "id": "cs_1",
     "base_plan_revision": 3,
