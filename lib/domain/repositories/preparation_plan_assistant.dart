@@ -30,14 +30,17 @@ class AssistantCardResult {
 /// AI 助手请求（spec §3.4）：携带日历基准、计划版本、计划快照、用户消息和
 /// 最近历史。供 [PreparationPlanAssistant] 实现（本地 LLM / HTTP）消费。
 class PlanAssistantRequest {
-  const PlanAssistantRequest({
+  PlanAssistantRequest({
     required this.planId,
     required this.calendarToday,
     required this.basePlanRevision,
     required this.planSnapshot,
     required this.userMessage,
     this.history = const <AssistantHistoryEntry>[],
-  });
+  }) : assert(
+          planId == planSnapshot.id,
+          'planId ($planId) 必须与 planSnapshot.id (${planSnapshot.id}) 一致',
+        );
 
   /// 计划 id，用于 HTTP 路径 `/:id/assistant`；应与 planSnapshot.id 一致。
   final String planId;

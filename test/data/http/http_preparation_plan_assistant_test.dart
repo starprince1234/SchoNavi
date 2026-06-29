@@ -7,8 +7,8 @@ import 'package:scho_navi/data/mock/fake_backend.dart';
 import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
 
-PreparationPlan _plan() => PreparationPlan(
-      id: 'pp_1',
+PreparationPlan _plan({String id = 'pp_1'}) => PreparationPlan(
+      id: id,
       competition: CompetitionSnapshot(
         id: 'comp_demo',
         name: 'Demo Cup',
@@ -109,16 +109,32 @@ void main() {
     dio.httpClientAdapter = FakeBackendAdapter();
     final d = HttpPreparationPlanAssistant(dio);
 
+    // path id 与 snapshot id 一致（满足构造校验），但后端未注册 → 404。
+    final unknownPlan = _plan(id: 'pp_unknown');
     final r = await d.suggestChanges(
       PlanAssistantRequest(
         planId: 'pp_unknown',
         calendarToday: DateTime(2026, 5, 1),
         basePlanRevision: 1,
-        planSnapshot: _plan(),
+        planSnapshot: unknownPlan,
         userMessage: 'hi',
       ),
     );
 
     expect(r, isA<Failure<AssistantReply>>());
+  });
+
+  test('planId 与 planSnapshot.id 不一致触发构造断言', () {
+    // spec §3.4：{id} 必须与 plan_snapshot.id 一致；构造时即失败。
+    expect(
+      () => PlanAssistantRequest(
+        planId: 'pp_1',
+        calendarToday: DateTime(2026, 5, 1),
+        basePlanRevision: 1,
+        planSnapshot: _plan(id: 'pp_other'),
+        userMessage: 'hi',
+      ),
+      throwsA(isA<AssertionError>()),
+    );
   });
 }
