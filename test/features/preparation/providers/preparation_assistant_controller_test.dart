@@ -1,10 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/error/app_exception.dart';
+import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
+import 'package:scho_navi/domain/repositories/preparation_plan_assistant.dart';
 import 'package:scho_navi/features/preparation/providers/preparation_providers.dart';
+
+class _ControllableAssistant implements PreparationPlanAssistant {
+  _ControllableAssistant(this.completer);
+  final Completer<AssistantReply> completer;
+  int callCount = 0;
+  PlanAssistantRequest? lastRequest;
+
+  @override
+  Future<Result<AssistantReply>> suggestChanges(
+    PlanAssistantRequest request,
+  ) async {
+    callCount++;
+    lastRequest = request;
+    try {
+      final reply = await completer.future;
+      return Success(reply);
+    } catch (e) {
+      return Failure(ServerException());
+    }
+  }
+}
 
 PreparationPlan _plan({String id = 'pp_1', int revision = 1}) => PreparationPlan(
       id: id,
@@ -59,5 +86,183 @@ void main() {
     expect(ctrl.state.sending, isFalse);
     expect(ctrl.state.currentPlan, isNotNull);
     expect(ctrl.state.currentPlan!.id, 'pp_1');
+  });
+
+  test('send 成功追加 turn 并落盘', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero); // 让 load 完成
+
+    ctrl.send('往后挪');
+    expect(ctrl.state.sending, isTrue);
+    completer.complete(
+      const AssistantReply(
+        reply: '已调整',
+        changeSet: PlanChangeSet(
+          id: 'cs_1',
+          basePlanRevision: 1,
+          cards: [],
+        ),
+        requestId: 'req_x',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero); // 让 append + state 刷新
+
+    expect(ctrl.state.sending, isFalse);
+    expect(ctrl.state.turns, hasLength(1));
+    expect(ctrl.state.turns.first.reply, '已调整');
+    expect(ctrl.state.turns.first.requestId, 'req_x');
+    expect(fake.lastRequest!.basePlanRevision, 1);
+    // 落盘
+    final persisted = await container
+        .read(assistantHistoryStoreProvider)
+        .list('pp_1');
+    expect(persisted, hasLength(1));
+    expect(persisted.first.reply, '已调整');
+  });
+
+  test('send 用最新计划 revision（发送前改计划）', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    final repo = container.read(preparationPlanRepositoryProvider);
+    await repo.save(_plan(revision: 0)); // revision -> 1
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    // 发送前手工改计划：revision 1 -> 2。
+    await repo.save(_plan(revision: 1).copyWith(personalizedSummary: '手动'));
+
+    ctrl.send('问');
+    completer.complete(
+      const AssistantReply(
+        reply: '答',
+        changeSet: PlanChangeSet(
+          id: 'cs_1',
+          basePlanRevision: 2,
+          cards: [],
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    // 请求的 basePlanRevision 应是最新 2，而非 load 时的 1。
+    expect(fake.lastRequest!.basePlanRevision, 2);
+  });
+
+  test('send 失败 turn 落盘 error:true', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('问');
+    completer.completeError(Exception('boom'));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(ctrl.state.sending, isFalse);
+    expect(ctrl.state.turns, hasLength(1));
+    expect(ctrl.state.turns.first.error, isTrue);
+    final persisted = await container
+        .read(assistantHistoryStoreProvider)
+        .list('pp_1');
+    expect(persisted.first.error, isTrue);
+  });
+
+  test('sending 中再次 send 被忽略', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('第一条');
+    expect(fake.callCount, 1);
+    ctrl.send('第二条'); // sending 中，应忽略
+    expect(fake.callCount, 1);
+    completer.complete(
+      const AssistantReply(
+        reply: '答',
+        changeSet: PlanChangeSet(
+          id: 'cs_1',
+          basePlanRevision: 1,
+          cards: [],
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(ctrl.state.turns, hasLength(1));
   });
 }
