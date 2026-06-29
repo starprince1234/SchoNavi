@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import '../../domain/entities/preparation_plan.dart'
+    show CompetitionTimelineType;
 import '../../domain/entities/preparation_template.dart';
 import '../../domain/repositories/preparation_template_provider.dart';
 import '../fixtures/preparation_templates.dart';
@@ -27,10 +29,15 @@ class LocalPreparationTemplateProvider implements PreparationTemplateProvider {
 
   @override
   Future<PreparationTemplate> load({
-    String? category,
-    String? competitionId,
+    required CompetitionTimelineType timelineType,
+    required bool includeDefense,
+    required String category,
+    required String competitionId,
   }) async {
-    final base = defaultPreparationTemplate();
+    final base = defaultPreparationTemplate(
+      timelineType,
+      includeDefense: includeDefense,
+    );
 
     // 以 Dart 默认为基础，复制各阶段任务列表（后续只追加、去重）。
     final byKey = <String, PreparationTemplatePhase>{
@@ -55,14 +62,18 @@ class LocalPreparationTemplateProvider implements PreparationTemplateProvider {
         for (final t in (phase['required_tasks'] as List?) ?? const []) {
           if (t is! Map<String, dynamic>) continue;
           final task = PreparationTemplateTask.fromJson(t);
-          if (!mergedRequired[key]!.any((x) => x.templateKey == task.templateKey)) {
+          if (!mergedRequired[key]!.any(
+            (x) => x.templateKey == task.templateKey,
+          )) {
             mergedRequired[key]!.add(task);
           }
         }
         for (final t in (phase['optional_tasks'] as List?) ?? const []) {
           if (t is! Map<String, dynamic>) continue;
           final task = PreparationTemplateTask.fromJson(t);
-          if (!mergedOptional[key]!.any((x) => x.templateKey == task.templateKey)) {
+          if (!mergedOptional[key]!.any(
+            (x) => x.templateKey == task.templateKey,
+          )) {
             mergedOptional[key]!.add(task);
           }
         }
@@ -70,36 +81,36 @@ class LocalPreparationTemplateProvider implements PreparationTemplateProvider {
     }
 
     // 赛类叠加（独立 try/catch，失败降级）。
-    if (category != null) {
-      try {
-        final root =
-            jsonDecode(await bundle.loadString(_categoryPath)) as Map<String, dynamic>;
-        applyEntry(root, category);
-      } catch (_) {
-        // 降级：忽略赛类 JSON
-      }
+    try {
+      final root =
+          jsonDecode(await bundle.loadString(_categoryPath))
+              as Map<String, dynamic>;
+      applyEntry(root, category);
+    } catch (_) {
+      // 降级：忽略赛类 JSON
     }
 
     // 赛事覆盖叠加（独立 try/catch，失败降级）。
-    if (competitionId != null) {
-      try {
-        final root = jsonDecode(await bundle.loadString(_competitionPath))
-            as Map<String, dynamic>;
-        applyEntry(root, competitionId);
-      } catch (_) {
-        // 降级：忽略赛事 JSON
-      }
+    try {
+      final root =
+          jsonDecode(await bundle.loadString(_competitionPath))
+              as Map<String, dynamic>;
+      applyEntry(root, competitionId);
+    } catch (_) {
+      // 降级：忽略赛事 JSON
     }
 
     return PreparationTemplate(
       phases: base.phases
-          .map((p) => PreparationTemplatePhase(
-                key: p.key,
-                title: p.title,
-                weight: p.weight,
-                requiredTasks: mergedRequired[p.key]!,
-                optionalTasks: mergedOptional[p.key]!,
-              ))
+          .map(
+            (p) => PreparationTemplatePhase(
+              key: p.key,
+              title: p.title,
+              weight: p.weight,
+              requiredTasks: mergedRequired[p.key]!,
+              optionalTasks: mergedOptional[p.key]!,
+            ),
+          )
           .toList(),
     );
   }

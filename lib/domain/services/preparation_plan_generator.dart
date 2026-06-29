@@ -47,7 +47,10 @@ class PreparationPlanGenerator {
     UserProfile? profile,
   }) async {
     // 1. 加载模板。
+    // P2.4 临时：固定 submission + 含答辩，保持旧行为；P2.5 改为按赛事时间线真实传入。
     final template = await templateProvider.load(
+      timelineType: CompetitionTimelineType.submission,
+      includeDefense: true,
       category: competition.category,
       competitionId: competition.id,
     );
@@ -62,13 +65,15 @@ class PreparationPlanGenerator {
           requiredTasks = [...requiredTasks, ...extra];
         }
       }
-      phases.add(PreparationTemplatePhase(
-        key: phase.key,
-        title: phase.title,
-        weight: phase.weight,
-        requiredTasks: requiredTasks,
-        optionalTasks: phase.optionalTasks,
-      ));
+      phases.add(
+        PreparationTemplatePhase(
+          key: phase.key,
+          title: phase.title,
+          weight: phase.weight,
+          requiredTasks: requiredTasks,
+          optionalTasks: phase.optionalTasks,
+        ),
+      );
     }
 
     // 3. 预算选可选任务：累计 estimatedHours 不超 budgetHours。
@@ -80,8 +85,7 @@ class PreparationPlanGenerator {
     final requiredTotalHours = phases.fold<double>(
       0,
       (a, p) =>
-          a +
-          p.requiredTasks.fold<double>(0, (b, t) => b + t.estimatedHours),
+          a + p.requiredTasks.fold<double>(0, (b, t) => b + t.estimatedHours),
     );
 
     // 按阶段顺序累计可选任务 estimatedHours，超出预算则不选。
@@ -136,27 +140,31 @@ class PreparationPlanGenerator {
       final tasks = <PreparationTask>[];
       // 必做任务。
       for (final t in phase.requiredTasks) {
-        tasks.add(PreparationTask(
-          id: 'task_${taskSeq++}',
-          templateKey: t.templateKey,
-          title: t.title,
-          kind: PreparationTaskKind.required,
-          estimatedHours: t.estimatedHours.round(),
-          dueDate: dueDate,
-        ));
+        tasks.add(
+          PreparationTask(
+            id: 'task_${taskSeq++}',
+            templateKey: t.templateKey,
+            title: t.title,
+            kind: PreparationTaskKind.required,
+            estimatedHours: t.estimatedHours.round(),
+            dueDate: dueDate,
+          ),
+        );
       }
       // 已选模板可选任务。
       final selectedKeys = <String>{};
       for (final t in selectedOptionalByPhase[phase.key] ?? const []) {
         selectedKeys.add(t.templateKey);
-        tasks.add(PreparationTask(
-          id: 'task_${taskSeq++}',
-          templateKey: t.templateKey,
-          title: t.title,
-          kind: PreparationTaskKind.optional,
-          estimatedHours: t.estimatedHours.round(),
-          dueDate: dueDate,
-        ));
+        tasks.add(
+          PreparationTask(
+            id: 'task_${taskSeq++}',
+            templateKey: t.templateKey,
+            title: t.title,
+            kind: PreparationTaskKind.optional,
+            estimatedHours: t.estimatedHours.round(),
+            dueDate: dueDate,
+          ),
+        );
       }
       // AI 合并的可选任务（去重 templateKey）。
       final aiPhase = aiPhaseByKey[phase.key];
@@ -167,29 +175,36 @@ class PreparationPlanGenerator {
             continue;
           }
           if (tk != null) selectedKeys.add(tk);
-          tasks.add(PreparationTask(
-            id: 'task_${taskSeq++}',
-            templateKey: tk,
-            title: at.title,
-            kind: PreparationTaskKind.optional,
-            estimatedHours: at.estimatedHours.round(),
-            dueDate: dueDate,
-          ));
+          tasks.add(
+            PreparationTask(
+              id: 'task_${taskSeq++}',
+              templateKey: tk,
+              title: at.title,
+              kind: PreparationTaskKind.optional,
+              estimatedHours: at.estimatedHours.round(),
+              dueDate: dueDate,
+            ),
+          );
         }
       }
 
-      planPhases.add(PreparationPhase(
-        key: phase.key,
-        title: phase.title,
-        startDate: seg.startDate,
-        endDate: seg.endDate,
-        tasks: tasks,
-        personalizedAdvice: aiPhase?.personalizedAdvice,
-      ));
+      planPhases.add(
+        PreparationPhase(
+          key: phase.key,
+          title: phase.title,
+          startDate: seg.startDate,
+          endDate: seg.endDate,
+          tasks: tasks,
+          personalizedAdvice: aiPhase?.personalizedAdvice,
+        ),
+      );
     }
 
     // 7. 警示标志。
-    final tightSchedule = PreparationScheduler.isTightSchedule(today, targetDate);
+    final tightSchedule = PreparationScheduler.isTightSchedule(
+      today,
+      targetDate,
+    );
     final overload = requiredTotalHours > budgetHours;
 
     // 6. 组装计划。

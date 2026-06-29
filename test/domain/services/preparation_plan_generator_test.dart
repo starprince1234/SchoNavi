@@ -11,8 +11,13 @@ import 'package:scho_navi/domain/services/preparation_plan_generator.dart';
 
 class _StaticProvider implements PreparationTemplateProvider {
   @override
-  Future<PreparationTemplate> load({String? category, String? competitionId}) async =>
-      defaultPreparationTemplate();
+  Future<PreparationTemplate> load({
+    required CompetitionTimelineType timelineType,
+    required bool includeDefense,
+    required String category,
+    required String competitionId,
+  }) async =>
+      defaultPreparationTemplate(timelineType, includeDefense: includeDefense);
 }
 
 class _SuccessPersonalizer implements PreparationPersonalizer {
