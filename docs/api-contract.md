@@ -561,6 +561,8 @@ Response data:
 ### POST `/preparation-plans/generate`
 
 Generate personalized optional tasks and advice for a competition preparation plan.
+The endpoint only returns optional tasks and advice; it does not return the full
+plan or perform final date scheduling.
 
 Request:
 
@@ -579,10 +581,14 @@ Request:
       "official_url": "https://example.com"
     }
   },
-  "target_date": "2026-10-01T00:00:00Z",
+  "calendar_today": "2026-05-01",
+  "target_date": "2026-05-30",
+  "timeline_type": "submission",
+  "event_end_date": null,
+  "defense_date": "2026-06-10",
   "weekly_commitment": "hours6to10",
   "experience_level": "intermediate",
-  "phase_keys": ["research", "team_building", "prototyping", "polishing", "submission"],
+  "phase_keys": ["team_formation", "topic_selection", "proposal_writing", "submission_polish", "defense_prep"],
   "user_profile": {}
 }
 ```
@@ -592,10 +598,20 @@ Request:
 
 `experience_level` values: `beginner`, `intermediate`, `experienced`.
 
-`phase_keys` is the client-side allowed phase key set. The server must only
-return phases whose `key` is in this set.
+`timeline_type` values: `event_window`, `submission`.
 
-`user_profile` is optional and follows the `UserProfile` shape.
+- `calendar_today` is `YYYY-MM-DD` (`format: date`) and is the authoritative
+  scheduling basis; the server validates format and order against anchors only,
+  it does not replace it with a server timezone.
+- `target_date`, `event_end_date`, `defense_date` are all `YYYY-MM-DD`
+  (`format: date`).
+- `event_end_date` is required for `event_window` and must be null for
+  `submission`. `defense_date` is only meaningful for `submission` and may be
+  null.
+- `phase_keys` is the client-side allowed phase key set. The server must only
+  return phases whose `key` is in this set; `defense_prep` appears only when
+  `defense_date` is present.
+- `user_profile` is optional and follows the `UserProfile` shape.
 
 Response data:
 
@@ -603,15 +619,14 @@ Response data:
 {
   "phases": [
     {
-      "key": "research",
+      "key": "proposal_writing",
       "optional_tasks": [
-        { "template_key": "read_rules", "title": "仔细阅读官方规则", "estimated_hours": 2 },
-        { "title": "收集往届优秀作品", "estimated_hours": 3 }
+        { "template_key": "ai_benchmark", "title": "补充验证实验", "estimated_hours": 4 }
       ],
-      "personalized_advice": "建议重点理解评分维度。"
+      "personalized_advice": "先完成核心链路，再补充对比实验。"
     }
   ],
-  "global_advice": "整体时间较紧，建议优先完成核心功能。"
+  "global_advice": "提交前优先保证作品完整可运行。"
 }
 ```
 
@@ -620,6 +635,177 @@ when present it must be unique within the phase. `estimated_hours` is a number.
 
 Common errors: `40001` invalid request, `42201` validation failed, `50001`
 server error.
+
+### POST `/preparation-plans/diagnose`
+
+Diagnose the user's experience level for a competition category from a short
+two-question Q&A. The returned `level` is an AI suggestion only; the client must
+wait for the user to accept or manually override before persisting it.
+
+Request:
+
+```json
+{
+  "competition": { "id": "comp_icpc", "name": "ICPC", "category": "计算机类", "rules_summary": {} },
+  "profile": {},
+  "answers": [
+    { "question_key": "prior_experience", "answer": "拿过校级以上奖" },
+    { "question_key": "domain_familiarity", "answer": "熟悉" }
+  ]
+}
+```
+
+- `competition` is a `CompetitionSnapshot` (same shape as `/generate`).
+- `profile` is optional and follows `UserProfile`.
+- `answers` is a non-empty list of `{ question_key, answer }` pairs.
+
+Response data:
+
+```json
+{
+  "level": "intermediate",
+  "rationale": "根据你的参赛经历和算法熟悉度，你已具备进阶基础。",
+  "suggestion": "建议按进阶档排期；时间充裕时可增加老手档训练。"
+}
+```
+
+`level` values: `beginner`, `intermediate`, `experienced`. `rationale` is
+required; `suggestion` is optional.
+
+### POST `/preparation-plans/{plan_id}/assistant`
+
+Suggest structured plan-change cards for a preparation plan. The path `{plan_id}`
+must equal `plan_snapshot.id`; the plan remains local data and the snapshot is
+the server's single source of truth for reasoning and validation.
+
+Request:
+
+```json
+{
+  "calendar_today": "2026-05-01",
+  "base_plan_revision": 3,
+  "plan_snapshot": {
+    "id": "pp_1",
+    "revision": 3,
+    "competition": {},
+    "target_date": "2026-05-30",
+    "timeline_type": "submission",
+    "event_end_date": null,
+    "defense_date": "2026-06-10",
+    "weekly_commitment": "hours6to10",
+    "experience_level": "intermediate",
+    "status": "active",
+    "phases": [
+      {
+        "key": "proposal_writing",
+        "start_date": "2026-05-10",
+        "end_date": "2026-05-22",
+        "tasks": [
+          {
+            "id": "task_core_algo",
+            "title": "核心算法实现",
+            "kind": "required",
+            "estimated_hours": 16,
+            "due_date": "2026-05-15",
+            "completed_at": null
+          }
+        ]
+      }
+    ],
+    "created_at": "2026-05-01T08:00:00Z",
+    "updated_at": "2026-05-01T08:00:00Z"
+  },
+  "user_message": "这周期末考没空，往后挪；答辩前留个模拟答辩",
+  "history": [
+    {
+      "role": "assistant",
+      "content": "上一轮回复",
+      "card_results": [{ "card_id": "cc_0", "status": "applied" }]
+    }
+  ]
+}
+```
+
+- `calendar_today` is `YYYY-MM-DD` (`format: date`).
+- `base_plan_revision` is the plan `revision` the suggestion is based on.
+- `plan_snapshot` is the full plan JSON. Anchor dates (`target_date`,
+  `event_end_date`, `defense_date`) and phase/task dates are `YYYY-MM-DD`
+  (`format: date`); audit times (`created_at`, `updated_at`, `completed_at`)
+  are RFC 3339 `date-time`.
+- `user_message` is the user's free-text adjustment request.
+- `history` is optional; each turn carries `role` (`user` or `assistant`),
+  `content`, and an optional `card_results` list of `{ card_id, status }`.
+
+Response data:
+
+```json
+{
+  "reply": "我整理了两项可单独确认的调整。",
+  "change_set": {
+    "id": "cs_1",
+    "base_plan_revision": 3,
+    "cards": [
+      {
+        "id": "cc_1",
+        "type": "move_task",
+        "target_task_id": "task_core_algo",
+        "new_date": "2026-05-22",
+        "summary": "把【核心算法实现】移到 5 月 22 日",
+        "rationale": "避开期末考试周，同时仍早于提交 DDL。",
+        "status": "pending"
+      },
+      {
+        "id": "cc_2",
+        "type": "add_task",
+        "target_phase_key": "defense_prep",
+        "new_task": {
+          "title": "第二次模拟答辩",
+          "estimated_hours": 3,
+          "due_date": "2026-06-05",
+          "note": "记录评委追问"
+        },
+        "summary": "答辩准备阶段新增一次模拟答辩",
+        "rationale": "在正式答辩前预留复盘时间。",
+        "status": "pending"
+      }
+    ]
+  }
+}
+```
+
+- `change_set.cards` is capped at `maxItems: 5`; LLM output beyond 5 is
+  truncated (the first 5 are kept, the rest discarded).
+- `type` values: `move_task`, `add_task`, `delete_task`, `reschedule_phase`,
+  `append_advice`.
+- `status` values: `pending`, `rejected`, `applied`, `declined`, `stale`.
+- Per-type required fields (validated by the shared `PlanChangeValidator`):
+  - `move_task`: `target_task_id`, `new_date`.
+  - `add_task`: `target_phase_key`, `new_task` (`new_task.title` non-empty,
+    `estimated_hours` an integer in 1–200, `due_date` `YYYY-MM-DD`).
+  - `delete_task`: `target_task_id` (only `optional` or `userAdded` tasks).
+  - `reschedule_phase`: `phase_schedule` (non-empty list of
+    `{ phase_key, start_date, end_date }`, all `YYYY-MM-DD`).
+  - `append_advice`: `advice_text` (non-empty); `target_phase_key` optional.
+- `summary` and `rationale` are display-only and must not be used to locate
+  tasks or execute operations.
+- `rejection_code` and `rejection_reason` are present only when
+  `status = rejected`. Rejection codes:
+
+| Code | Meaning |
+|---|---|
+| `missing_required_fields` | Required field for the card type is absent |
+| `target_task_not_found` | `target_task_id` not in snapshot |
+| `target_phase_not_found` | `target_phase_key` not in snapshot |
+| `completed_task_protected` | Task already completed, cannot move/delete |
+| `date_out_of_range` | Proposed date outside the legal phase interval |
+| `invalid_add_task_fields` | Empty title or `estimated_hours` not 1–200 integer |
+| `required_task_delete_forbidden` | `required` tasks cannot be deleted |
+| `phase_schedule_invalid` | Merged phase schedule has overlap/order/range error |
+| `invalid_advice_fields` | `advice_text` is empty |
+
+JSON parse failure makes the whole call a `Result.failure` and must not write
+the plan. The client re-validates each card before applying it (the HTTP backend
+is the authoritative validation layer, but the client must not trust it alone).
 
 ### Profile
 

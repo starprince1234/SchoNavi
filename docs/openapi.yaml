@@ -422,6 +422,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationPlanGenerateEnvelope'
+  /preparation-plans/diagnose:
+    post:
+      summary: Diagnose the user's experience level for a competition category.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreparationDiagnoseRequest'
+      responses:
+        '200':
+          description: AI-suggested experience level with rationale.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparationDiagnoseEnvelope'
+  /preparation-plans/{plan_id}/assistant:
+    post:
+      summary: Suggest structured plan-change cards for a preparation plan.
+      parameters:
+        - $ref: '#/components/parameters/PreparationPlanId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreparationAssistantRequest'
+      responses:
+        '200':
+          description: Natural-language reply and at most five change cards.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparationAssistantEnvelope'
   /profile:
     get:
       summary: Load current profile.
@@ -577,6 +611,12 @@ components:
       in: header
       required: true
       schema: { type: string, format: uuid }
+    PreparationPlanId:
+      name: plan_id
+      in: path
+      required: true
+      description: Local preparation-plan id; must equal plan_snapshot.id.
+      schema: { type: string }
   securitySchemes:
     bearerAuth:
       type: http
@@ -618,13 +658,34 @@ components:
     ExperienceLevel:
       type: string
       enum: [beginner, intermediate, experienced]
+    CompetitionTimelineType:
+      type: string
+      enum: [event_window, submission]
     PreparationPlanGenerateRequest:
       type: object
-      required: [competition, target_date, weekly_commitment, experience_level, phase_keys]
+      required:
+        [competition, calendar_today, target_date, timeline_type, weekly_commitment, experience_level, phase_keys]
       properties:
         competition:
           $ref: '#/components/schemas/CompetitionSnapshot'
-        target_date: { type: string, format: date-time }
+        calendar_today:
+          type: string
+          format: date
+          description: Authoritative calendar basis for scheduling (spec §2.1).
+        target_date:
+          type: string
+          format: date
+          description: Event start (event_window) or submission DDL (submission).
+        timeline_type:
+          $ref: '#/components/schemas/CompetitionTimelineType'
+        event_end_date:
+          type: [string, 'null']
+          format: date
+          description: Event window end (event_window only); null for submission.
+        defense_date:
+          type: [string, 'null']
+          format: date
+          description: Defense/final date (submission only); null when absent.
         weekly_commitment:
           $ref: '#/components/schemas/WeeklyCommitment'
         experience_level:
@@ -668,6 +729,206 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/PreparationPlanGenerateResult'
+    PreparationDiagnoseAnswer:
+      type: object
+      required: [question_key, answer]
+      properties:
+        question_key: { type: string }
+        answer: { type: string }
+    PreparationDiagnoseRequest:
+      type: object
+      required: [competition, answers]
+      properties:
+        competition:
+          $ref: '#/components/schemas/CompetitionSnapshot'
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationDiagnoseAnswer'
+    PreparationDiagnoseResult:
+      type: object
+      required: [level, rationale]
+      properties:
+        level:
+          $ref: '#/components/schemas/ExperienceLevel'
+        rationale: { type: string }
+        suggestion: { type: string }
+    PreparationDiagnoseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PreparationDiagnoseResult'
+    PreparationAssistantHistoryTurn:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content: { type: string }
+        card_results:
+          type: array
+          items:
+            type: object
+            required: [card_id, status]
+            properties:
+              card_id: { type: string }
+              status:
+                type: string
+                enum: [pending, rejected, applied, declined, stale]
+    PreparationAssistantPlanSnapshot:
+      type: object
+      required:
+        [id, competition, target_date, timeline_type, weekly_commitment, experience_level, status, phases, created_at, updated_at, revision]
+      description: Full plan JSON sent as the server's single source of truth.
+      properties:
+        id: { type: string }
+        competition:
+          $ref: '#/components/schemas/CompetitionSnapshot'
+        target_date: { type: string, format: date }
+        timeline_type:
+          $ref: '#/components/schemas/CompetitionTimelineType'
+        event_end_date: { type: [string, 'null'], format: date }
+        defense_date: { type: [string, 'null'], format: date }
+        revision: { type: integer, minimum: 0 }
+        weekly_commitment:
+          $ref: '#/components/schemas/WeeklyCommitment'
+        experience_level:
+          $ref: '#/components/schemas/ExperienceLevel'
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        phases:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationPhaseSnapshot'
+        personalized_summary: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        tight_schedule: { type: boolean }
+        overload: { type: boolean }
+    PreparationPhaseSnapshot:
+      type: object
+      required: [key, start_date, end_date, tasks]
+      properties:
+        key: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationTaskSnapshot'
+    PreparationTaskSnapshot:
+      type: object
+      required: [id, title, kind, estimated_hours, due_date]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        kind:
+          type: string
+          enum: [required, optional, userAdded]
+        estimated_hours: { type: number }
+        due_date: { type: string, format: date }
+        completed_at: { type: [string, 'null'], format: date-time }
+    PreparationAssistantRequest:
+      type: object
+      required: [calendar_today, base_plan_revision, plan_snapshot, user_message]
+      properties:
+        calendar_today: { type: string, format: date }
+        base_plan_revision: { type: integer, minimum: 0 }
+        plan_snapshot:
+          $ref: '#/components/schemas/PreparationAssistantPlanSnapshot'
+        user_message: { type: string }
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationAssistantHistoryTurn'
+    PreparationNewTaskDraft:
+      type: object
+      required: [title, estimated_hours, due_date]
+      properties:
+        title: { type: string, minLength: 1 }
+        estimated_hours: { type: integer, minimum: 1, maximum: 200 }
+        due_date: { type: string, format: date }
+        note: { type: string }
+    PreparationPhaseScheduleDraft:
+      type: object
+      required: [phase_key, start_date, end_date]
+      properties:
+        phase_key: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+    PreparationChangeCardType:
+      type: string
+      enum: [move_task, add_task, delete_task, reschedule_phase, append_advice]
+    PreparationChangeCardStatus:
+      type: string
+      enum: [pending, rejected, applied, declined, stale]
+    PreparationChangeCardRejectionCode:
+      type: string
+      enum:
+        - missing_required_fields
+        - target_task_not_found
+        - target_phase_not_found
+        - completed_task_protected
+        - date_out_of_range
+        - invalid_add_task_fields
+        - required_task_delete_forbidden
+        - phase_schedule_invalid
+        - invalid_advice_fields
+    PreparationChangeCard:
+      type: object
+      required: [id, type, summary, rationale, status]
+      properties:
+        id: { type: string }
+        type:
+          $ref: '#/components/schemas/PreparationChangeCardType'
+        target_task_id: { type: string }
+        target_phase_key: { type: string }
+        new_date: { type: string, format: date }
+        new_task:
+          $ref: '#/components/schemas/PreparationNewTaskDraft'
+        phase_schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationPhaseScheduleDraft'
+        advice_text: { type: string }
+        summary: { type: string }
+        rationale: { type: string }
+        status:
+          $ref: '#/components/schemas/PreparationChangeCardStatus'
+        rejection_code:
+          $ref: '#/components/schemas/PreparationChangeCardRejectionCode'
+        rejection_reason: { type: string }
+    PreparationChangeSet:
+      type: object
+      required: [id, base_plan_revision, cards]
+      properties:
+        id: { type: string }
+        base_plan_revision: { type: integer, minimum: 0 }
+        cards:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/PreparationChangeCard'
+    PreparationAssistantResult:
+      type: object
+      required: [reply, change_set]
+      properties:
+        reply: { type: string }
+        change_set:
+          $ref: '#/components/schemas/PreparationChangeSet'
+    PreparationAssistantEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PreparationAssistantResult'
     AnonymousIdentity:
       type: object
       required: [owner_id, access_token]
