@@ -229,6 +229,32 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
+  testWidgets('AppBar 无日历图标，PopupMenu 含调整目标日期', (t) async {
+    final container = await bootstrap();
+    await container.read(preparationPlanRepositoryProvider).save(_plan());
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(find.byTooltip('修改目标日期'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.event_outlined),
+      ),
+      findsNothing,
+    );
+    await t.tap(find.byType(PopupMenuButton<String>));
+    await t.pumpAndSettle();
+    expect(find.text('调整目标日期'), findsOneWidget);
+    expect(find.text('归档计划'), findsOneWidget);
+    expect(find.text('删除计划'), findsOneWidget);
+  });
+
   testWidgets('详情页渲染 AI 助手浮动按钮并打开抽屉', (t) async {
     final container = await bootstrap();
     await container.read(preparationPlanRepositoryProvider).save(_plan());

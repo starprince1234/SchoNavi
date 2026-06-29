@@ -232,20 +232,19 @@ class _PreparationPlanDetailPageState
       appBar: AppBar(
         title: Text(plan.competition.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.event_outlined),
-            tooltip: '修改目标日期',
-            onPressed: () => _changeTargetDate(plan),
-          ),
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'archive') {
+              if (v == 'targetDate') {
+                _changeTargetDate(plan);
+              } else if (v == 'archive') {
                 _confirmArchive(plan);
               } else if (v == 'delete') {
                 _confirmDelete(plan);
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'targetDate', child: Text('调整目标日期')),
+              PopupMenuDivider(),
               PopupMenuItem(value: 'archive', child: Text('归档计划')),
               PopupMenuItem(value: 'delete', child: Text('删除计划')),
             ],
