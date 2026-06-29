@@ -228,4 +228,135 @@ void main() {
     // 钳制后初始 dueDate 落在 [targetDate+1, defenseDate]，无断言。
     expect(t.takeException(), isNull);
   });
+
+  // ── 提交型重排：仅前置阶段被重排，defense_prep 阶段及其未完成任务不变 ────
+  // spec §4.5：提交型修改 targetDate 只重排提交前阶段（不重排 defense_prep）。
+  // 此前没有测试覆盖 _changeTargetDate 里的 `p.key != 'defense_prep'` 过滤，
+  // 若有人误把 defense_prep 拉回前置窗口会静默破坏双段不变量。这里直接调用
+  // 抽取出的纯单元 PreparationPlanDetailRescheduler 验证该过滤。
+  test('提交型重排仅前置阶段：defense_prep 边界与未完成任务 dueDate 不变', () {
+    final today = DateTime(2026, 6, 28);
+    final originalTarget = DateTime(2026, 9, 1);
+    final defenseDate = DateTime(2026, 9, 10);
+    final defenseStart = DateTime(2026, 9, 2);
+    final defenseEnd = DateTime(2026, 9, 8);
+    final defenseTaskDue = DateTime(2026, 9, 6);
+
+    final plan = PreparationPlan(
+      id: 'pSub',
+      competition: CompetitionSnapshot(
+        id: 'c1',
+        name: '挑战杯',
+        category: '综合类',
+        rulesSummary: CompetitionRulesSummary(
+          signupTime: '',
+          contestTime: '',
+          teamSize: '',
+          format: '',
+          organizer: '',
+          officialUrl: null,
+        ),
+      ),
+      targetDate: originalTarget,
+      timelineType: CompetitionTimelineType.submission,
+      defenseDate: defenseDate,
+      weeklyCommitment: WeeklyCommitment.hours6to10,
+      experienceLevel: ExperienceLevel.beginner,
+      status: PreparationPlanStatus.active,
+      phases: [
+        PreparationPhase(
+          key: 'proposal_writing',
+          title: '选题与提案',
+          startDate: DateTime(2026, 7, 6),
+          endDate: DateTime(2026, 8, 10),
+          tasks: [
+            PreparationTask(
+              id: 'pw1',
+              templateKey: 'draft_proposal',
+              title: '撰写提案初稿',
+              kind: PreparationTaskKind.required,
+              estimatedHours: 8,
+              dueDate: DateTime(2026, 8, 5),
+            ),
+          ],
+        ),
+        PreparationPhase(
+          key: 'defense_prep',
+          title: '答辩准备',
+          startDate: defenseStart,
+          endDate: defenseEnd,
+          tasks: [
+            PreparationTask(
+              id: 'dp1',
+              templateKey: 'slides',
+              title: '制作答辩幻灯片',
+              kind: PreparationTaskKind.required,
+              estimatedHours: 6,
+              dueDate: defenseTaskDue,
+            ),
+          ],
+        ),
+      ],
+      createdAt: DateTime(2026, 6, 28),
+      updatedAt: DateTime(2026, 6, 28),
+    );
+
+    // 把目标日期提前到 2026-08-15，前置窗口收紧。
+    final newTarget = DateTime(2026, 8, 15);
+    final result = PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
+      plan: plan,
+      newTargetDate: newTarget,
+      today: today,
+    );
+
+    // 提取重排后的阶段（顺序应与原 plan 一致：proposal_writing 在前，defense_prep 在后）。
+    final newProposal = result.phases.firstWhere(
+      (p) => p.key == 'proposal_writing',
+    );
+    final newDefense = result.phases.firstWhere(
+      (p) => p.key == 'defense_prep',
+    );
+
+    // 1) defense_prep 阶段边界完全不变。
+    expect(newDefense.startDate, defenseStart);
+    expect(newDefense.endDate, defenseEnd);
+    // 2) defense_prep 未完成任务 dueDate 不变，仍落在 [targetDate+1, defenseDate]。
+    expect(newDefense.tasks.single.dueDate, defenseTaskDue);
+    expect(
+      newDefense.tasks.single.dueDate.isAfter(originalTarget),
+      isTrue,
+    );
+    expect(
+      newDefense.tasks.single.dueDate.isBefore(defenseDate) ||
+          newDefense.tasks.single.dueDate == defenseDate,
+      isTrue,
+    );
+
+    // 3) 前置阶段 proposal_writing 被重排：endDate 改变，且新窗口落在
+    //    [today, newTargetDate] 内（证明它被收进新的前置窗口而非保持原样）。
+    expect(newProposal.endDate, isNot(DateTime(2026, 8, 10)));
+    expect(
+      !newProposal.endDate.isBefore(today),
+      isTrue,
+      reason: '前置阶段 endDate 不应早于 today',
+    );
+    expect(
+      !newProposal.endDate.isAfter(newTarget),
+      isTrue,
+      reason: '前置阶段 endDate 不应晚于新 targetDate',
+    );
+    // 前置阶段未完成任务 dueDate 也被重排到新 endDate（钳制到新窗口内）。
+    expect(
+      newProposal.tasks.single.dueDate,
+      isNot(DateTime(2026, 8, 5)),
+    );
+    expect(
+      !newProposal.tasks.single.dueDate.isBefore(today) &&
+          !newProposal.tasks.single.dueDate.isAfter(newTarget),
+      isTrue,
+    );
+
+    // 4) 提交型不应改动 eventEndDate（本例无 eventEndDate，仍为 null）。
+    expect(result.eventEndDate, isNull);
+  });
 }

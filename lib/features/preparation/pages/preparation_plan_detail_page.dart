@@ -13,6 +13,127 @@ import '../widgets/preparation_countdown.dart';
 import '../widgets/preparation_phase_timeline.dart';
 import '../widgets/preparation_task_list.dart';
 
+/// 目标日期变更时的重排策略（spec §4.5 双段模型）。
+///
+/// 抽取为纯静态方法以便单元测试覆盖提交型「仅重排前置阶段、defense_prep 不动」
+/// 这一不变量——直接驱动原生 `showDatePicker` 在 widget 测试里很脆弱，无法稳定
+/// 覆盖该分支。
+class PreparationPlanDetailRescheduler {
+  PreparationPlanDetailRescheduler._();
+
+  /// 在目标日期变更为 [newTargetDate] 后重排 [plan] 的阶段与未完成任务。
+  ///
+  /// - 提交型（`timelineType == submission`）：只重排 `key != 'defense_prep'`
+  ///   的前置阶段；`defense_prep` 阶段（含其任务的 dueDate）原样保留，仍落在
+  ///   [targetDate+1, defenseDate] 区间。返回的 `eventEndDate` 不变。
+  /// - 窗口型（`eventWindow`）：重排全部阶段；若新 `targetDate` 晚于
+  ///   `eventEndDate`，将 `eventEndDate` 同步抬到 `targetDate` 以维持
+  ///   「比赛日 <= 结束日」。
+  ///
+  /// 完成态任务保留原 dueDate 与 completedAt；未完成任务 dueDate 重排到所属阶段
+  /// 的新 endDate（钳制到 [today, newTargetDate]）。
+  ///
+  /// 返回 `(phases, eventEndDate)`，由调用方组装新的 [PreparationPlan]。
+  static ({List<PreparationPhase> phases, DateTime? eventEndDate})
+  rescheduleForTargetDateChange({
+    required PreparationPlan plan,
+    required DateTime newTargetDate,
+    required DateTime today,
+  }) {
+    final isSubmission =
+        plan.timelineType == CompetitionTimelineType.submission;
+    if (isSubmission) {
+      final pre = plan.phases.where((p) => p.key != 'defense_prep').toList();
+      final defense = plan.phases
+          .where((p) => p.key == 'defense_prep')
+          .toList();
+      final rescheduledPre = _reschedulePhases(
+        phases: pre,
+        today: today,
+        newTargetDate: newTargetDate,
+      );
+      return (phases: [...rescheduledPre, ...defense], eventEndDate: plan.eventEndDate);
+    }
+    final newPhases = _reschedulePhases(
+      phases: plan.phases,
+      today: today,
+      newTargetDate: newTargetDate,
+    );
+    DateTime? newEventEndDate = plan.eventEndDate;
+    final ev = plan.eventEndDate;
+    if (ev != null && newTargetDate.isAfter(ev)) {
+      newEventEndDate = newTargetDate;
+    }
+    return (phases: newPhases, eventEndDate: newEventEndDate);
+  }
+
+  /// Re-distribute the new total window across phases proportionally to their
+  /// current relative durations, then move incomplete tasks' dueDate to their
+  /// phase's new endDate (clamped). Completed tasks keep dueDate + completedAt.
+  ///
+  /// We use [PreparationScheduler.schedule] for phase boundary recomputation:
+  /// phase weights are derived from current durations (endDate-startDate+1,
+  /// clamped to >=1). The scheduler guarantees contiguous, non-overlapping
+  /// segments covering [today, newTargetDate] exactly.
+  static List<PreparationPhase> _reschedulePhases({
+    required List<PreparationPhase> phases,
+    required DateTime today,
+    required DateTime newTargetDate,
+  }) {
+    if (phases.isEmpty) return phases;
+
+    final templatePhases = phases
+        .map(
+          (p) => PreparationTemplatePhase(
+            key: p.key,
+            title: p.title,
+            weight: _durationDays(p.startDate, p.endDate).toDouble(),
+            requiredTasks: const [],
+            optionalTasks: const [],
+          ),
+        )
+        .toList();
+
+    final segments = PreparationScheduler.schedule(
+      phases: templatePhases,
+      today: today,
+      targetDate: newTargetDate,
+    );
+
+    // Map segments back to phases by index (scheduler preserves order;
+    // merging only happens when window is too tight — keys would join '+',
+    // but we still map by index to the original phase list because merging
+    // shrinks the segment count, in which case we attach remaining phases to
+    // the last segment to avoid index OOB).
+    final newPhases = <PreparationPhase>[];
+    for (var i = 0; i < phases.length; i++) {
+      final seg = segments.length > i ? segments[i] : segments.last;
+      final newStart = seg.startDate;
+      final newEnd = seg.endDate;
+      final newTasks = phases[i].tasks.map((t) {
+        if (t.completed) return t;
+        final due = newEnd.isBefore(today)
+            ? today
+            : (newEnd.isAfter(newTargetDate) ? newTargetDate : newEnd);
+        return t.copyWith(dueDate: due);
+      }).toList();
+      newPhases.add(
+        phases[i].copyWith(
+          startDate: newStart,
+          endDate: newEnd,
+          tasks: newTasks,
+        ),
+      );
+    }
+    return newPhases;
+  }
+
+  static int _durationDays(DateTime start, DateTime end) {
+    final d = end.difference(start).inDays + 1;
+    return d < 1 ? 1 : d;
+  }
+}
+
 /// 备赛计划详情页（spec §7.4）。
 ///
 /// 顶部倒计时 + 总进度 + 当前阶段 + 紧/超负荷警示；中部阶段时间轴；
@@ -270,12 +391,9 @@ class _PreparationPlanDetailPageState
 
   // ── 修改目标日期：仅重算未完成任务 dueDate，保留完成态 + 备注 ──────────
   //
-  // Approach (documented in task report): template weights are not persisted on
-  // the plan, so we re-distribute the new total window across existing phases
-  // proportionally to their CURRENT relative durations (endDate-startDate+1).
-  // Each phase's new endDate is derived; incomplete tasks' dueDate is set to
-  // their phase's new endDate clamped to [today, newTargetDate]. Completed
-  // tasks keep their original dueDate.
+  // 实际的重排分支（提交型仅前置 / 窗口型全段 + eventEndDate 抬升）与按比例重排
+  // 已抽取为纯单元 [PreparationPlanDetailRescheduler]，便于单元测试直接覆盖
+  // defense_prep 不变这一不变量。这里仅负责弹 DatePicker 并落库。
   Future<void> _changeTargetDate(PreparationPlan plan) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -287,112 +405,21 @@ class _PreparationPlanDetailPageState
     );
     if (picked == null || !mounted) return;
 
-    final isSubmission =
-        plan.timelineType == CompetitionTimelineType.submission;
-    List<PreparationPhase> newPhases;
-    DateTime? newEventEndDate = plan.eventEndDate;
-    if (isSubmission) {
-      // 提交型：只重排提交前阶段（非 defense_prep），答辩准备段保持不动。
-      final pre = plan.phases.where((p) => p.key != 'defense_prep').toList();
-      final defense = plan.phases
-          .where((p) => p.key == 'defense_prep')
-          .toList();
-      final rescheduledPre = _reschedulePhases(
-        phases: pre,
-        today: today,
-        newTargetDate: picked,
-      );
-      newPhases = [...rescheduledPre, ...defense];
-    } else {
-      // 窗口型：重排全部阶段。若新 targetDate 晚于 eventEndDate，将
-      // eventEndDate 同步抬到 targetDate 以保持「比赛日 <= 结束日」。
-      newPhases = _reschedulePhases(
-        phases: plan.phases,
-        today: today,
-        newTargetDate: picked,
-      );
-      final ev = plan.eventEndDate;
-      if (ev != null && picked.isAfter(ev)) {
-        newEventEndDate = picked;
-      }
-    }
+    final result = PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
+      plan: plan,
+      newTargetDate: picked,
+      today: today,
+    );
     final updatedPlan = plan.copyWith(
       targetDate: picked,
-      eventEndDate: newEventEndDate,
-      phases: newPhases,
+      eventEndDate: result.eventEndDate,
+      phases: result.phases,
     );
     await _saveAndRefresh(updatedPlan);
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('目标日期已更新，未完成任务已重新排期')));
-  }
-
-  /// Re-distribute the new total window across phases proportionally to their
-  /// current relative durations, then move incomplete tasks' dueDate to their
-  /// phase's new endDate (clamped). Completed tasks keep dueDate + completedAt.
-  ///
-  /// We use [PreparationScheduler.schedule] for phase boundary recomputation:
-  /// phase weights are derived from current durations (endDate-startDate+1,
-  /// clamped to >=1). The scheduler guarantees contiguous, non-overlapping
-  /// segments covering [today, newTargetDate] exactly.
-  List<PreparationPhase> _reschedulePhases({
-    required List<PreparationPhase> phases,
-    required DateTime today,
-    required DateTime newTargetDate,
-  }) {
-    if (phases.isEmpty) return phases;
-
-    // Build template-phase equivalents with weight = current duration (days).
-    final templatePhases = phases
-        .map(
-          (p) => PreparationTemplatePhase(
-            key: p.key,
-            title: p.title,
-            weight: _durationDays(p.startDate, p.endDate).toDouble(),
-            requiredTasks: const [],
-            optionalTasks: const [],
-          ),
-        )
-        .toList();
-
-    final segments = PreparationScheduler.schedule(
-      phases: templatePhases,
-      today: today,
-      targetDate: newTargetDate,
-    );
-
-    // Map segments back to phases by index (scheduler preserves order;
-    // merging only happens when window is too tight — keys would join '+',
-    // but we still map by index to the original phase list because merging
-    // shrinks the segment count, in which case we attach remaining phases to
-    // the last segment to avoid index OOB).
-    final newPhases = <PreparationPhase>[];
-    for (var i = 0; i < phases.length; i++) {
-      final seg = segments.length > i ? segments[i] : segments.last;
-      final newStart = seg.startDate;
-      final newEnd = seg.endDate;
-      final newTasks = phases[i].tasks.map((t) {
-        if (t.completed) return t; // preserve completed + dueDate
-        final due = newEnd.isBefore(today)
-            ? today
-            : (newEnd.isAfter(newTargetDate) ? newTargetDate : newEnd);
-        return t.copyWith(dueDate: due);
-      }).toList();
-      newPhases.add(
-        phases[i].copyWith(
-          startDate: newStart,
-          endDate: newEnd,
-          tasks: newTasks,
-        ),
-      );
-    }
-    return newPhases;
-  }
-
-  int _durationDays(DateTime start, DateTime end) {
-    final d = end.difference(start).inDays + 1;
-    return d < 1 ? 1 : d;
   }
 
   // ── 归档 / 删除 plan（二次确认） ────────────────────────────────────────
