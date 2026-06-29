@@ -33,6 +33,9 @@ class ChatMessageBubble extends StatelessWidget {
   onFeedback;
   final VoidCallback? onRerouteHome;
 
+  /// AI 回复正文统一行高（spec §4.6 可测试常量），上机后微调。
+  static const double assistantLineHeight = 1.4;
+
   @override
   Widget build(BuildContext context) {
     final isThinking =
@@ -48,18 +51,29 @@ class ChatMessageBubble extends StatelessWidget {
     final isError =
         message.status == ChatMessageStatus.error ||
         message.status == ChatMessageStatus.interrupted;
+    final isRecommendationError =
+        isError && message.kind == ChatMessageKind.recommendation;
     final isStreaming = message.status == ChatMessageStatus.streaming;
-    final bubbleColor = isUser
-        ? scheme.primaryContainer
-        : isError
-        ? scheme.errorContainer
-        : scheme.secondaryContainer;
-    final maxWidth = math.min(360.0, MediaQuery.sizeOf(context).width * 0.78);
 
-    final Widget body = (isUser || isError)
-        ? Text(message.content)
-        : GptMarkdown(message.content);
-    final Widget content = isStreaming
+    final assistantStyle = DefaultTextStyle.of(context).style.copyWith(
+          height: ChatMessageBubble.assistantLineHeight,
+        );
+
+    final Widget body;
+    if (isError && !isRecommendationError) {
+      body = _AssistantErrorView(
+        message: message,
+        onRetry: onRegenerate == null ? null : () => onRegenerate!(message.id),
+      );
+    } else if (isUser) {
+      body = Text(message.content);
+    } else {
+      body = DefaultTextStyle(
+        style: assistantStyle,
+        child: GptMarkdown(message.content),
+      );
+    }
+    final Widget content = (isStreaming && !isError)
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -80,25 +94,36 @@ class ChatMessageBubble extends StatelessWidget {
             ],
           )
         : body;
+    // 仅用户消息保留可选中区域（错误态由 _AssistantErrorView 自管）。
     final Widget selectableContent = isUser
         ? content
-        : SelectionArea(child: content);
+        : (isError ? content : SelectionArea(child: content));
+
+    final double maxWidth =
+        math.min(360.0, MediaQuery.sizeOf(context).width * 0.78);
+
+    final Widget messageBody = isUser
+        ? Container(
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(12),
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: selectableContent,
+          )
+        : Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: selectableContent,
+          );
 
     return Column(
       crossAxisAlignment: isUser
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(12),
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: selectableContent,
-        ),
+        messageBody,
         if (message.relatedRecommendations.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -273,5 +298,17 @@ class _ActionButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       visualDensity: VisualDensity.compact,
     );
+  }
+}
+
+class _AssistantErrorView extends StatelessWidget {
+  const _AssistantErrorView({required this.message, this.onRetry});
+  final ChatMessage message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    // P0.2 会重写为圆圈红感叹号 + 查看详情。
+    return Text(message.content);
   }
 }

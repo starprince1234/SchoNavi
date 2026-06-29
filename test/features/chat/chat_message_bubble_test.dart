@@ -220,4 +220,52 @@ void main() {
     await tester.tap(find.text('重试推荐'));
     expect(retried, 'm_0');
   });
+
+  testWidgets('助手正常回复无气泡容器(全宽透明)', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '这是一段较长的助手回复，应当全宽显示而不被气泡收窄',
+        status: ChatMessageStatus.done,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final containers = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((c) => c.decoration is BoxDecoration);
+    final bubbleContainers = containers.where((c) {
+      final box = c.decoration as BoxDecoration;
+      return box.color != null && box.borderRadius != null;
+    });
+    expect(bubbleContainers, isEmpty,
+        reason: '助手回复不应有带背景色的圆角气泡');
+    expect(find.byType(GptMarkdown), findsOneWidget);
+  });
+
+  testWidgets('用户消息仍保留气泡', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.user,
+        content: '用户消息',
+        status: ChatMessageStatus.done,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final containers = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((c) => c.decoration is BoxDecoration);
+    final bubble = containers.where((c) {
+      final box = c.decoration as BoxDecoration;
+      return box.color != null && box.borderRadius != null;
+    });
+    expect(bubble, isNotEmpty, reason: '用户消息应保留气泡');
+  });
+
+  testWidgets('助手回复行高常量可读取且大于0', (tester) async {
+    expect(ChatMessageBubble.assistantLineHeight, greaterThan(0));
+  });
 }
