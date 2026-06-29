@@ -68,6 +68,12 @@ void main() {
     expect(tester.takeException(), isNull);
     // 烟雾：页面真的渲染了关键字段。
     expect(find.text('时间模型'), findsOneWidget);
+    // 表单较高，底部按钮需滚动进入视口后再断言。
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, '创建备赛计划'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.widgetWithText(FilledButton, '创建备赛计划'), findsOneWidget);
   });
 }

@@ -4,20 +4,27 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/calendar_date.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/fixtures/competition_timeline_defaults.dart';
+import '../../../domain/entities/level_diagnosis.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/user_profile.dart';
+import '../../../domain/repositories/preparation_level_diagnoser.dart';
+import '../../../domain/services/competition_category_normalizer.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../providers/preparation_providers.dart';
 import '../widgets/preparation_date_picker.dart';
 
-/// 备赛计划创建表单（spec §8 / D11 / P2.6）。
+/// 备赛计划创建表单（spec §8 / D11 / P2.6 / P3.4）。
 ///
 /// 时间模型 SegmentedButton（窗口型/提交型）按 [CompetitionTimelineDefaults]
 /// 预选；日期入口调用 [showPreparationDatePicker]，窗口型用 range 选比赛起止，
-/// 提交型用 multiAnchor 选 DDL + 可选答辩。提交校验通过后传全字段生成。
+/// 提交型用 multiAnchor 选 DDL + 可选答辩。Step 2 水平诊断：无画像时显示两个
+/// 问答（参赛经历 / 领域熟悉度）调 [preparationLevelDiagnoserProvider]，展示
+/// AI 建议卡 +「接受」/「手动改档」；有画像时跳过问答展示摘要 +「重新诊断」
+/// +「临时改档」。接受/重新诊断确认后写入 [LevelDiagnosisStore]。
 class PreparationPlanFormPage extends ConsumerStatefulWidget {
   const PreparationPlanFormPage({super.key, required this.competition});
 
@@ -26,6 +33,27 @@ class PreparationPlanFormPage extends ConsumerStatefulWidget {
   @override
   ConsumerState<PreparationPlanFormPage> createState() =>
       _PreparationPlanFormPageState();
+}
+
+/// 诊断步骤内部状态机。
+enum _DiagPhase {
+  /// 未加载到持久化画像，展示两个问答 + 诊断按钮。
+  idle,
+
+  /// 调用 diagnoser 中。
+  loading,
+
+  /// 诊断成功，展示 AI 建议卡 + 接受 / 手动改档。
+  result,
+
+  /// 诊断失败，展示 P0 错误态 + 重试 + 手动改档（不阻断）。
+  error,
+
+  /// 持久化画像已存在，展示摘要 + 重新诊断 + 临时改档。
+  persisted,
+
+  /// 已接受诊断（结果或重新诊断后），展示简短确认 + 改档入口。
+  accepted,
 }
 
 class _PreparationPlanFormPageState
@@ -39,12 +67,41 @@ class _PreparationPlanFormPageState
   bool _submitting = false;
   String? _dateError;
 
+  // ── 诊断 Step 2 状态 ──────────────────────────────────────────────────
+  _DiagPhase _diagPhase = _DiagPhase.idle;
+  LevelDiagnosis? _persistedDiagnosis;
+  LevelDiagnosisSuggestion? _suggestion;
+  String _priorExperience = '从没参加';
+  String _domainFamiliarity = '不熟';
+  bool _diagLoading = false;
+
+  static const _priorExperienceOptions = ['从没参加', '参加过未获奖', '获得校级以上奖'];
+  static const _domainFamiliarityOptions = ['不熟', '一般', '熟悉'];
+
   @override
   void initState() {
     super.initState();
     _timelineType = CompetitionTimelineDefaults.defaultFor(widget.competition.id) ??
         CompetitionTimelineType.submission;
     _experienceLevel = _experienceFromProfile(ref.read(profileProvider));
+    // 异步加载持久化画像；无则停在 idle 展示问答。
+    _loadPersistedDiagnosis();
+  }
+
+  Future<void> _loadPersistedDiagnosis() async {
+    final key = CompetitionCategoryNormalizer.normalize(
+      widget.competition.category,
+    );
+    final existing =
+        await ref.read(levelDiagnosisStoreProvider).get(key);
+    if (!mounted) return;
+    if (existing != null) {
+      setState(() {
+        _persistedDiagnosis = existing;
+        _experienceLevel = existing.effectiveLevel;
+        _diagPhase = _DiagPhase.persisted;
+      });
+    }
   }
 
   ExperienceLevel _experienceFromProfile(UserProfile profile) {
@@ -66,6 +123,10 @@ class _PreparationPlanFormPageState
     final cfg = ref.watch(appConfigProvider);
     return cfg.dataSource == DataSource.llm && cfg.llm.isConfigured;
   }
+
+  String get _categoryKey => CompetitionCategoryNormalizer.normalize(
+        widget.competition.category,
+      );
 
   String get _dateRowLabel => _timelineType == CompetitionTimelineType.eventWindow
       ? '选择比赛起止日期'
@@ -141,6 +202,82 @@ class _PreparationPlanFormPageState
       return '答辩日期必须晚于提交截止日期';
     }
     return null;
+  }
+
+  // ── 诊断 Step 2 动作 ──────────────────────────────────────────────────
+
+  Future<void> _diagnose() async {
+    setState(() {
+      _diagLoading = true;
+      _diagPhase = _DiagPhase.loading;
+    });
+    final request = LevelDiagnosisRequest(
+      competition: widget.competition,
+      profile: ref.read(profileProvider),
+      answers: [
+        DiagnosisAnswer(
+          questionKey: 'prior_experience',
+          answer: _priorExperience,
+        ),
+        DiagnosisAnswer(
+          questionKey: 'domain_familiarity',
+          answer: _domainFamiliarity,
+        ),
+      ],
+    );
+    final result =
+        await ref.read(preparationLevelDiagnoserProvider).diagnose(request);
+    if (!mounted) return;
+    setState(() {
+      _diagLoading = false;
+      switch (result) {
+        case Success(:final data):
+          _suggestion = data;
+          _diagPhase = _DiagPhase.result;
+        case Failure():
+          _suggestion = null;
+          _diagPhase = _DiagPhase.error;
+      }
+    });
+  }
+
+  Future<void> _acceptDiagnosis() async {
+    final s = _suggestion;
+    if (s == null) return;
+    final diagnosis = LevelDiagnosis(
+      categoryKey: _categoryKey,
+      diagnosedLevel: s.level,
+      effectiveLevel: s.level,
+      source: DiagnosisSelectionSource.aiAccepted,
+      rationale: s.rationale,
+      suggestion: s.suggestion,
+      diagnosedAt: DateTime.now().toUtc(),
+      answers: {
+        'prior_experience': _priorExperience,
+        'domain_familiarity': _domainFamiliarity,
+      },
+    );
+    await ref.read(levelDiagnosisStoreProvider).save(diagnosis);
+    if (!mounted) return;
+    setState(() {
+      _experienceLevel = s.level;
+      _persistedDiagnosis = diagnosis;
+      _diagPhase = _DiagPhase.accepted;
+    });
+  }
+
+  /// 重新诊断：清掉本地画像快照并回到问答态。
+  void _restartDiagnosis() {
+    setState(() {
+      _suggestion = null;
+      _persistedDiagnosis = null;
+      _diagPhase = _DiagPhase.idle;
+    });
+  }
+
+  /// 临时改档：只改本次 effectiveLevel，不落盘。
+  void _manualOverride(ExperienceLevel level) {
+    setState(() => _experienceLevel = level);
   }
 
   Future<void> _submit() async {
@@ -260,6 +397,9 @@ class _PreparationPlanFormPageState
               ),
             ),
           const SizedBox(height: 16),
+          _sectionLabel('水平诊断'),
+          _diagnosisSection(cs),
+          const SizedBox(height: 16),
           _sectionLabel('每周投入'),
           _commitmentSelector(cs),
           const SizedBox(height: 16),
@@ -285,6 +425,260 @@ class _PreparationPlanFormPageState
       ),
     );
   }
+
+  // ── 诊断 Step 2 UI ───────────────────────────────────────────────────
+
+  Widget _diagnosisSection(ColorScheme cs) {
+    switch (_diagPhase) {
+      case _DiagPhase.persisted:
+        return _persistedSummary(cs);
+      case _DiagPhase.accepted:
+        return _acceptedSummary(cs);
+      case _DiagPhase.loading:
+        return _loadingCard(cs);
+      case _DiagPhase.result:
+        return _resultCard(cs);
+      case _DiagPhase.error:
+        return _errorCard(cs);
+      case _DiagPhase.idle:
+        return _questionsCard(cs);
+    }
+  }
+
+  Widget _questionsCard(ColorScheme cs) {
+    return BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _qaSegment('参赛经历', _priorExperience, _priorExperienceOptions, (v) {
+            setState(() => _priorExperience = v);
+          }),
+          const SizedBox(height: 12),
+          _qaSegment(
+            '领域熟悉度',
+            _domainFamiliarity,
+            _domainFamiliarityOptions,
+            (v) => setState(() => _domainFamiliarity = v),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _diagLoading ? null : _diagnose,
+            icon: const Icon(Icons.psychology_outlined, size: 18),
+            label: const Text('诊断'),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '也可直接在下方「当前水平」手动改档',
+            style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _qaSegment(
+    String label,
+    String value,
+    List<String> options,
+    ValueChanged<String> onSelected,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final opt in options)
+              ChoiceChip(
+                label: Text(opt),
+                selected: opt == value,
+                onSelected: (_) => onSelected(opt),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _loadingCard(ColorScheme cs) {
+    return BentoTile(
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 10),
+          Text('正在诊断…', style: TextStyle(color: cs.onSurface)),
+        ],
+      ),
+    );
+  }
+
+  Widget _resultCard(ColorScheme cs) {
+    final s = _suggestion;
+    if (s == null) return const SizedBox.shrink();
+    final levelLabel = _levelLabel(s.level);
+    return BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 18, color: AppColors.indigo),
+              const SizedBox(width: 8),
+              Text(
+                'AI 建议：$levelLabel',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(s.rationale, style: TextStyle(color: cs.onSurface, fontSize: 13)),
+          if (s.suggestion != null && s.suggestion!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '建议：${s.suggestion}',
+              style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _acceptDiagnosis,
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('接受'),
+              ),
+              TextButton(
+                onPressed: _restartDiagnosis,
+                child: const Text('手动改档'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _errorCard(ColorScheme cs) {
+    return BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, size: 20, color: cs.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '诊断失败，可重试或手动改档继续',
+                  style: TextStyle(color: cs.onSurface),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonal(
+                onPressed: _diagLoading ? null : _diagnose,
+                child: const Text('重试'),
+              ),
+              TextButton(
+                onPressed: _restartDiagnosis,
+                child: const Text('手动改档'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _persistedSummary(ColorScheme cs) {
+    final d = _persistedDiagnosis;
+    final levelLabel = d != null ? _levelLabel(d.effectiveLevel) : '';
+    return BentoTile(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history_edu_outlined, size: 18, color: AppColors.indigo),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '已按你的 ${widget.competition.category} 类画像：$levelLabel 排期',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          if (d != null && d.rationale.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(d.rationale, style: TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _restartDiagnosis,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('重新诊断'),
+              ),
+              TextButton(
+                onPressed: null,
+                child: Text(
+                  '临时改档（下方「当前水平」）',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _acceptedSummary(ColorScheme cs) {
+    final s = _suggestion;
+    final levelLabel = s != null ? _levelLabel(s.level) : _levelLabel(_experienceLevel);
+    return BentoTile(
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 18, color: AppColors.match),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '已采纳 AI 诊断：$levelLabel',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: _restartDiagnosis,
+            child: const Text('重新诊断'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _levelLabel(ExperienceLevel l) => switch (l) {
+        ExperienceLevel.beginner => '新手',
+        ExperienceLevel.intermediate => '进阶',
+        ExperienceLevel.experienced => '老手',
+      };
 
   Widget _sectionLabel(String text) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 6),
@@ -344,9 +738,7 @@ class _PreparationPlanFormPageState
   Widget _experienceSelector(ColorScheme cs) {
     return SegmentedButton<ExperienceLevel>(
       selected: {_experienceLevel},
-      onSelectionChanged: _submitting
-          ? null
-          : (s) => setState(() => _experienceLevel = s.first),
+      onSelectionChanged: _submitting ? null : (s) => _manualOverride(s.first),
       segments: const [
         ButtonSegment(value: ExperienceLevel.beginner, label: Text('新手')),
         ButtonSegment(value: ExperienceLevel.intermediate, label: Text('进阶')),

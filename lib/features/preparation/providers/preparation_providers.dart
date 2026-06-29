@@ -7,6 +7,7 @@ import '../../../data/ai/ai_preparation_personalizer.dart';
 import '../../../data/ai/ai_preparation_level_diagnoser.dart';
 import '../../../data/http/http_preparation_personalizer.dart';
 import '../../../data/http/http_preparation_level_diagnoser.dart';
+import '../../../data/local/level_diagnosis_store.dart';
 import '../../../data/local/local_preparation_plan_repository.dart';
 import '../../../data/local/local_preparation_template_provider.dart';
 import '../../../domain/entities/preparation_plan.dart';
@@ -24,6 +25,12 @@ final preparationPlanRepositoryProvider = Provider<PreparationPlanRepository>((
   ref.onDispose(repo.dispose);
   return repo;
 });
+
+/// 水平诊断画像本地存储：按规范化类目 key 持久化最新诊断。供向导 Step 2
+/// 在用户接受 AI 诊断或重新诊断确认后写入；临时改档不落盘。
+final levelDiagnosisStoreProvider = Provider<LevelDiagnosisStore>(
+  (ref) => LevelDiagnosisStore(ref.watch(localStoreProvider)),
+);
 
 /// 备赛模板提供者：本地 AssetBundle（赛类/赛事 JSON 叠加）。
 final preparationTemplateProvider = Provider<PreparationTemplateProvider>(
