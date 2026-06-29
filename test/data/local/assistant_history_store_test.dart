@@ -56,6 +56,7 @@ AssistantTurn _turn({
   DateTime? createdAt,
   bool error = false,
   Map<String, ChangeCardStatus>? cardStatuses,
+  String requestId = '',
 }) => AssistantTurn(
   id: id,
   planId: planId,
@@ -65,6 +66,7 @@ AssistantTurn _turn({
   createdAt: createdAt ?? DateTime.utc(2026, 6, 29, 8),
   error: error,
   cardStatuses: cardStatuses ?? const {},
+  requestId: requestId,
 );
 
 void main() {
@@ -313,6 +315,31 @@ void main() {
         'c1': ChangeCardStatus.applied,
         'c2': ChangeCardStatus.declined,
       });
+    });
+
+    test('updateCardStatuses 保留 turn 的 requestId', () async {
+      final store = AssistantHistoryStore(_MemLocalStore());
+      await store.append(
+        'planA',
+        _turn(
+          id: 't1',
+          requestId: 'req_keep_me',
+          changeSet: PlanChangeSet(
+            id: 'cs1',
+            basePlanRevision: 1,
+            cards: [_card(id: 'c1')],
+          ),
+          cardStatuses: {'c1': ChangeCardStatus.pending},
+        ),
+      );
+
+      await store.updateCardStatuses('planA', 't1', {
+        'c1': ChangeCardStatus.applied,
+      });
+
+      final list = await store.list('planA');
+      expect(list.first.cardStatuses, {'c1': ChangeCardStatus.applied});
+      expect(list.first.requestId, 'req_keep_me');
     });
 
     test('updateCardStatuses 未找到 turnId 静默忽略', () async {

@@ -68,6 +68,7 @@ class AssistantHistoryStore {
       createdAt: existing[idx].createdAt,
       error: existing[idx].error,
       cardStatuses: Map<String, ChangeCardStatus>.of(cardStatuses),
+      requestId: existing[idx].requestId,
     );
     all[planId] = existing.map((t) => t.toJson()).toList();
     await _writeAll(all);
