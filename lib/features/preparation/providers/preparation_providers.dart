@@ -5,14 +5,17 @@ import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../data/ai/ai_preparation_personalizer.dart';
 import '../../../data/ai/ai_preparation_level_diagnoser.dart';
+import '../../../data/ai/ai_preparation_plan_assistant.dart';
 import '../../../data/http/http_preparation_personalizer.dart';
 import '../../../data/http/http_preparation_level_diagnoser.dart';
+import '../../../data/http/http_preparation_plan_assistant.dart';
 import '../../../data/local/level_diagnosis_store.dart';
 import '../../../data/local/local_preparation_plan_repository.dart';
 import '../../../data/local/local_preparation_template_provider.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
 import '../../../domain/repositories/preparation_level_diagnoser.dart';
+import '../../../domain/repositories/preparation_plan_assistant.dart';
 import '../../../domain/repositories/preparation_template_provider.dart';
 import '../../../domain/services/preparation_plan_generator.dart';
 
@@ -57,6 +60,19 @@ final preparationLevelDiagnoserProvider = Provider<PreparationLevelDiagnoser>((
       AiPreparationLevelDiagnoser(ref.watch(llmClientProvider)),
     DataSource.http =>
       HttpPreparationLevelDiagnoser(ref.watch(dioProvider)),
+  };
+});
+
+/// 备赛日历 AI 助手：按 [DataSource] 切换 LLM / HTTP 实现。两条路径共用同一
+/// 套 decode + `PlanChangeValidator` 校验。
+final preparationPlanAssistantProvider = Provider<PreparationPlanAssistant>((
+  ref,
+) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm =>
+      AiPreparationPlanAssistant(ref.watch(llmClientProvider)),
+    DataSource.http =>
+      HttpPreparationPlanAssistant(ref.watch(dioProvider)),
   };
 });
 

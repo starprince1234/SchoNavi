@@ -6,12 +6,15 @@ import 'package:dio/dio.dart';
 
 import 'fake_chat_quick_actions_backend.dart';
 import 'fake_chat_route_backend.dart';
+import 'fake_preparation_assistant_backend.dart';
 import 'fake_preparation_backend.dart';
 import 'fake_preparation_diagnose_backend.dart';
 
 export 'fake_preparation_backend.dart' show PreparationFakeRegistration;
 export 'fake_preparation_diagnose_backend.dart'
     show DiagnosisFakeRegistration;
+export 'fake_preparation_assistant_backend.dart'
+    show AssistantFakeRegistration;
 
 /// Dio 层「假后端」：拦截 `/api/v1/*` 请求，按 `(method, path)` 分派到
 /// 已注册的 handler，返回符合 API 信封约定的 [ResponseBody]。
@@ -20,9 +23,13 @@ export 'fake_preparation_diagnose_backend.dart'
 /// 解码），只换 transport。测试 override `dioProvider` 注入本适配器，即可
 /// 在无真后端时走真实链路；未来经 config 接入可让 http 模式离线演示。
 ///
-/// 已注册 `/chat/route`、`/chat/quick-actions` 与
-/// `/preparation-plans/generate`。**未注册路径返回 404 信封**，让
-/// 尚未 fake 的端点显式失败——缺口一目了然，便于后续逐步补齐端点。
+/// 已注册 `/chat/route`、`/chat/quick-actions`、
+/// `/preparation-plans/generate`、`/preparation-plans/diagnose` 与
+/// `/preparation-plans/pp_1/assistant`（assistant 路径含字面 plan id `pp_1`，
+/// 因 `(method, path)` 精确匹配；其他 plan id 需经
+/// `registerPreparationAssistantHandler(planId: ...)` 单独注册）。
+/// **未注册路径返回 404 信封**，让尚未 fake 的端点显式失败——缺口一目了然，
+/// 便于后续逐步补齐端点。
 class FakeBackendAdapter implements HttpClientAdapter {
   FakeBackendAdapter() : _handlers = _defaultHandlers();
 
@@ -61,6 +68,8 @@ class FakeBackendAdapter implements HttpClientAdapter {
           preparationGenerateHandler,
       _RouteKey('POST', '/api/v1/preparation-plans/diagnose'):
           preparationDiagnoseHandler,
+      _RouteKey('POST', '/api/v1/preparation-plans/pp_1/assistant'):
+          preparationAssistantHandler,
     };
   }
 
