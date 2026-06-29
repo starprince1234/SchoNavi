@@ -284,5 +284,58 @@ void main() {
       expect(list.length, 1);
       expect(list.first.id, 't1');
     });
+
+    test('updateCardStatuses 更新指定 turn 的卡片状态', () async {
+      final store = AssistantHistoryStore(_MemLocalStore());
+      await store.append(
+        'planA',
+        _turn(
+          id: 't1',
+          changeSet: PlanChangeSet(
+            id: 'cs1',
+            basePlanRevision: 1,
+            cards: [_card(id: 'c1'), _card(id: 'c2')],
+          ),
+          cardStatuses: {
+            'c1': ChangeCardStatus.pending,
+            'c2': ChangeCardStatus.pending,
+          },
+        ),
+      );
+
+      await store.updateCardStatuses('planA', 't1', {
+        'c1': ChangeCardStatus.applied,
+        'c2': ChangeCardStatus.declined,
+      });
+
+      final list = await store.list('planA');
+      expect(list.first.cardStatuses, {
+        'c1': ChangeCardStatus.applied,
+        'c2': ChangeCardStatus.declined,
+      });
+    });
+
+    test('updateCardStatuses 未找到 turnId 静默忽略', () async {
+      final store = AssistantHistoryStore(_MemLocalStore());
+      await store.append('planA', _turn(id: 't1'));
+
+      await store.updateCardStatuses('planA', 'nope', {
+        'c1': ChangeCardStatus.applied,
+      });
+
+      final list = await store.list('planA');
+      expect(list.first.cardStatuses, isEmpty);
+    });
+
+    test('updateCardStatuses 未找到 planId 静默忽略', () async {
+      final store = AssistantHistoryStore(_MemLocalStore());
+      await store.append('planA', _turn(id: 't1'));
+
+      await store.updateCardStatuses('planB', 't1', {
+        'c1': ChangeCardStatus.applied,
+      });
+
+      expect(await store.list('planB'), isEmpty);
+    });
   });
 }

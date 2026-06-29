@@ -4,20 +4,36 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/plan_change_card.dart';
 import '../../../shared/widgets/bento_tile.dart';
 
-/// 只读改动卡视图（spec §2.6 / P4a.5）：展示 [PlanChangeCard.summary] +
-/// [PlanChangeCard.rationale] + 状态胶囊；rejected 时附带 reason。
+/// 改动卡视图（spec §2.6 / P4b.2）：展示 [PlanChangeCard.summary] +
+/// [PlanChangeCard.rationale] + 状态胶囊；rejected/stale 时附带原因。
 ///
-/// 本任务仅渲染，不绑定接受/拒绝（P4b.2 接入）；接受按钮以禁用占位呈现，
-/// 表明交互入口已就位但尚未开放。
+/// [status] 为调用方（抽屉）持有的实时状态——实体本身不可变，状态在 UI 层
+/// 维护。pending 时启用接受/拒绝；applied/declined/stale/rejected 时折叠或
+/// 只读。接受中禁用按钮防重。
 class PlanChangeCardView extends StatelessWidget {
-  const PlanChangeCardView({super.key, required this.card});
+  const PlanChangeCardView({
+    super.key,
+    required this.card,
+    required this.status,
+    this.errorMessage,
+    this.onAccept,
+    this.onDecline,
+    this.applying = false,
+  });
 
   final PlanChangeCard card;
+  final ChangeCardStatus status;
+  final String? errorMessage;
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
+  final bool applying;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final statusStyle = _statusStyle(card.status, scheme);
+    final statusStyle = _statusStyle(status, scheme);
+    final interactive = status == ChangeCardStatus.pending;
+    final folded = status == ChangeCardStatus.declined;
     return BentoTile(
       width: 280,
       color: scheme.surface,
@@ -33,9 +49,11 @@ class PlanChangeCardView extends StatelessWidget {
               Expanded(
                 child: Text(
                   card.summary,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
+                    color: folded ? AppColors.inkFaint : null,
+                    decoration: folded ? TextDecoration.lineThrough : null,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -43,13 +61,15 @@ class PlanChangeCardView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            card.rationale,
-            style: TextStyle(fontSize: 13, color: AppColors.inkSoft),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+          if (!folded) ...[
+            const SizedBox(height: 8),
+            Text(
+              card.rationale,
+              style: TextStyle(fontSize: 13, color: AppColors.inkSoft),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           const SizedBox(height: 10),
           Wrap(
             spacing: 6,
@@ -57,7 +77,7 @@ class PlanChangeCardView extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _StatusChip(label: statusStyle.label, color: statusStyle.color),
-              if (card.status == ChangeCardStatus.rejected &&
+              if (status == ChangeCardStatus.rejected &&
                   card.rejectionReason != null)
                 Text(
                   card.rejectionReason!,
@@ -65,22 +85,85 @@ class PlanChangeCardView extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+              if (status == ChangeCardStatus.stale)
+                const Text(
+                  '计划已变化，请重新生成建议',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              if (status == ChangeCardStatus.pending &&
+                  errorMessage != null)
+                Text(
+                  errorMessage!,
+                  style: TextStyle(fontSize: 12, color: AppColors.danger),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
             ],
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.tonal(
-              onPressed: null,
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.surfaceContainerHighest,
-                foregroundColor: AppColors.inkSoft,
-              ),
-              child: const Text('接受', style: TextStyle(fontSize: 13)),
-            ),
-          ),
+          _buildActions(scheme, interactive),
         ],
       ),
+    );
+  }
+
+  Widget _buildActions(ColorScheme scheme, bool interactive) {
+    if (status == ChangeCardStatus.applied) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonal(
+          onPressed: null,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.matchSoft,
+            foregroundColor: AppColors.match,
+          ),
+          child: const Text('已应用', style: TextStyle(fontSize: 13)),
+        ),
+      );
+    }
+    if (status == ChangeCardStatus.declined) {
+      return SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: onDecline,
+          child: const Text('已忽略 · 撤销', style: TextStyle(fontSize: 13)),
+        ),
+      );
+    }
+    if (status == ChangeCardStatus.stale ||
+        status == ChangeCardStatus.rejected) {
+      return const SizedBox.shrink();
+    }
+    // pending
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton(
+            onPressed: (interactive && !applying) ? onAccept : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.indigo,
+              foregroundColor: Colors.white,
+            ),
+            child: applying
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('接受', style: TextStyle(fontSize: 13)),
+          ),
+        ),
+        const SizedBox(width: 8),
+        TextButton(
+          onPressed: (interactive && !applying) ? onDecline : null,
+          child: const Text('拒绝', style: TextStyle(fontSize: 13)),
+        ),
+      ],
     );
   }
 

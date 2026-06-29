@@ -1,5 +1,6 @@
 import '../../core/storage/local_store.dart';
 import '../../domain/entities/assistant_turn.dart';
+import '../../domain/entities/plan_change_card.dart';
 
 /// 备赛助手对话历史本地存储：按 planId 分组保留每计划最近 20 轮对话。
 ///
@@ -44,6 +45,31 @@ class AssistantHistoryStore {
   Future<void> clear(String planId) async {
     final all = _readAll();
     if (all.remove(planId) == null) return;
+    await _writeAll(all);
+  }
+
+  /// 更新指定 turn 的卡片最终状态（spec §3.6：每轮保存每张卡的最终状态）。
+  /// 找不到 planId/turnId 时静默忽略——状态以内存为准，落盘为最佳努力。
+  Future<void> updateCardStatuses(
+    String planId,
+    String turnId,
+    Map<String, ChangeCardStatus> cardStatuses,
+  ) async {
+    final all = _readAll();
+    final existing = _parseList(all[planId]);
+    final idx = existing.indexWhere((t) => t.id == turnId);
+    if (idx < 0) return;
+    existing[idx] = AssistantTurn(
+      id: existing[idx].id,
+      planId: existing[idx].planId,
+      userMessage: existing[idx].userMessage,
+      reply: existing[idx].reply,
+      changeSet: existing[idx].changeSet,
+      createdAt: existing[idx].createdAt,
+      error: existing[idx].error,
+      cardStatuses: Map<String, ChangeCardStatus>.of(cardStatuses),
+    );
+    all[planId] = existing.map((t) => t.toJson()).toList();
     await _writeAll(all);
   }
 
