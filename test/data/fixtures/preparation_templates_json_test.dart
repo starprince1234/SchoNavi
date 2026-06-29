@@ -37,7 +37,7 @@ void main() {
     expect(m['comp_icpc'], isNotNull);
   });
 
-  test('ICPC override phase keys 全部属窗口型骨架', () async {
+  test('override phase keys 全部属窗口型骨架', () async {
     const windowKeys = {
       'team_formation',
       'rules_review',
@@ -46,9 +46,15 @@ void main() {
       'final_check'
     };
     final m = await _load('assets/preparation_templates/competition_overrides.json');
-    final phases = (m['comp_icpc'] as Map)['phases'] as List;
-    for (final phase in phases) {
-      expect(windowKeys, contains((phase as Map)['key']));
+    for (final competitionId in const ['comp_icpc', 'comp_lanqiao']) {
+      final phases = (m[competitionId] as Map)['phases'] as List;
+      for (final phase in phases) {
+        expect(
+          windowKeys,
+          contains((phase as Map)['key']),
+          reason: '$competitionId phase key ${(phase)['key']} not in window skeleton',
+        );
+      }
     }
   });
 
