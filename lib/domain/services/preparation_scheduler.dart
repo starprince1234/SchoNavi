@@ -11,16 +11,22 @@ class PreparationScheduler {
   PreparationScheduler._();
 
   /// A scheduled phase segment.
-  static List<({String key, DateTime startDate, DateTime endDate})> schedule({
+  ///
+  /// 将闭区间 `[today, segmentEnd]` 按阶段权重分配给各阶段（spec §7.3）。
+  /// 当窗口过短无法每阶段至少一天时，自末尾起合并相邻阶段，保证每段 >=1 天。
+  /// `segmentEnd` 表意为该分段截止日；调用方可将其视为 targetDate（pre 段）
+  /// 或 defenseDate（defense 段）。
+  static List<({String key, DateTime startDate, DateTime endDate})>
+  scheduleSegment({
     required List<PreparationTemplatePhase> phases,
     required DateTime today,
-    required DateTime targetDate,
+    required DateTime segmentEnd,
   }) {
     if (phases.isEmpty) {
       return const [];
     }
 
-    final totalDays = targetDate.difference(today).inDays;
+    final totalDays = segmentEnd.difference(today).inDays;
 
     // Single-day or non-positive window: collapse everything into one segment
     // [today, today]. Clamp targetDate to today to keep the output sane even
@@ -53,15 +59,14 @@ class PreparationScheduler {
 
     // --- Day allocation by normalized weight -------------------------------
     final wSum = weights.fold<double>(0, (a, w) => a + w);
-    final days = List<int>.generate(
-      keys.length,
-      (i) {
-        final raw = wSum > 0 ? weights[i] / wSum * totalDays : totalDays / keys.length;
-        final d = raw.round();
-        // Every phase must keep at least one day.
-        return d < 1 ? 1 : d;
-      },
-    );
+    final days = List<int>.generate(keys.length, (i) {
+      final raw = wSum > 0
+          ? weights[i] / wSum * totalDays
+          : totalDays / keys.length;
+      final d = raw.round();
+      // Every phase must keep at least one day.
+      return d < 1 ? 1 : d;
+    });
 
     // Fix rounding remainder so the sum equals totalDays exactly. Add or
     // subtract from the phase with the largest weight (stable, deterministic).
@@ -95,13 +100,13 @@ class PreparationScheduler {
     // --- Build contiguous segments ----------------------------------------
     // Each segment i spans `days[i]` day-transitions starting at `cursor`;
     // the next segment starts the day after. The last segment's endDate is
-    // forced to `targetDate` so the whole window is covered exactly.
+    // forced to `segmentEnd` so the whole window is covered exactly.
     final out = <({String key, DateTime startDate, DateTime endDate})>[];
     var cursor = today;
     for (var i = 0; i < keys.length; i++) {
       final isLast = i == keys.length - 1;
       final endDate = isLast
-          ? targetDate
+          ? segmentEnd
           : cursor.add(Duration(days: days[i] - 1));
       out.add((key: keys[i], startDate: cursor, endDate: endDate));
       cursor = endDate.add(const Duration(days: 1));
@@ -109,6 +114,14 @@ class PreparationScheduler {
 
     return out;
   }
+
+  /// 兼容旧调用（详情页 `_reschedulePhases` 等）：转发到 [scheduleSegment]，
+  /// `targetDate` 即单段 `segmentEnd`。新代码应直接用 [scheduleSegment]。
+  static List<({String key, DateTime startDate, DateTime endDate})> schedule({
+    required List<PreparationTemplatePhase> phases,
+    required DateTime today,
+    required DateTime targetDate,
+  }) => scheduleSegment(phases: phases, today: today, segmentEnd: targetDate);
 
   /// Returns `true` when the window between [today] and [targetDate] is
   /// fewer than 14 days (a "tight" schedule that needs compression).

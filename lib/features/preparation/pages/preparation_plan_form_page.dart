@@ -98,10 +98,13 @@ class _PreparationPlanFormPageState
           .read(preparationPlanGeneratorProvider)
           .generate(
             competition: widget.competition,
+            timelineType: CompetitionTimelineType.submission,
             targetDate: _targetDate!,
+            eventEndDate: null,
+            defenseDate: null,
             weeklyCommitment: _weeklyCommitment,
             experienceLevel: _experienceLevel,
-            today: DateTime.now(),
+            calendarToday: DateTime.now(),
             profile: ref.read(profileProvider),
           );
       await ref.read(preparationPlanRepositoryProvider).save(plan);
@@ -110,9 +113,9 @@ class _PreparationPlanFormPageState
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('生成失败，请重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('生成失败，请重试')));
     }
   }
 
@@ -130,8 +133,11 @@ class _PreparationPlanFormPageState
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events_outlined,
-                        size: 20, color: AppColors.indigo),
+                    const Icon(
+                      Icons.emoji_events_outlined,
+                      size: 20,
+                      color: AppColors.indigo,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -144,9 +150,9 @@ class _PreparationPlanFormPageState
                 const SizedBox(height: 4),
                 Text(
                   widget.competition.category,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkFaint,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.inkFaint),
                 ),
               ],
             ),
@@ -157,8 +163,11 @@ class _PreparationPlanFormPageState
             onTap: _submitting ? null : _pickDate,
             child: Row(
               children: [
-                const Icon(Icons.event_outlined,
-                    size: 20, color: AppColors.indigo),
+                const Icon(
+                  Icons.event_outlined,
+                  size: 20,
+                  color: AppColors.indigo,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -172,8 +181,11 @@ class _PreparationPlanFormPageState
                     ),
                   ),
                 ),
-                const Icon(Icons.chevron_right,
-                    size: 20, color: AppColors.inkFaint),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.inkFaint,
+                ),
               ],
             ),
           ),
@@ -191,10 +203,7 @@ class _PreparationPlanFormPageState
           const SizedBox(height: 16),
           _sectionLabel('当前水平'),
           _experienceSelector(cs),
-          if (_isAiMode) ...[
-            const SizedBox(height: 16),
-            _aiNotice(),
-          ],
+          if (_isAiMode) ...[const SizedBox(height: 16), _aiNotice()],
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _submitting ? null : _submit,
@@ -216,16 +225,16 @@ class _PreparationPlanFormPageState
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 6),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: AppColors.inkSoft,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(left: 4, bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.inkSoft,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 
   Widget _commitmentSelector(ColorScheme cs) {
     return SegmentedButton<WeeklyCommitment>(
@@ -234,22 +243,13 @@ class _PreparationPlanFormPageState
           ? null
           : (s) => setState(() => _weeklyCommitment = s.first),
       segments: const [
-        ButtonSegment(
-          value: WeeklyCommitment.hours3to5,
-          label: Text('3-5h'),
-        ),
-        ButtonSegment(
-          value: WeeklyCommitment.hours6to10,
-          label: Text('6-10h'),
-        ),
+        ButtonSegment(value: WeeklyCommitment.hours3to5, label: Text('3-5h')),
+        ButtonSegment(value: WeeklyCommitment.hours6to10, label: Text('6-10h')),
         ButtonSegment(
           value: WeeklyCommitment.hours11to15,
           label: Text('11-15h'),
         ),
-        ButtonSegment(
-          value: WeeklyCommitment.hours16plus,
-          label: Text('16h+'),
-        ),
+        ButtonSegment(value: WeeklyCommitment.hours16plus, label: Text('16h+')),
       ],
     );
   }
@@ -261,18 +261,9 @@ class _PreparationPlanFormPageState
           ? null
           : (s) => setState(() => _experienceLevel = s.first),
       segments: const [
-        ButtonSegment(
-          value: ExperienceLevel.beginner,
-          label: Text('新手'),
-        ),
-        ButtonSegment(
-          value: ExperienceLevel.intermediate,
-          label: Text('进阶'),
-        ),
-        ButtonSegment(
-          value: ExperienceLevel.experienced,
-          label: Text('老手'),
-        ),
+        ButtonSegment(value: ExperienceLevel.beginner, label: Text('新手')),
+        ButtonSegment(value: ExperienceLevel.intermediate, label: Text('进阶')),
+        ButtonSegment(value: ExperienceLevel.experienced, label: Text('老手')),
       ],
     );
   }

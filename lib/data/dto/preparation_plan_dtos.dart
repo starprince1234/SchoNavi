@@ -1,13 +1,19 @@
+import '../../core/calendar_date.dart';
 import '../../domain/entities/preparation_plan.dart';
 import '../../domain/entities/user_profile.dart';
 import 'profile_dtos.dart';
 
-/// AI 个性化请求：携带竞赛快照、目标日期、每周投入、经验等级、阶段 key 列表
-/// 与可选学生档案。供 [PreparationPersonalizer] 实现（本地 LLM / HTTP）消费。
+/// AI 个性化请求：携带竞赛快照、赛事时间模型、目标日期、赛事窗口、答辩日、
+/// 日历基准、每周投入、经验等级、阶段 key 列表与可选学生档案。供
+/// [PreparationPersonalizer] 实现（本地 LLM / HTTP）消费。
 class PreparationPersonalizationRequest {
   const PreparationPersonalizationRequest({
     required this.competition,
+    required this.timelineType,
     required this.targetDate,
+    this.eventEndDate,
+    this.defenseDate,
+    required this.calendarToday,
     required this.weeklyCommitment,
     required this.experienceLevel,
     required this.phaseKeys,
@@ -15,24 +21,43 @@ class PreparationPersonalizationRequest {
   });
 
   final CompetitionSnapshot competition;
+
+  /// 赛事时间模型：窗口型（比赛集中在几天）/ 提交型（作品提交到 DDL）。
+  final CompetitionTimelineType timelineType;
   final DateTime targetDate;
+
+  /// 赛事窗口结束日（窗口型有意义）；提交型可空。
+  final DateTime? eventEndDate;
+
+  /// 答辩日（仅提交型且需答辩时存在）；窗口型与无答辩提交型为 null。
+  final DateTime? defenseDate;
+
+  /// 日历基准（spec §2.1）：排期与预算的权威今天。
+  final DateTime calendarToday;
   final WeeklyCommitment weeklyCommitment;
   final ExperienceLevel experienceLevel;
 
   /// 合法阶段 key 白名单：AI 返回的 phaseKey 必须在此集合内，否则丢弃。
+  /// 含 defense_prep 当且仅当 defenseDate != null。
   final List<String> phaseKeys;
   final UserProfile? profile;
 
   /// 序列化为 HTTP 请求体（spec §7.2 结构）。
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'competition': competition.toJson(),
-        'target_date': targetDate.toIso8601String(),
-        'weekly_commitment': weeklyCommitment.name,
-        'experience_level': experienceLevel.name,
-        'phase_keys': phaseKeys,
-        if (profile != null && !profile!.isEmpty)
-          'user_profile': UserProfileDto.fromEntity(profile!).toJson(),
-      };
+    'competition': competition.toJson(),
+    'timeline_type': timelineType.name,
+    'target_date': CalendarDate.toIsoDay(targetDate),
+    if (eventEndDate != null)
+      'event_end_date': CalendarDate.toIsoDay(eventEndDate!),
+    if (defenseDate != null)
+      'defense_date': CalendarDate.toIsoDay(defenseDate!),
+    'calendar_today': CalendarDate.toIsoDay(calendarToday),
+    'weekly_commitment': weeklyCommitment.name,
+    'experience_level': experienceLevel.name,
+    'phase_keys': phaseKeys,
+    if (profile != null && !profile!.isEmpty)
+      'user_profile': UserProfileDto.fromEntity(profile!).toJson(),
+  };
 }
 
 /// 单条可选任务建议。
@@ -128,7 +153,9 @@ class PreparationPersonalizationResultDto {
 
     return PreparationPersonalizationResultDto(
       phases: phases,
-      globalAdvice: _optionalString(json['global_advice'] ?? json['globalAdvice']),
+      globalAdvice: _optionalString(
+        json['global_advice'] ?? json['globalAdvice'],
+      ),
     );
   }
 
@@ -167,13 +194,15 @@ class PreparationPersonalizationResultDto {
     return PreparationPhasePersonalization(
       key: key,
       optionalTasks: tasks,
-      personalizedAdvice:
-          _optionalString(json['personalized_advice'] ?? json['personalizedAdvice']),
+      personalizedAdvice: _optionalString(
+        json['personalized_advice'] ?? json['personalizedAdvice'],
+      ),
     );
   }
 
   static PreparationOptionalTaskSuggestion? _parseTask(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final title = _optionalString(json['title']);
     if (title == null) return null;
 

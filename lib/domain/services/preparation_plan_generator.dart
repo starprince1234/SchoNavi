@@ -40,17 +40,19 @@ class PreparationPlanGenerator {
 
   Future<PreparationPlan> generate({
     required CompetitionSnapshot competition,
+    required CompetitionTimelineType timelineType,
     required DateTime targetDate,
+    DateTime? eventEndDate,
+    DateTime? defenseDate,
     required WeeklyCommitment weeklyCommitment,
     required ExperienceLevel experienceLevel,
-    required DateTime today,
+    required DateTime calendarToday,
     UserProfile? profile,
   }) async {
-    // 1. 加载模板。
-    // P2.4 临时：固定 submission + 含答辩，保持旧行为；P2.5 改为按赛事时间线真实传入。
+    // 1. 加载模板：按赛事时间线 + 是否含答辩。
     final template = await templateProvider.load(
-      timelineType: CompetitionTimelineType.submission,
-      includeDefense: true,
+      timelineType: timelineType,
+      includeDefense: defenseDate != null,
       category: competition.category,
       competitionId: competition.id,
     );
@@ -76,39 +78,74 @@ class PreparationPlanGenerator {
       );
     }
 
-    // 3. 预算选可选任务：累计 estimatedHours 不超 budgetHours。
-    final totalDays = targetDate.difference(today).inDays;
-    final weeks = totalDays <= 0 ? 0 : totalDays / 7;
-    final budgetHours = weeklyCommitment.hoursPerWeek * weeks;
+    // 3. 分段：pre-segment = [calendarToday, targetDate]；
+    //    defense-segment = [targetDate+1, defenseDate]（仅当有答辩）。
+    final prePhases = phases.where((p) => p.key != 'defense_prep').toList();
+    final defensePhases = phases.where((p) => p.key == 'defense_prep').toList();
+    final defenseEnd = defenseDate;
 
-    // 必做总工时（用于 overload 判定）。
-    final requiredTotalHours = phases.fold<double>(
-      0,
-      (a, p) =>
-          a + p.requiredTasks.fold<double>(0, (b, t) => b + t.estimatedHours),
+    final preSchedule = PreparationScheduler.scheduleSegment(
+      phases: prePhases,
+      today: calendarToday,
+      segmentEnd: targetDate,
     );
+    final defenseSchedule = defensePhases.isNotEmpty && defenseEnd != null
+        ? PreparationScheduler.scheduleSegment(
+            phases: defensePhases,
+            today: targetDate.add(const Duration(days: 1)),
+            segmentEnd: defenseEnd,
+          )
+        : const <({String key, DateTime startDate, DateTime endDate})>[];
 
-    // 按阶段顺序累计可选任务 estimatedHours，超出预算则不选。
-    var optionalBudgetUsed = 0.0;
+    // 4. 预算选可选任务：pre 段与 defense 段各自独立预算。
+    //    preWeeks = [calendarToday, targetDate] 周数；defenseWeeks = [targetDate,
+    //    defenseDate] 周数。
+    final hasDefense = defenseEnd != null && defensePhases.isNotEmpty;
+    final preDays = targetDate.difference(calendarToday).inDays;
+    final preWeeks = preDays <= 0 ? 0.0 : preDays / 7;
+    final defenseDays = hasDefense
+        ? defenseEnd.difference(targetDate).inDays
+        : 0;
+    final defenseWeeks = defenseDays <= 0 ? 0.0 : defenseDays / 7;
+
+    final preBudgetHours = weeklyCommitment.hoursPerWeek * preWeeks;
+    final defenseBudgetHours = weeklyCommitment.hoursPerWeek * defenseWeeks;
+
+    // 按段内阶段顺序累计可选任务 estimatedHours，超出该段预算则不选。
     final selectedOptionalByPhase = <String, List<PreparationTemplateTask>>{};
-    for (final phase in phases) {
+    var preUsed = 0.0;
+    for (final phase in prePhases) {
       final picked = <PreparationTemplateTask>[];
       for (final task in phase.optionalTasks) {
-        if (optionalBudgetUsed + task.estimatedHours > budgetHours) continue;
-        optionalBudgetUsed += task.estimatedHours;
+        if (preUsed + task.estimatedHours > preBudgetHours) continue;
+        preUsed += task.estimatedHours;
+        picked.add(task);
+      }
+      selectedOptionalByPhase[phase.key] = picked;
+    }
+    var defenseUsed = 0.0;
+    for (final phase in defensePhases) {
+      final picked = <PreparationTemplateTask>[];
+      for (final task in phase.optionalTasks) {
+        if (defenseUsed + task.estimatedHours > defenseBudgetHours) continue;
+        defenseUsed += task.estimatedHours;
         picked.add(task);
       }
       selectedOptionalByPhase[phase.key] = picked;
     }
 
-    // 4. AI 个性化（成功则合并可选任务 + 写入建议；失败忽略）。
+    // 5. AI 个性化（成功则合并可选任务 + 写入建议；失败忽略）。
     final aiPhaseByKey = <String, PreparationPhasePersonalization>{};
     String? globalAdvice;
     final phaseKeys = phases.map((p) => p.key).toList();
     final aiResult = await personalizer.personalize(
       req: PreparationPersonalizationRequest(
         competition: competition,
+        timelineType: timelineType,
         targetDate: targetDate,
+        eventEndDate: eventEndDate,
+        defenseDate: defenseDate,
+        calendarToday: calendarToday,
         weeklyCommitment: weeklyCommitment,
         experienceLevel: experienceLevel,
         phaseKeys: phaseKeys,
@@ -123,19 +160,20 @@ class PreparationPlanGenerator {
       }
     }
 
-    // 5. 排期：得到每阶段 startDate/endDate。
-    final schedule = PreparationScheduler.schedule(
-      phases: phases,
-      today: today,
-      targetDate: targetDate,
-    );
-
-    // 构建每阶段的 tasks：required + 预算选中的 optional + AI 合并的 optional。
+    // 6. 组装 planPhases：按 template.phases 顺序输出，每阶段从对应段取
+    //    startDate/endDate；任务 dueDate = 段 endDate clamp 到该段闭区间。
+    //    defense_prep 段任务 clamp 到 [targetDate+1, defenseDate]；
+    //    其余阶段 clamp 到 [calendarToday, targetDate]。
     final planPhases = <PreparationPhase>[];
     var taskSeq = 0;
     for (final phase in phases) {
+      final isDefense = phase.key == 'defense_prep';
+      final schedule = isDefense ? defenseSchedule : preSchedule;
       final seg = _segmentForPhase(phase.key, schedule);
-      final dueDate = _clamp(seg.endDate, today, targetDate);
+      final defenseStart = targetDate.add(const Duration(days: 1));
+      final segLo = isDefense ? defenseStart : calendarToday;
+      final segHi = isDefense ? (defenseEnd ?? defenseStart) : targetDate;
+      final dueDate = _clamp(seg.endDate, segLo, segHi);
 
       final tasks = <PreparationTask>[];
       // 必做任务。
@@ -200,28 +238,52 @@ class PreparationPlanGenerator {
       );
     }
 
-    // 7. 警示标志。
+    // 7. 警示标志：紧排期仅看 pre 段 [calendarToday, targetDate]；
+    //    overload = pre 必做工时超 pre 预算 || defense 必做工时超 defense 预算。
     final tightSchedule = PreparationScheduler.isTightSchedule(
-      today,
+      calendarToday,
       targetDate,
     );
-    final overload = requiredTotalHours > budgetHours;
+    final overload =
+        _computeOverload(prePhases, weeklyCommitment, preWeeks) ||
+        (hasDefense &&
+            _computeOverload(defensePhases, weeklyCommitment, defenseWeeks));
 
-    // 6. 组装计划。
+    // 8. 组装计划。
     return PreparationPlan(
-      id: 'pp_${today.millisecondsSinceEpoch}',
+      id: 'pp_${calendarToday.millisecondsSinceEpoch}',
       competition: competition,
       targetDate: targetDate,
+      timelineType: timelineType,
+      eventEndDate: eventEndDate,
+      defenseDate: defenseDate,
       weeklyCommitment: weeklyCommitment,
       experienceLevel: experienceLevel,
       status: PreparationPlanStatus.active,
       phases: planPhases,
       personalizedSummary: globalAdvice,
-      createdAt: today,
-      updatedAt: today,
+      createdAt: calendarToday,
+      updatedAt: calendarToday,
       tightSchedule: tightSchedule,
       overload: overload,
+      revision: 0,
     );
+  }
+
+  /// 段内必做工时是否超过预算（spec §7.1 overload 判定）。
+  /// `weeks` 为该段可用周数；预算 = `hoursPerWeek * weeks`。
+  bool _computeOverload(
+    List<PreparationTemplatePhase> phases,
+    WeeklyCommitment weeklyCommitment,
+    double weeks,
+  ) {
+    final requiredHours = phases.fold<double>(
+      0,
+      (a, p) =>
+          a + p.requiredTasks.fold<double>(0, (b, t) => b + t.estimatedHours),
+    );
+    final budgetHours = weeklyCommitment.hoursPerWeek * weeks;
+    return requiredHours > budgetHours;
   }
 
   /// 找到 phaseKey 所属的排期段：当 schedule 段 key 为合并形如 "a+b" 时，
