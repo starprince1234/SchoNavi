@@ -13,6 +13,7 @@ class AssistantTurn {
     required this.cardStatuses,
     this.changeSet,
     this.error = false,
+    this.requestId = '',
   });
 
   final String id;
@@ -24,6 +25,9 @@ class AssistantTurn {
   final bool error;
   final Map<String, ChangeCardStatus> cardStatuses;
 
+  /// 跨抽屉关闭追踪该轮的请求标识（echo 自服务端，旧数据缺失时为空串）。
+  final String requestId;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
     'plan_id': planId,
@@ -33,6 +37,7 @@ class AssistantTurn {
     'created_at': createdAt.toIso8601String(),
     'error': error,
     'card_statuses': _encodeStatuses(cardStatuses),
+    'request_id': requestId,
   };
 
   factory AssistantTurn.fromJson(Map<String, dynamic> json) => AssistantTurn(
@@ -46,6 +51,7 @@ class AssistantTurn {
     createdAt: DateTime.parse(json['created_at'] as String),
     error: (json['error'] as bool?) ?? false,
     cardStatuses: _decodeStatuses(json['card_statuses']),
+    requestId: (json['request_id'] as String?) ?? '',
   );
 
   static Map<String, String> _encodeStatuses(
