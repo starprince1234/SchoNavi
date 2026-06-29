@@ -1,3 +1,5 @@
+import '../../core/calendar_date.dart';
+
 /// 备赛计划状态
 enum PreparationPlanStatus { active, archived }
 
@@ -20,6 +22,9 @@ extension WeeklyCommitmentHours on WeeklyCommitment {
 
 /// 竞赛经验等级
 enum ExperienceLevel { beginner, intermediate, experienced }
+
+/// 赛事时间模型：窗口型（比赛集中在几天）/ 提交型（作品提交到 DDL）。
+enum CompetitionTimelineType { eventWindow, submission }
 
 /// 备赛任务类型
 enum PreparationTaskKind { required, optional, userAdded }
@@ -260,6 +265,10 @@ class PreparationPlan {
     required this.id,
     required this.competition,
     required this.targetDate,
+    this.timelineType = CompetitionTimelineType.submission,
+    this.eventEndDate,
+    this.defenseDate,
+    this.revision = 0,
     required this.weeklyCommitment,
     required this.experienceLevel,
     required this.status,
@@ -274,6 +283,10 @@ class PreparationPlan {
   final String id;
   final CompetitionSnapshot competition;
   final DateTime targetDate;
+  final CompetitionTimelineType timelineType;
+  final DateTime? eventEndDate;
+  final DateTime? defenseDate;
+  final int revision;
   final WeeklyCommitment weeklyCommitment;
   final ExperienceLevel experienceLevel;
   final PreparationPlanStatus status;
@@ -288,6 +301,10 @@ class PreparationPlan {
     String? id,
     CompetitionSnapshot? competition,
     DateTime? targetDate,
+    CompetitionTimelineType? timelineType,
+    DateTime? eventEndDate,
+    DateTime? defenseDate,
+    int? revision,
     WeeklyCommitment? weeklyCommitment,
     ExperienceLevel? experienceLevel,
     PreparationPlanStatus? status,
@@ -302,6 +319,10 @@ class PreparationPlan {
         id: id ?? this.id,
         competition: competition ?? this.competition,
         targetDate: targetDate ?? this.targetDate,
+        timelineType: timelineType ?? this.timelineType,
+        eventEndDate: eventEndDate ?? this.eventEndDate,
+        defenseDate: defenseDate ?? this.defenseDate,
+        revision: revision ?? this.revision,
         weeklyCommitment: weeklyCommitment ?? this.weeklyCommitment,
         experienceLevel: experienceLevel ?? this.experienceLevel,
         status: status ?? this.status,
@@ -317,6 +338,12 @@ class PreparationPlan {
         'id': id,
         'competition': competition.toJson(),
         'target_date': targetDate.toIso8601String(),
+        'timeline_type': timelineType.name,
+        if (eventEndDate != null)
+          'event_end_date': CalendarDate.toIsoDay(eventEndDate!),
+        if (defenseDate != null)
+          'defense_date': CalendarDate.toIsoDay(defenseDate!),
+        'revision': revision,
         'weekly_commitment': weeklyCommitment.name,
         'experience_level': experienceLevel.name,
         'status': status.name,
@@ -335,6 +362,16 @@ class PreparationPlan {
           json['competition'] as Map<String, dynamic>,
         ),
         targetDate: DateTime.parse(json['target_date'] as String),
+        timelineType: CompetitionTimelineType.values.byName(
+          (json['timeline_type'] as String?) ?? 'submission',
+        ),
+        eventEndDate: json['event_end_date'] == null
+            ? null
+            : CalendarDate.parseIsoDay(json['event_end_date'] as String),
+        defenseDate: json['defense_date'] == null
+            ? null
+            : CalendarDate.parseIsoDay(json['defense_date'] as String),
+        revision: (json['revision'] as int?) ?? 0,
         weeklyCommitment: WeeklyCommitment.values.byName(
           json['weekly_commitment'] as String,
         ),

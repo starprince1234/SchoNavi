@@ -76,4 +76,63 @@ void main() {
       expect(back.overload, isFalse);
     });
   });
+
+  group('PreparationPlan 双段时间模型', () {
+    test('toJson/fromJson 往返保留 timelineType/eventEndDate/defenseDate/revision', () {
+      final plan = PreparationPlan(
+        id: 'pp_1',
+        competition: _comp(),
+        targetDate: DateTime(2026, 6, 1),
+        timelineType: CompetitionTimelineType.eventWindow,
+        eventEndDate: DateTime(2026, 6, 3),
+        defenseDate: null,
+        weeklyCommitment: WeeklyCommitment.hours6to10,
+        experienceLevel: ExperienceLevel.intermediate,
+        status: PreparationPlanStatus.active,
+        phases: const [],
+        createdAt: DateTime(2026, 5, 1),
+        updatedAt: DateTime(2026, 5, 1),
+        revision: 0,
+      );
+      final decoded = PreparationPlan.fromJson(plan.toJson());
+      expect(decoded.timelineType, CompetitionTimelineType.eventWindow);
+      expect(decoded.eventEndDate, DateTime(2026, 6, 3));
+      expect(decoded.defenseDate, isNull);
+      expect(decoded.revision, 0);
+    });
+
+    test('旧 v1 JSON（缺新字段）默认 submission + revision 0', () {
+      final legacy = <String, dynamic>{
+        'id': 'pp_old',
+        'competition': _comp().toJson(),
+        'target_date': '2026-06-01T00:00:00.000',
+        'weekly_commitment': 'hours6to10',
+        'experience_level': 'intermediate',
+        'status': 'active',
+        'phases': <dynamic>[],
+        'created_at': '2026-05-01T00:00:00.000Z',
+        'updated_at': '2026-05-01T00:00:00.000Z',
+        'tight_schedule': false,
+        'overload': false,
+      };
+      final plan = PreparationPlan.fromJson(legacy);
+      expect(plan.timelineType, CompetitionTimelineType.submission);
+      expect(plan.eventEndDate, isNull);
+      expect(plan.defenseDate, isNull);
+      expect(plan.revision, 0);
+    });
+  });
 }
+
+CompetitionSnapshot _comp() => CompetitionSnapshot(
+      id: 'c1',
+      name: '测试赛',
+      category: '计算机类',
+      rulesSummary: CompetitionRulesSummary(
+        signupTime: '2026-01',
+        contestTime: '2026-06',
+        teamSize: '3',
+        format: '现场',
+        organizer: '某',
+      ),
+    );
