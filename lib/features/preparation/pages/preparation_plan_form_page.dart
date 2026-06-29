@@ -2,20 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/calendar_date.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/fixtures/competition_timeline_defaults.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../providers/preparation_providers.dart';
+import '../widgets/preparation_date_picker.dart';
 
-/// 备赛计划创建表单（spec §8 / D11）。
+/// 备赛计划创建表单（spec §8 / D11 / P2.6）。
 ///
-/// 三段单选：目标日期（DatePicker，必须晚于当天）、每周投入（4 档）、
-/// 当前水平（3 档，从 [UserProfile] 预填不回写）。AI 模式下额外提示
-/// 会发送档案用于个性化建议。提交校验通过后调生成器 → 入库 →
-/// `context.pushReplacement('/preparation-plans/${plan.id}')`。
+/// 时间模型 SegmentedButton（窗口型/提交型）按 [CompetitionTimelineDefaults]
+/// 预选；日期入口调用 [showPreparationDatePicker]，窗口型用 range 选比赛起止，
+/// 提交型用 multiAnchor 选 DDL + 可选答辩。提交校验通过后传全字段生成。
 class PreparationPlanFormPage extends ConsumerStatefulWidget {
   const PreparationPlanFormPage({super.key, required this.competition});
 
@@ -28,7 +30,10 @@ class PreparationPlanFormPage extends ConsumerStatefulWidget {
 
 class _PreparationPlanFormPageState
     extends ConsumerState<PreparationPlanFormPage> {
+  late CompetitionTimelineType _timelineType;
   DateTime? _targetDate;
+  DateTime? _eventEndDate;
+  DateTime? _defenseDate;
   WeeklyCommitment _weeklyCommitment = WeeklyCommitment.hours6to10;
   late ExperienceLevel _experienceLevel;
   bool _submitting = false;
@@ -37,14 +42,11 @@ class _PreparationPlanFormPageState
   @override
   void initState() {
     super.initState();
+    _timelineType = CompetitionTimelineDefaults.defaultFor(widget.competition.id) ??
+        CompetitionTimelineType.submission;
     _experienceLevel = _experienceFromProfile(ref.read(profileProvider));
   }
 
-  /// 从 [UserProfile] 推断经验等级；信息不足时退回 beginner。
-  ///
-  /// 当前 UserProfile 无显式等级字段，这里以「竞赛成果条目数量 + 是否有
-  /// 获奖」做粗略映射：>=2 条且有 award → experienced；>=1 条 → intermediate；
-  /// 否则 beginner。映射不清晰时一律 beginner。
   ExperienceLevel _experienceFromProfile(UserProfile profile) {
     try {
       final comps = profile.competitions;
@@ -65,28 +67,87 @@ class _PreparationPlanFormPageState
     return cfg.dataSource == DataSource.llm && cfg.llm.isConfigured;
   }
 
+  String get _dateRowLabel => _timelineType == CompetitionTimelineType.eventWindow
+      ? '选择比赛起止日期'
+      : '选择提交 DDL 与答辩';
+
+  String get _dateRowValue {
+    if (_targetDate == null) return '';
+    if (_timelineType == CompetitionTimelineType.eventWindow) {
+      if (_eventEndDate == null) return _fmt(_targetDate!);
+      return '${_fmt(_targetDate!)} – ${_fmt(_eventEndDate!)}';
+    }
+    if (_defenseDate == null) return 'DDL ${_fmt(_targetDate!)}';
+    return 'DDL ${_fmt(_targetDate!)} · 答辩 ${_fmt(_defenseDate!)}';
+  }
+
+  static String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final picked = await showDatePicker(
+    final today = CalendarDate.normalize(now);
+    final mode = _timelineType == CompetitionTimelineType.eventWindow
+        ? PreparationDatePickerMode.range
+        : PreparationDatePickerMode.multiAnchor;
+    final picked = await showPreparationDatePicker(
       context: context,
-      initialDate: _targetDate ?? today.add(const Duration(days: 7)),
+      mode: mode,
       firstDate: today,
       lastDate: today.add(const Duration(days: 365 * 3)),
+      initial: _initialSelection(),
     );
     if (picked == null) return;
     setState(() {
-      _targetDate = picked;
-      // 必须严格晚于当天（spec §8：targetDate > today）。
-      _dateError = picked.isAfter(today) ? null : '目标日期必须晚于今天';
+      if (_timelineType == CompetitionTimelineType.eventWindow) {
+        _targetDate = picked.rangeStart;
+        _eventEndDate = picked.rangeEnd;
+        _defenseDate = null;
+      } else {
+        _targetDate = picked.deadline;
+        _eventEndDate = null;
+        _defenseDate = picked.defense;
+      }
+      _dateError = _validate(today);
     });
   }
 
+  PreparationDateSelection _initialSelection() {
+    if (_timelineType == CompetitionTimelineType.eventWindow) {
+      return PreparationDateSelection(
+        rangeStart: _targetDate,
+        rangeEnd: _eventEndDate,
+      );
+    }
+    return PreparationDateSelection(
+      deadline: _targetDate,
+      defense: _defenseDate,
+    );
+  }
+
+  String? _validate(DateTime today) {
+    if (_timelineType == CompetitionTimelineType.eventWindow) {
+      final start = _targetDate;
+      final end = _eventEndDate;
+      if (start == null || end == null) return '请选择比赛起止日期';
+      if (end.isBefore(start)) return '结束日期不能早于开始日期';
+      if (!start.isAfter(today)) return '比赛开始日期必须晚于今天';
+      return null;
+    }
+    final deadline = _targetDate;
+    if (deadline == null) return '请选择提交截止日期';
+    if (!deadline.isAfter(today)) return '提交截止日期必须晚于今天';
+    if (_defenseDate != null && !_defenseDate!.isAfter(deadline)) {
+      return '答辩日期必须晚于提交截止日期';
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    if (_targetDate == null || !_targetDate!.isAfter(today)) {
-      setState(() => _dateError = '请选择目标日期');
+    final today = CalendarDate.normalize(DateTime.now());
+    final err = _validate(today);
+    if (err != null) {
+      setState(() => _dateError = err);
       return;
     }
     setState(() {
@@ -98,13 +159,13 @@ class _PreparationPlanFormPageState
           .read(preparationPlanGeneratorProvider)
           .generate(
             competition: widget.competition,
-            timelineType: CompetitionTimelineType.submission,
+            timelineType: _timelineType,
             targetDate: _targetDate!,
-            eventEndDate: null,
-            defenseDate: null,
+            eventEndDate: _eventEndDate,
+            defenseDate: _defenseDate,
             weeklyCommitment: _weeklyCommitment,
             experienceLevel: _experienceLevel,
-            calendarToday: DateTime.now(),
+            calendarToday: CalendarDate.normalize(DateTime.now()),
             profile: ref.read(profileProvider),
           );
       await ref.read(preparationPlanRepositoryProvider).save(plan);
@@ -158,7 +219,10 @@ class _PreparationPlanFormPageState
             ),
           ),
           const SizedBox(height: 12),
-          _sectionLabel('目标日期'),
+          _sectionLabel('时间模型'),
+          _timelineSelector(cs),
+          const SizedBox(height: 16),
+          _sectionLabel('比赛日期'),
           BentoTile(
             onTap: _submitting ? null : _pickDate,
             child: Row(
@@ -171,11 +235,9 @@ class _PreparationPlanFormPageState
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    _targetDate == null
-                        ? '点击选择目标日期'
-                        : '${_targetDate!.year}-${_targetDate!.month.toString().padLeft(2, '0')}-${_targetDate!.day.toString().padLeft(2, '0')}',
+                    _dateRowValue.isEmpty ? _dateRowLabel : _dateRowValue,
                     style: TextStyle(
-                      color: _targetDate == null
+                      color: _dateRowValue.isEmpty
                           ? AppColors.inkFaint
                           : cs.onSurface,
                     ),
@@ -225,16 +287,41 @@ class _PreparationPlanFormPageState
   }
 
   Widget _sectionLabel(String text) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 6),
-    child: Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.inkSoft,
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.only(left: 4, bottom: 6),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.inkSoft,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+
+  Widget _timelineSelector(ColorScheme cs) {
+    return SegmentedButton<CompetitionTimelineType>(
+      selected: {_timelineType},
+      onSelectionChanged: _submitting
+          ? null
+          : (s) => setState(() {
+                _timelineType = s.first;
+                _targetDate = null;
+                _eventEndDate = null;
+                _defenseDate = null;
+                _dateError = null;
+              }),
+      segments: const [
+        ButtonSegment(
+          value: CompetitionTimelineType.eventWindow,
+          label: Text('窗口型'),
+        ),
+        ButtonSegment(
+          value: CompetitionTimelineType.submission,
+          label: Text('提交型'),
+        ),
+      ],
+    );
+  }
 
   Widget _commitmentSelector(ColorScheme cs) {
     return SegmentedButton<WeeklyCommitment>(

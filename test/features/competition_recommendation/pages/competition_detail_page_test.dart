@@ -158,8 +158,8 @@ void main() {
     expect(btn, findsOneWidget);
     await t.tap(btn);
     await t.pumpAndSettle();
-    // 进入表单页：断言目标日期字段标签可见
-    expect(find.text('目标日期'), findsOneWidget);
+    // 进入表单页：断言时间模型字段标签可见
+    expect(find.text('时间模型'), findsOneWidget);
   });
 
   testWidgets('有进行中计划显示"继续备赛"', (t) async {

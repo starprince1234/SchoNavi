@@ -67,7 +67,7 @@ void main() {
     // 关键断言：无任何未处理异常（含 RenderFlex overflow）。
     expect(tester.takeException(), isNull);
     // 烟雾：页面真的渲染了关键字段。
-    expect(find.text('目标日期'), findsOneWidget);
+    expect(find.text('时间模型'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '创建备赛计划'), findsOneWidget);
   });
 }
