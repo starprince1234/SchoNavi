@@ -6,7 +6,12 @@
       "Bash(\"C:/Users/xc150/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" f61f000 *)",
       "Bash(\"C:/Users/xc150/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" 4b27e8c d7b2dba)",
       "Skill(commit-commands:commit)",
-      "Skill(commit-commands:commit:*)"
+      "Skill(commit-commands:commit:*)",
+      "Bash(git stash *)",
+      "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/**)",
+      "Read(//c/Users/xc150/.pub-cache/hosted/**)",
+      "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/gpt_markdown-1.1.7/**)",
+      "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/gpt_markdown-1.1.7/lib/**)"
     ]
   }
 }
