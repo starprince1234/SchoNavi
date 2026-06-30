@@ -7,6 +7,9 @@ must return these shapes through `/api/v1` endpoints.
 ## Conventions
 
 - Base path: `/api/v1`
+- Flutter `API_BASE_URL` is the backend origin, for example
+  `https://api.example.com`; do not include `/api/v1` because the client adds
+  that path.
 - Content type: `application/json; charset=utf-8`
 - Field names: `snake_case`
 - Time fields: ISO-8601 strings
@@ -52,6 +55,10 @@ Common error codes:
   source.
 - Missing or invalid identity returns `401`. A session owned by another
   identity is not exposed and returns `404`.
+- Except for public read endpoints such as `/home/prompts` and
+  `/professors/{professor_id}`, endpoints that carry user input, profile data,
+  favorites, history, or preparation-plan snapshots require bearer or cookie
+  identity.
 
 ### Conversation identifiers and concurrency
 

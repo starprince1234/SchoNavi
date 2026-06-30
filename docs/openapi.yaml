@@ -26,6 +26,9 @@ paths:
   /recommendations/mentors:
     post:
       summary: Get mentor recommendations.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -42,6 +45,9 @@ paths:
   /recommendations/competitions:
     post:
       summary: Get competition recommendations.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -268,6 +274,9 @@ paths:
     post:
       deprecated: true
       summary: Send a legacy non-streaming chat message.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -284,6 +293,9 @@ paths:
   /chat/stream:
     get:
       summary: Stream chat reply through Server-Sent Events.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - name: session_id
           in: query
@@ -307,6 +319,9 @@ paths:
   /chat/route:
     post:
       summary: Decide whether a follow-up needs a new round of recommendations.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -320,9 +335,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatRouteEnvelope'
+  /chat/quick-actions:
+    post:
+      summary: Generate short quick-action labels for the chat composer.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickActionsRequest'
+      responses:
+        '200':
+          description: Quick action labels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickActionsEnvelope'
   /professors/compare:
     post:
       summary: Compare professors.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -346,6 +383,9 @@ paths:
   /professors/{professor_id}/match-analysis:
     post:
       summary: Analyze profile-professor match.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/ProfessorId'
       requestBody:
@@ -368,6 +408,9 @@ paths:
   /professors/{professor_id}/outreach-email:
     post:
       summary: Generate outreach email.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/ProfessorId'
       requestBody:
@@ -390,6 +433,9 @@ paths:
   /profile/achievements/extract:
     post:
       summary: Extract structured achievements.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -409,6 +455,9 @@ paths:
   /preparation-plans/generate:
     post:
       summary: Generate personalized optional tasks and advice for a preparation plan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -425,6 +474,9 @@ paths:
   /preparation-plans/diagnose:
     post:
       summary: Diagnose the user's experience level for a competition category.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -441,6 +493,9 @@ paths:
   /preparation-plans/{plan_id}/assistant:
     post:
       summary: Suggest structured plan-change cards for a preparation plan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/PreparationPlanId'
       requestBody:
@@ -459,6 +514,9 @@ paths:
   /profile:
     get:
       summary: Load current profile.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: User profile.
@@ -468,6 +526,9 @@ paths:
                 $ref: '#/components/schemas/UserProfileEnvelope'
     put:
       summary: Save current profile.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -483,6 +544,9 @@ paths:
                 $ref: '#/components/schemas/UserProfileEnvelope'
     delete:
       summary: Clear current profile.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: Clear result.
@@ -493,6 +557,9 @@ paths:
   /favorites:
     get:
       summary: List favorites.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: Favorites.
@@ -503,6 +570,9 @@ paths:
   /favorites/{professor_id}:
     put:
       summary: Add favorite professor snapshot.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/ProfessorId'
       requestBody:
@@ -520,6 +590,9 @@ paths:
                 $ref: '#/components/schemas/FavoriteStatusEnvelope'
     delete:
       summary: Remove favorite.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/ProfessorId'
       responses:
@@ -532,6 +605,9 @@ paths:
   /history:
     get:
       summary: List search history.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: History.
@@ -541,6 +617,9 @@ paths:
                 $ref: '#/components/schemas/HistoryEnvelope'
     post:
       summary: Add search history entry.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -556,6 +635,9 @@ paths:
                 $ref: '#/components/schemas/HistoryItemEnvelope'
     delete:
       summary: Clear all search history.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       responses:
         '200':
           description: Clear result.
@@ -566,6 +648,9 @@ paths:
   /history/{session_id}:
     delete:
       summary: Remove one search history item.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - name: session_id
           in: path
@@ -1310,6 +1395,25 @@ components:
       required: [need]
       properties:
         need: { type: boolean }
+    QuickActionsRequest:
+      type: object
+      required: [follow_up]
+      properties:
+        follow_up: { type: string }
+        last_recommendations:
+          type: array
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/RecommendationRecap'
+    QuickActionsResult:
+      type: object
+      required: [quick_actions]
+      properties:
+        quick_actions:
+          type: array
+          minItems: 0
+          maxItems: 4
+          items: { type: string, maxLength: 8 }
     ComparisonRow:
       type: object
       required: [dimension, cells]
@@ -1478,6 +1582,13 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ChatRouteResult'
+    QuickActionsEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/QuickActionsResult'
     ComparisonEnvelope:
       allOf:
         - $ref: '#/components/schemas/EnvelopeBase'
