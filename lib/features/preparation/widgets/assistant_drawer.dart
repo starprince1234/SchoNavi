@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/assistant_turn.dart';
 import '../../../domain/entities/chat_message.dart';
+import '../../../domain/entities/feedback.dart';
 import '../../../domain/entities/plan_change_card.dart';
 import '../../../domain/entities/preparation_plan.dart';
+import '../../feedback/widgets/feedback_entry_button.dart';
 import '../providers/preparation_assistant_controller.dart';
 import '../providers/preparation_providers.dart';
 import '../../chat/widgets/chat_message_bubble.dart';
@@ -295,6 +297,10 @@ class _Header extends StatelessWidget {
             icon: const Icon(Icons.cleaning_services_outlined),
             tooltip: '清理上下文',
             onPressed: sending ? null : onClear,
+          ),
+          FeedbackEntryButton(
+            type: FeedbackType.bug,
+            route: '/preparation-plans',
           ),
           IconButton(
             icon: const Icon(Icons.close),

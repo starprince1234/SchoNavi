@@ -10,6 +10,8 @@ import '../../../core/launcher/link_launcher.dart';
 import '../../../domain/entities/favorite_item.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../domain/entities/conversation_session.dart';
+import '../../../domain/entities/feedback.dart';
+import '../../../features/feedback/widgets/feedback_entry_button.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/loading_view.dart';
@@ -37,7 +39,16 @@ class ProfessorPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(professorProvider(professorId));
     return Scaffold(
-      appBar: AppBar(title: const Text('导师详情')),
+      appBar: AppBar(
+        title: const Text('导师详情'),
+        actions: [
+          FeedbackEntryButton(
+            type: FeedbackType.missingProfessor,
+            professorId: professorId,
+            route: '/professor/$professorId',
+          ),
+        ],
+      ),
       floatingActionButton: async.maybeWhen(
         data: (p) => FloatingActionButton.extended(
           onPressed: () => _openConversation(context, ref, p.id),

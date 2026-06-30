@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/chat_message.dart';
@@ -271,6 +272,17 @@ class _MessageActions extends StatelessWidget {
                         ? ChatMessageFeedback.none
                         : ChatMessageFeedback.dislike,
                   ),
+          ),
+          _ActionButton(
+            tooltip: '反馈这条推荐',
+            icon: Icons.report_gmailerrorred_outlined,
+            onPressed: () => context.push(
+              Uri(path: '/feedback', queryParameters: {
+                'type': 'recommendation',
+                'mid': message.id,
+                'prompt': message.content,
+              }).toString(),
+            ),
           ),
         ],
       ),
