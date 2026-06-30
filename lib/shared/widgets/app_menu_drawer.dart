@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/conversation_session.dart';
 import '../../../domain/entities/search_history_item.dart';
+import '../../../features/history/pages/history_page.dart';
 
 /// ChatGPT 风格的综合抽屉菜单。
 ///
@@ -17,6 +19,7 @@ class AppMenuDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(searchHistoryProvider);
+    final conversationsAsync = ref.watch(conversationHistoryProvider);
 
     return Drawer(
       backgroundColor: AppColors.paper,
@@ -55,38 +58,49 @@ class AppMenuDrawer extends ConsumerWidget {
 
             Divider(height: 1, color: AppColors.line),
 
-            // ── 最近搜索历史预览 ─────────────────────────────────────────
+            // ── 最近：导师/教授会话（对话库）+ 竞赛搜索史 ────────────────
             Expanded(
-              child: historyAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) =>
-                    _EmptyHint(icon: Icons.error_outline, message: '历史读取失败'),
-                data: (items) {
-                  final competitions = items
-                      .where(
-                        (item) => item.type == SearchHistoryType.competition,
-                      )
-                      .toList(growable: false);
-                  if (competitions.isEmpty) {
-                    return _EmptyHint(
-                      icon: Icons.manage_search_outlined,
-                      message: '暂无竞赛搜索历史',
-                    );
-                  }
-                  return _RecentSearchPanel(
-                    items: competitions,
-                    onTap: (item) {
-                      Haptics.light();
-                      Navigator.of(context).pop();
-                      context.push(_historyRoute(item));
-                    },
-                  );
-                },
-              ),
+              child: _buildRecent(context, historyAsync, conversationsAsync),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRecent(
+    BuildContext context,
+    AsyncValue<List<SearchHistoryItem>> historyAsync,
+    AsyncValue<List<ConversationSession>> conversationsAsync,
+  ) {
+    // 会话列表失败不阻塞竞赛历史展示，按空处理。
+    if (conversationsAsync.isLoading && !conversationsAsync.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (historyAsync.isLoading && !historyAsync.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final sessions = conversationsAsync.asData?.value ?? const [];
+    final competitions = (historyAsync.asData?.value ?? const [])
+        .where((item) => item.type == SearchHistoryType.competition)
+        .toList(growable: false);
+
+    final entries = <_RecentEntry>[
+      ...sessions.map(_RecentEntry.fromSession),
+      ...competitions.map(_RecentEntry.fromCompetition),
+    ]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    if (entries.isEmpty) {
+      return _EmptyHint(icon: Icons.manage_search_outlined, message: '暂无最近会话');
+    }
+    return _RecentSearchPanel(
+      entries: entries,
+      onTap: (entry) {
+        Haptics.light();
+        Navigator.of(context).pop();
+        context.push(entry.route);
+      },
     );
   }
 
@@ -188,13 +202,66 @@ class _DrawerTile extends StatelessWidget {
   }
 }
 
-// ── Recent search panel with local filtering ─────────────────────────────────
+// ── Recent entry model + local filtering ────────────────────────────────────
+
+/// 抽屉「最近」统一条目：导师/教授会话或竞赛搜索史映射到同一模型。
+class _RecentEntry {
+  const _RecentEntry({
+    required this.id,
+    required this.title,
+    required this.typeLabel,
+    required this.icon,
+    required this.timestamp,
+    required this.route,
+  });
+
+  factory _RecentEntry.fromSession(ConversationSession session) {
+    final label = switch (session.kind) {
+      ConversationSessionKind.general => '导师推荐',
+      ConversationSessionKind.professor => '导师咨询',
+      ConversationSessionKind.fork => '追问分支',
+    };
+    return _RecentEntry(
+      id: 'session-${session.id}',
+      title: session.title ?? label,
+      typeLabel: label,
+      icon: Icons.chat_bubble_outline,
+      timestamp: session.updatedAt,
+      route: '/chat?sid=${Uri.encodeComponent(session.id)}',
+    );
+  }
+
+  factory _RecentEntry.fromCompetition(SearchHistoryItem item) {
+    return _RecentEntry(
+      id: 'competition-${item.sessionId}',
+      title: item.prompt,
+      typeLabel: '竞赛',
+      icon: Icons.emoji_events_outlined,
+      timestamp: item.createdAt,
+      route:
+          '/competition-recommendation?q=${Uri.encodeComponent(item.prompt)}',
+    );
+  }
+
+  final String id;
+  final String title;
+  final String typeLabel;
+  final IconData icon;
+  final DateTime timestamp;
+  final String route;
+
+  bool matches(String query) {
+    final q = query.toLowerCase();
+    return title.toLowerCase().contains(q) ||
+        typeLabel.toLowerCase().contains(q);
+  }
+}
 
 class _RecentSearchPanel extends StatefulWidget {
-  const _RecentSearchPanel({required this.items, required this.onTap});
+  const _RecentSearchPanel({required this.entries, required this.onTap});
 
-  final List<SearchHistoryItem> items;
-  final ValueChanged<SearchHistoryItem> onTap;
+  final List<_RecentEntry> entries;
+  final ValueChanged<_RecentEntry> onTap;
 
   @override
   State<_RecentSearchPanel> createState() => _RecentSearchPanelState();
@@ -223,21 +290,10 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
     super.dispose();
   }
 
-  List<SearchHistoryItem> get _filtered {
+  List<_RecentEntry> get _filtered {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return widget.items;
-    return widget.items.where((item) {
-      final typeLabel = _historyTypeLabel(item.type);
-      return item.prompt.toLowerCase().contains(query) ||
-          item.summary.toLowerCase().contains(query) ||
-          typeLabel.contains(query) ||
-          item.researchInterests.any(
-            (field) => field.toLowerCase().contains(query),
-          ) ||
-          item.preferredLocations.any(
-            (location) => location.toLowerCase().contains(query),
-          );
-    }).toList();
+    if (query.isEmpty) return widget.entries;
+    return widget.entries.where((entry) => entry.matches(query)).toList();
   }
 
   @override
@@ -310,10 +366,10 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
                   ),
                   itemCount: filtered.length.clamp(0, 8),
                   itemBuilder: (context, index) {
-                    final item = filtered[index];
+                    final entry = filtered[index];
                     return _HistoryTile(
-                      item: item,
-                      onTap: () => widget.onTap(item),
+                      entry: entry,
+                      onTap: () => widget.onTap(entry),
                     );
                   },
                 ),
@@ -326,17 +382,13 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
 // ── History preview tile ─────────────────────────────────────────────────────
 
 class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({required this.item, required this.onTap});
+  const _HistoryTile({required this.entry, required this.onTap});
 
-  final SearchHistoryItem item;
+  final _RecentEntry entry;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (item.type) {
-      SearchHistoryType.competition => Icons.emoji_events_outlined,
-      SearchHistoryType.mentor => Icons.chat_bubble_outline,
-    };
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -349,11 +401,11 @@ class _HistoryTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(icon, size: 16, color: AppColors.inkSoft),
+                Icon(entry.icon, size: 16, color: AppColors.inkSoft),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    item.prompt,
+                    entry.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -371,19 +423,6 @@ class _HistoryTile extends StatelessWidget {
     );
   }
 }
-
-String _historyRoute(SearchHistoryItem item) {
-  final path = switch (item.type) {
-    SearchHistoryType.competition => '/competition-recommendation',
-    SearchHistoryType.mentor => '/recommendation',
-  };
-  return '$path?q=${Uri.encodeComponent(item.prompt)}';
-}
-
-String _historyTypeLabel(SearchHistoryType type) => switch (type) {
-  SearchHistoryType.competition => '竞赛',
-  SearchHistoryType.mentor => '导师',
-};
 
 // ── Empty hint ───────────────────────────────────────────────────────────────
 

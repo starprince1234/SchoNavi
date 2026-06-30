@@ -5,16 +5,20 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
 import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
+import 'package:scho_navi/domain/entities/conversation_aggregate.dart';
+import 'package:scho_navi/domain/entities/conversation_event.dart';
+import 'package:scho_navi/domain/entities/conversation_session.dart';
 import 'package:scho_navi/domain/entities/recommended_competition.dart';
-import 'package:scho_navi/domain/entities/match_level.dart';
-import 'package:scho_navi/domain/entities/query_understanding.dart';
-import 'package:scho_navi/domain/entities/recommendation.dart';
-import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
+import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/shared/widgets/app_menu_drawer.dart';
 
-Future<Widget> _pumpDrawer() async {
+Future<Widget> _pumpDrawer({
+  List<ConversationSession> sessions = const [],
+}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   final container = ProviderContainer(
@@ -23,15 +27,16 @@ Future<Widget> _pumpDrawer() async {
         const AppConfig(dataSource: DataSource.llm),
       ),
       sharedPreferencesProvider.overrideWithValue(prefs),
+      conversationRepositoryProvider.overrideWithValue(
+        _FakeConversationRepo(sessions: sessions),
+      ),
     ],
   );
   addTearDown(container.dispose);
 
-  await container.read(historyRepositoryProvider).addFromResult(
-        prompt: '医学影像 上海',
-        result: _result(),
-      );
-  await container.read(historyRepositoryProvider).addFromCompetitionResult(
+  await container
+      .read(historyRepositoryProvider)
+      .addFromCompetitionResult(
         prompt: '数学建模 团队赛',
         result: _competitionResult(),
       );
@@ -56,9 +61,9 @@ Future<Widget> _pumpDrawer() async {
             ),
           ),
           GoRoute(
-            path: '/recommendation',
+            path: '/chat',
             builder: (_, state) =>
-                Text('导师：${state.uri.queryParameters['q'] ?? ''}'),
+                Text('chat:${state.uri.queryParameters['sid'] ?? ''}'),
           ),
           GoRoute(
             path: '/competition-recommendation',
@@ -71,30 +76,22 @@ Future<Widget> _pumpDrawer() async {
   );
 }
 
-RecommendationResult _result() => RecommendationResult(
-      sessionId: 's_1',
-      queryUnderstanding: const QueryUnderstanding(
-        researchInterests: ['医学影像'],
-        preferredLocations: ['上海'],
-        preferredUniversities: [],
-        degreeStage: '硕士',
-        uncertainties: [],
-      ),
-      recommendations: const [
-        Recommendation(
-          professorId: 'p_001',
-          name: '张三',
-          university: '上海交通大学',
-          college: '电子信息与电气工程学院',
-          title: '教授',
-          researchFields: ['医学影像'],
-          matchLevel: MatchLevel.high,
-          reason: '方向相关。',
-          limitations: [],
-        ),
-      ],
-      followUpQuestions: const [],
-    );
+ConversationSession _mentorSession({
+  String id = 's_1',
+  String title = '医学影像 上海',
+}) {
+  final now = DateTime(2026, 6, 30, 10, 0);
+  return ConversationSession(
+    id: id,
+    kind: ConversationSessionKind.general,
+    rootSessionId: id,
+    ownerId: 'local',
+    revision: 1,
+    createdAt: now,
+    updatedAt: now,
+    title: title,
+  );
+}
 
 CompetitionRecommendationResult _competitionResult() =>
     const CompetitionRecommendationResult(
@@ -129,8 +126,8 @@ const _competition = RecommendedCompetition(
 );
 
 void main() {
-  testWidgets('drawer shows 最近 section and filters items', (tester) async {
-    await tester.pumpWidget(await _pumpDrawer());
+  testWidgets('drawer shows 最近 section with mentor session', (tester) async {
+    await tester.pumpWidget(await _pumpDrawer(sessions: [_mentorSession()]));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Open drawer'));
@@ -156,7 +153,21 @@ void main() {
     expect(find.text('医学影像 上海'), findsOneWidget);
   });
 
-  testWidgets('recent history routes by item type', (tester) async {
+  testWidgets('mentor session in 最近 routes to /chat?sid=', (tester) async {
+    await tester.pumpWidget(await _pumpDrawer(sessions: [_mentorSession()]));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('医学影像 上海'));
+    await tester.pumpAndSettle();
+    expect(find.text('chat:s_1'), findsOneWidget);
+  });
+
+  testWidgets('competition item in 最近 routes to competition page', (
+    tester,
+  ) async {
     await tester.pumpWidget(await _pumpDrawer());
     await tester.pumpAndSettle();
 
@@ -169,7 +180,7 @@ void main() {
   });
 
   testWidgets('drawer search matches competition label', (tester) async {
-    await tester.pumpWidget(await _pumpDrawer());
+    await tester.pumpWidget(await _pumpDrawer(sessions: [_mentorSession()]));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Open drawer'));
@@ -191,4 +202,68 @@ void main() {
 
     expect(find.text('我的备赛'), findsOneWidget);
   });
+}
+
+class _FakeConversationRepo implements ConversationRepository {
+  _FakeConversationRepo({List<ConversationSession> sessions = const []})
+    : _sessions = List.of(sessions);
+
+  final List<ConversationSession> _sessions;
+
+  @override
+  Future<Result<ConversationSession>> createSession({
+    String? professorId,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<Result<ConversationAggregate>> loadSession(String sessionId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<ConversationSession>> forkSessionAtTurn({
+    required String sourceSessionId,
+    required String sourceTurnId,
+    required String professorId,
+  }) async => throw UnimplementedError();
+
+  @override
+  Stream<ConversationEvent> submitTurn({
+    required String sessionId,
+    required String text,
+    required int expectedRevision,
+    String? requestId,
+  }) => throw UnimplementedError();
+
+  @override
+  Stream<ConversationEvent> regenerateTurn({
+    required String sessionId,
+    required String turnId,
+    required int expectedRevision,
+    String? requestId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<Result<void>> cancelAttempt(String attemptId) async =>
+      const Success(null);
+
+  @override
+  Future<Result<void>> setMessageFeedback(
+    String messageId,
+    ChatMessageFeedback feedback,
+  ) async => const Success(null);
+
+  @override
+  Future<Result<List<ConversationSession>>> listSessions() async =>
+      Success(List.unmodifiable(_sessions));
+
+  @override
+  Future<Result<List<ConversationSession>>> listForks(
+    String rootSessionId,
+  ) async => const Success([]);
+
+  @override
+  Future<Result<void>> deleteSession(String sessionId) async {
+    _sessions.removeWhere((session) => session.id == sessionId);
+    return const Success(null);
+  }
 }

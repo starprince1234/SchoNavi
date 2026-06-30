@@ -5,21 +5,34 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
 import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
 import 'package:scho_navi/domain/entities/recommended_competition.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
+import 'package:scho_navi/domain/entities/conversation_aggregate.dart';
+import 'package:scho_navi/domain/entities/conversation_event.dart';
+import 'package:scho_navi/domain/entities/conversation_session.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/features/history/pages/history_page.dart';
 
 Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
+  final conversationRepo = _FakeConversationRepo(
+    sessions: withHistory ? [_mentorSession()] : const [],
+  );
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HistoryPage()),
+      GoRoute(
+        path: '/chat',
+        builder: (_, state) => Text('会话：${state.uri.queryParameters['sid'] ?? ''}'),
+      ),
       GoRoute(
         path: '/recommendation',
         builder: (_, state) =>
@@ -37,6 +50,7 @@ Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) a
         const AppConfig(dataSource: DataSource.llm),
       ),
       sharedPreferencesProvider.overrideWithValue(prefs),
+      conversationRepositoryProvider.overrideWithValue(conversationRepo),
     ],
   );
   addTearDown(container.dispose);
@@ -56,6 +70,20 @@ Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) a
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp.router(routerConfig: router),
+  );
+}
+
+ConversationSession _mentorSession() {
+  final now = DateTime.utc(2026, 6, 27);
+  return ConversationSession(
+    id: 's_1',
+    kind: ConversationSessionKind.general,
+    rootSessionId: 's_1',
+    ownerId: 'local',
+    revision: 0,
+    title: '医学影像 上海',
+    createdAt: now,
+    updatedAt: now,
   );
 }
 
@@ -116,12 +144,76 @@ const _competition = RecommendedCompetition(
   matchScore: 0.91,
 );
 
+class _FakeConversationRepo implements ConversationRepository {
+  _FakeConversationRepo({List<ConversationSession> sessions = const []})
+    : _sessions = List.of(sessions);
+
+  final List<ConversationSession> _sessions;
+
+  @override
+  Future<Result<ConversationSession>> createSession({
+    String? professorId,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<Result<ConversationAggregate>> loadSession(String sessionId) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<Result<ConversationSession>> forkSessionAtTurn({
+    required String sourceSessionId,
+    required String sourceTurnId,
+    required String professorId,
+  }) async => throw UnimplementedError();
+
+  @override
+  Stream<ConversationEvent> submitTurn({
+    required String sessionId,
+    required String text,
+    required int expectedRevision,
+    String? requestId,
+  }) => throw UnimplementedError();
+
+  @override
+  Stream<ConversationEvent> regenerateTurn({
+    required String sessionId,
+    required String turnId,
+    required int expectedRevision,
+    String? requestId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<Result<void>> cancelAttempt(String attemptId) async =>
+      const Success(null);
+
+  @override
+  Future<Result<void>> setMessageFeedback(
+    String messageId,
+    ChatMessageFeedback feedback,
+  ) async => const Success(null);
+
+  @override
+  Future<Result<List<ConversationSession>>> listSessions() async =>
+      Success(List.unmodifiable(_sessions));
+
+  @override
+  Future<Result<List<ConversationSession>>> listForks(
+    String rootSessionId,
+  ) async => const Success([]);
+
+  @override
+  Future<Result<void>> deleteSession(String sessionId) async {
+    _sessions.removeWhere((session) => session.id == sessionId);
+    return const Success(null);
+  }
+}
+
 void main() {
   testWidgets('shows empty state when no history', (tester) async {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无搜索历史'), findsOneWidget);
+    expect(find.text('暂无历史'), findsOneWidget);
   });
 
   testWidgets('mentor history item expands to show empty fork state', (
@@ -133,10 +225,10 @@ void main() {
     expect(find.text('医学影像 上海'), findsOneWidget);
     expect(find.textContaining('位导师'), findsNothing);
 
-    await tester.tap(find.text('医学影像 上海'));
+    await tester.tap(find.byTooltip('查看分支'));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无追问历史'), findsOneWidget);
+    expect(find.text('暂无追问分支'), findsOneWidget);
   });
 
   testWidgets('competition history item expands to show empty fork state', (
@@ -151,7 +243,7 @@ void main() {
     await tester.tap(find.text('数学建模 团队赛'));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无追问历史'), findsOneWidget);
+    expect(find.text('数学建模 团队赛'), findsOneWidget);
   });
 
   testWidgets('delete one history updates page to empty state', (tester) async {
@@ -161,7 +253,7 @@ void main() {
     await tester.drag(find.text('医学影像 上海'), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无搜索历史'), findsOneWidget);
+    expect(find.text('暂无历史'), findsOneWidget);
   });
 
   testWidgets('search filters history items', (tester) async {
@@ -179,22 +271,22 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '北京');
     await tester.pumpAndSettle();
-    expect(find.text('没有匹配的搜索记录'), findsOneWidget);
+    expect(find.text('没有匹配的历史记录'), findsOneWidget);
     expect(find.text('医学影像 上海'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.clear));
     await tester.pumpAndSettle();
     expect(find.text('医学影像 上海'), findsOneWidget);
-    expect(find.text('没有匹配的搜索记录'), findsNothing);
+    expect(find.text('没有匹配的历史记录'), findsNothing);
   });
 
-  testWidgets('search filters mentor and competition labels', (tester) async {
+  testWidgets('search filters mentor and competition prompts', (tester) async {
     await tester.pumpWidget(
       await _wrap(withHistory: true, withCompetition: true),
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), '竞赛');
+    await tester.enterText(find.byType(TextField), '团队赛');
     await tester.pumpAndSettle();
 
     expect(find.text('数学建模 团队赛'), findsOneWidget);
@@ -207,11 +299,11 @@ void main() {
 
     await tester.tap(find.byTooltip('清空历史'));
     await tester.pumpAndSettle();
-    expect(find.text('确定清空全部搜索历史吗？'), findsOneWidget);
+    expect(find.text('这会删除全部会话、分支和竞赛历史，且不可恢复。'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, '清空'));
     await tester.pumpAndSettle();
 
-    expect(find.text('暂无搜索历史'), findsOneWidget);
+    expect(find.text('暂无历史'), findsOneWidget);
   });
 }
