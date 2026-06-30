@@ -34,7 +34,11 @@ class ChatMessageBubble extends StatelessWidget {
   final VoidCallback? onRerouteHome;
 
   /// AI 回复正文统一行高（spec §4.6 可测试常量），上机后微调。
-  static const double assistantLineHeight = 1.4;
+  ///
+  /// gpt_markdown 的叶子 TextSpan 用 `config.style ?? const TextStyle()`，
+  /// 不会从外层 [DefaultTextStyle] 继承 height，所以必须显式把 style 传给
+  /// [GptMarkdown]，否则这里设多少都被 `const TextStyle()` 覆盖成默认行距。
+  static const double assistantLineHeight = 1.6;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +74,7 @@ class ChatMessageBubble extends StatelessWidget {
     } else {
       body = DefaultTextStyle(
         style: assistantStyle,
-        child: GptMarkdown(message.content),
+        child: GptMarkdown(message.content, style: assistantStyle),
       );
     }
     final Widget content = (isStreaming && !isError)
