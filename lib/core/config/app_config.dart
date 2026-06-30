@@ -74,7 +74,7 @@ class AppConfig {
     String appVersion = '0.1.0',
   }) {
     final llm = LlmConfig(apiKey: apiKey, baseUrl: baseUrl, model: model);
-    final api = ApiConfig(baseUrl: _trimTrailingSlash(apiBaseUrl));
+    final api = ApiConfig(baseUrl: _normalizeApiBaseUrl(apiBaseUrl));
     return AppConfig(
       dataSource: api.isConfigured ? DataSource.http : DataSource.llm,
       appVersion: appVersion,
@@ -83,11 +83,16 @@ class AppConfig {
     );
   }
 
-  static String _trimTrailingSlash(String value) {
-    final trimmed = value.trim();
-    return trimmed.endsWith('/')
-        ? trimmed.substring(0, trimmed.length - 1)
-        : trimmed;
+  static String _normalizeApiBaseUrl(String value) {
+    var trimmed = value.trim();
+    while (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    const suffix = '/api/v1';
+    if (trimmed.endsWith(suffix)) {
+      trimmed = trimmed.substring(0, trimmed.length - suffix.length);
+    }
+    return trimmed;
   }
 }
 

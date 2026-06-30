@@ -32,4 +32,14 @@ void main() {
     expect(cfg.api.baseUrl, 'https://api.example.com');
     expect(cfg.llm.apiKey, 'sk-x');
   });
+
+  test('api base url normalizes accidental api/v1 suffix to origin', () {
+    final cfg = AppConfig.resolve(
+      apiKey: 'sk-x',
+      apiBaseUrl: 'https://api.example.com/api/v1/',
+    );
+
+    expect(cfg.dataSource, DataSource.http);
+    expect(cfg.api.baseUrl, 'https://api.example.com');
+  });
 }
