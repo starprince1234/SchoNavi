@@ -7,6 +7,7 @@ import '../../features/compare/pages/compare_page.dart';
 import '../../features/competition_recommendation/pages/competition_detail_page.dart';
 import '../../features/competition_recommendation/pages/competition_recommendation_page.dart';
 import '../../features/email/pages/email_page.dart';
+import '../../features/feedback/pages/feedback_page.dart';
 import '../../features/favorite/pages/favorite_page.dart';
 import '../../features/history/pages/history_page.dart';
 import '../../features/home/pages/home_page.dart';
@@ -22,10 +23,26 @@ import '../../features/profile/pages/profile_intro_page.dart';
 import '../../features/profile/pages/profile_page.dart';
 import '../../features/profile/pages/profile_wizard_page.dart';
 import '../../features/settings/pages/settings_page.dart';
+import '../../domain/entities/feedback.dart';
 import '../../domain/entities/preparation_plan.dart';
 
 import '../di/providers.dart';
 import '../motion/page_transition.dart';
+
+FeedbackType? _parseFeedbackType(String? raw) {
+  switch (raw) {
+    case 'recommendation':
+      return FeedbackType.recommendation;
+    case 'missing_professor':
+      return FeedbackType.missingProfessor;
+    case 'bug':
+      return FeedbackType.bug;
+    case 'other':
+      return FeedbackType.other;
+    default:
+      return null;
+  }
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -95,6 +112,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/feedback',
+        pageBuilder: (_, state) => sharedAxisPage(
+          state: state,
+          child: FeedbackPage(
+            type: _parseFeedbackType(state.uri.queryParameters['type']),
+            context: FeedbackContext.fromQuery(state.uri.queryParameters),
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/chat',
         pageBuilder: (_, state) => sharedAxisPage(
           state: state,
@@ -138,10 +165,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/preparation-plans',
-        pageBuilder: (context, state) => sharedAxisPage(
-          state: state,
-          child: const PreparationPlansPage(),
-        ),
+        pageBuilder: (context, state) =>
+            sharedAxisPage(state: state, child: const PreparationPlansPage()),
       ),
       // 静态 `new` 路径必须注册在 `:id` 之前，否则会被参数路由吞掉。
       GoRoute(
@@ -157,9 +182,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/preparation-plans/:id',
         pageBuilder: (context, state) => sharedAxisPage(
           state: state,
-          child: PreparationPlanDetailPage(
-            planId: state.pathParameters['id']!,
-          ),
+          child: PreparationPlanDetailPage(planId: state.pathParameters['id']!),
         ),
       ),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),

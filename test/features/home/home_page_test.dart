@@ -397,4 +397,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('新对话'), findsNothing);
   });
+
+  testWidgets('drawer shows feedback tile', (tester) async {
+    await tester.pumpWidget(await _wrap());
+    await tester.pumpAndSettle();
+
+    final size = tester.getSize(find.byType(Scaffold));
+    await tester.flingFrom(
+      Offset(size.width - 10, 200),
+      const Offset(-200, 0),
+      800,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('反馈'), findsOneWidget);
+    expect(find.byTooltip('反馈'), findsOneWidget);
+  });
 }

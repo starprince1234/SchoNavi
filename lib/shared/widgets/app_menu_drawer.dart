@@ -51,6 +51,11 @@ class AppMenuDrawer extends ConsumerWidget {
               onTap: () => _navigate(context, '/preparation-plans'),
             ),
             _DrawerTile(
+              icon: Icons.feedback_outlined,
+              label: '反馈',
+              onTap: () => _navigate(context, '/feedback?type=other'),
+            ),
+            _DrawerTile(
               icon: Icons.settings_outlined,
               label: '设置',
               onTap: () => _navigate(context, '/settings'),
