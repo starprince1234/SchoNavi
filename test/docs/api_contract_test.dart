@@ -22,6 +22,8 @@ void main() {
       '/profile',
       '/favorites',
       '/history',
+      '/preparation/config',
+      '/preparation-templates',
       '/preparation-plans/generate',
     ]) {
       final index = text.indexOf('  $path:');
@@ -32,5 +34,41 @@ void main() {
       expect(block, contains('bearerAuth: []'));
       expect(block, contains('cookieAuth: []'));
     }
+  });
+
+  test('OpenAPI documents Flutter HTTP production paths', () {
+    final text = openApi.readAsStringSync();
+
+    for (final path in [
+      '/home/config',
+      '/home/prompts',
+      '/competitions',
+      '/competitions/{competition_id}',
+      '/recommendations/mentors',
+      '/recommendations/competitions',
+      '/chat/route',
+      '/chat/quick-actions',
+      '/preparation/config',
+      '/preparation-templates',
+      '/preparation-plans/generate',
+      '/preparation-plans/diagnose',
+    ]) {
+      expect(text, contains('  $path:'), reason: '$path missing from OpenAPI');
+    }
+  });
+
+  test('OpenAPI uses Dart timeline enum names', () {
+    final text = openApi.readAsStringSync();
+
+    expect(text, contains('enum: [eventWindow, submission]'));
+    expect(text, isNot(contains('enum: [event_window, submission]')));
+  });
+
+  test('OpenAPI documents user feedback endpoint', () {
+    final text = openApi.readAsStringSync();
+
+    expect(text, contains('  /api/v1/feedback:'));
+    expect(text, contains(r"$ref: '#/components/schemas/UserFeedbackRequest'"));
+    expect(text, contains(r"$ref: '#/components/schemas/UserFeedbackEnvelope'"));
   });
 }

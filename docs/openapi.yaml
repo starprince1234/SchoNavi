@@ -23,6 +23,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HomePromptsEnvelope'
+  /home/config:
+    get:
+      summary: Fetch server-managed home screen copy and prompt chips.
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [mentor, competition]
+      responses:
+        '200':
+          description: Home config.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeConfigEnvelope'
+  /competitions:
+    get:
+      summary: List competition catalog snapshots.
+      responses:
+        '200':
+          description: Competition catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionCatalogEnvelope'
+  /competitions/{competition_id}:
+    get:
+      summary: Get one competition catalog snapshot.
+      parameters:
+        - name: competition_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Competition snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedCompetitionEnvelope'
   /recommendations/mentors:
     post:
       summary: Get mentor recommendations.
@@ -471,6 +513,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationPlanGenerateEnvelope'
+  /preparation/config:
+    get:
+      summary: Fetch server-managed preparation lightweight configuration.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Preparation config.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparationConfigEnvelope'
+  /preparation-templates:
+    get:
+      summary: Fetch merged preparation template for a competition context.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: timeline_type
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/CompetitionTimelineType'
+        - name: include_defense
+          in: query
+          required: true
+          schema: { type: boolean }
+        - name: category
+          in: query
+          required: true
+          schema: { type: string }
+        - name: competition_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Merged template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreparationTemplateEnvelope'
   /preparation-plans/diagnose:
     post:
       summary: Diagnose the user's experience level for a competition category.
@@ -663,6 +749,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemovedEnvelope'
+  /api/v1/feedback:
+    post:
+      summary: Submit user feedback (bug / recommendation / missing professor / other).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserFeedbackRequest'
+      responses:
+        '200':
+          description: Feedback received.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserFeedbackEnvelope'
 components:
   parameters:
     ProfessorId:
@@ -745,7 +850,89 @@ components:
       enum: [beginner, intermediate, experienced]
     CompetitionTimelineType:
       type: string
-      enum: [event_window, submission]
+      enum: [eventWindow, submission]
+    HomeConfig:
+      type: object
+      required: [taglines, quick_tags, prompts]
+      properties:
+        taglines:
+          type: array
+          items: { type: string }
+        quick_tags:
+          type: array
+          items: { type: string }
+        prompts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomePrompt'
+    HomeConfigEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HomeConfig'
+    PreparationConfig:
+      type: object
+      required: [category_aliases, timeline_defaults, prior_experience_options, domain_familiarity_options]
+      properties:
+        category_aliases:
+          type: object
+          additionalProperties: { type: string }
+        timeline_defaults:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CompetitionTimelineType'
+        prior_experience_options:
+          type: array
+          items: { type: string }
+        domain_familiarity_options:
+          type: array
+          items: { type: string }
+    PreparationConfigEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PreparationConfig'
+    PreparationTemplateTask:
+      type: object
+      required: [template_key, title, estimated_hours]
+      properties:
+        template_key: { type: string }
+        title: { type: string }
+        estimated_hours: { type: number }
+    PreparationTemplatePhase:
+      type: object
+      required: [key, title, weight, required_tasks, optional_tasks]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        weight: { type: number }
+        required_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationTemplateTask'
+        optional_tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationTemplateTask'
+    PreparationTemplate:
+      type: object
+      required: [phases]
+      properties:
+        phases:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreparationTemplatePhase'
+    PreparationTemplateEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PreparationTemplate'
     PreparationPlanGenerateRequest:
       type: object
       required:
@@ -760,13 +947,13 @@ components:
         target_date:
           type: string
           format: date
-          description: Event start (event_window) or submission DDL (submission).
+          description: Event start (eventWindow) or submission DDL (submission).
         timeline_type:
           $ref: '#/components/schemas/CompetitionTimelineType'
         event_end_date:
           type: [string, 'null']
           format: date
-          description: Event window end (event_window only); null for submission.
+          description: Event window end (eventWindow only); null for submission.
         defense_date:
           type: [string, 'null']
           format: date
@@ -1057,6 +1244,45 @@ components:
         feedback:
           type: string
           enum: [none, like, dislike]
+    UserFeedbackRequest:
+      type: object
+      required: [id, type, content, context, created_at]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [recommendation, missing_professor, bug, other]
+        content: { type: string, minLength: 1 }
+        contact: { type: [string, 'null'] }
+        context:
+          $ref: '#/components/schemas/UserFeedbackContext'
+        created_at: { type: string, format: date-time }
+    UserFeedbackContext:
+      type: object
+      properties:
+        route: { type: [string, 'null'] }
+        session_id: { type: [string, 'null'], format: uuid }
+        message_id: { type: [string, 'null'] }
+        professor_id: { type: [string, 'null'] }
+        competition_id: { type: [string, 'null'] }
+        prompt: { type: [string, 'null'] }
+        app_version: { type: string }
+        data_source_mode: { type: string, enum: [llm, http, mock] }
+    UserFeedbackEnvelope:
+      type: object
+      required: [code, message, data]
+      properties:
+        code: { type: integer }
+        message: { type: string }
+        data:
+          $ref: '#/components/schemas/UserFeedbackData'
+    UserFeedbackData:
+      type: object
+      required: [id, status, received_at]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [received] }
+        received_at: { type: string, format: date-time }
     ConversationSession:
       type: object
       required: [id, kind, root_session_id, revision, created_at, updated_at, legacy_context_incomplete]
@@ -1330,6 +1556,22 @@ components:
           type: array
           items: { type: string }
         match_score: { type: number, minimum: 0, maximum: 1 }
+    RecommendedCompetitionEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RecommendedCompetition'
+    CompetitionCatalogEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/EnvelopeBase'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecommendedCompetition'
     CompetitionRecommendationRequest:
       type: object
       required: [prompt]

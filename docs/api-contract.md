@@ -257,6 +257,27 @@ Response data:
 ]
 ```
 
+### GET `/home/config`
+
+Server-managed home screen copy and prompt chips. HTTP production clients use
+this endpoint instead of local hardcoded taglines, quick tags, or prompt tiles.
+
+Query:
+
+- `mode`: `mentor` or `competition`
+
+Response data:
+
+```json
+{
+  "taglines": ["说说你想研究的方向，我帮你找到合适的导师"],
+  "quick_tags": ["计算机视觉", "自然语言处理", "北京"],
+  "prompts": [
+    { "text": "我想找计算机视觉方向的导师，最好在北京。" }
+  ]
+}
+```
+
 ### POST `/recommendations/mentors`
 
 Request:
@@ -340,6 +361,43 @@ Response data:
 
 `follow_up_questions` is a legacy field name. Values should be short quick-action
 labels for UI chips, not full questions.
+
+### GET `/competitions`
+
+Returns the authoritative competition catalog snapshot for HTTP production
+clients. Local catalog data is only an offline/LLM-mode fallback.
+
+Response data:
+
+```json
+[
+  {
+    "id": "comp_lanqiao",
+    "name": "蓝桥杯全国软件和信息技术专业人才大赛",
+    "category": "计算机类",
+    "level": "国家级",
+    "tags": ["算法", "个人赛"],
+    "team_size": "个人",
+    "signup_time": "以官网通知为准",
+    "contest_time": "以官网通知为准",
+    "format": "限时编程",
+    "organizer": "主办方",
+    "official_url": "https://example.com",
+    "reason": "",
+    "preparation_tips": [],
+    "limitations": ["以官网最新通知为准"],
+    "match_score": 0
+  }
+]
+```
+
+### GET `/competitions/{competition_id}`
+
+Returns one competition catalog snapshot. HTTP clients show an error/empty state
+when it is missing; they must not guess from local catalog data.
+
+Response data is one `RecommendedCompetition` object with the same shape as the
+items from `GET /competitions`.
 
 ### GET `/professors/{professor_id}`
 
@@ -605,14 +663,14 @@ Request:
 
 `experience_level` values: `beginner`, `intermediate`, `experienced`.
 
-`timeline_type` values: `event_window`, `submission`.
+`timeline_type` values: `eventWindow`, `submission`.
 
 - `calendar_today` is `YYYY-MM-DD` (`format: date`) and is the authoritative
   scheduling basis; the server validates format and order against anchors only,
   it does not replace it with a server timezone.
 - `target_date`, `event_end_date`, `defense_date` are all `YYYY-MM-DD`
   (`format: date`).
-- `event_end_date` is required for `event_window` and must be null for
+- `event_end_date` is required for `eventWindow` and must be null for
   `submission`. `defense_date` is only meaningful for `submission` and may be
   null.
 - `phase_keys` is the client-side allowed phase key set. The server must only
@@ -642,6 +700,60 @@ when present it must be unique within the phase. `estimated_hours` is a number.
 
 Common errors: `40001` invalid request, `42201` validation failed, `50001`
 server error.
+
+### GET `/preparation/config`
+
+Returns lightweight server-managed preparation strategy config. HTTP production
+clients use it for category normalization, default timeline type, and diagnostic
+question options.
+
+Response data:
+
+```json
+{
+  "category_aliases": {
+    "电子信息类": "电子与信息类",
+    "创新创业类": "综合与创业类"
+  },
+  "timeline_defaults": {
+    "comp_icpc": "eventWindow",
+    "comp_lanqiao": "eventWindow"
+  },
+  "prior_experience_options": ["从没参加", "参加过未获奖", "获得校级以上奖"],
+  "domain_familiarity_options": ["不熟", "一般", "熟悉"]
+}
+```
+
+### GET `/preparation-templates`
+
+Returns the merged preparation template for the selected timeline type, defense
+setting, category, and competition. HTTP production clients use this endpoint
+instead of asset templates.
+
+Query:
+
+- `timeline_type`: `eventWindow` or `submission`
+- `include_defense`: boolean
+- `category`: normalized category key
+- `competition_id`: competition catalog id
+
+Response data:
+
+```json
+{
+  "phases": [
+    {
+      "key": "topic_selection",
+      "title": "选题定位",
+      "weight": 0.2,
+      "required_tasks": [
+        { "template_key": "read_rules", "title": "阅读赛事规则", "estimated_hours": 2 }
+      ],
+      "optional_tasks": []
+    }
+  ]
+}
+```
 
 ### POST `/preparation-plans/diagnose`
 
@@ -907,3 +1019,31 @@ Response data:
 ```json
 { "cleared": true }
 ```
+
+### POST `/api/v1/feedback`
+
+提交用户反馈(bug / 推荐不准 / 导师未收录 / 其他)。请求体:
+
+```json
+{
+  "id": "uuid",
+  "type": "recommendation | missing_professor | bug | other",
+  "content": "描述",
+  "contact": "可选",
+  "context": {
+    "route": "/professor/P001",
+    "session_id": "...", "message_id": "...",
+    "professor_id": "P001", "competition_id": null,
+    "prompt": "...", "app_version": "1.2.0", "data_source_mode": "http"
+  },
+  "created_at": "2026-06-30T12:00:00Z"
+}
+```
+
+响应遵循统一信封 `{ code, message, data }`,`data`:
+
+```json
+{ "id": "...", "status": "received", "received_at": "2026-06-30T12:00:01Z" }
+```
+
+`code != 0` 表示业务失败。客户端不重试、不本地保存。
