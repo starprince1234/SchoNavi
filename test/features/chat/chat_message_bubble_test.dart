@@ -92,7 +92,7 @@ Future<void> _pump(
             message: message,
             onTapRecommendation: onTap ?? (_) {},
             onRetryRecommendation: onRetryRecommendation,
-            onRegenerate: onRetry == null ? null : (id) => onRetry!(id),
+            onRegenerate: onRetry == null ? null : (id) => onRetry(id),
           ),
         ),
       ),
