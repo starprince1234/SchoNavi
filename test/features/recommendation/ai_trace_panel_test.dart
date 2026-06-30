@@ -21,6 +21,8 @@ class _FakeProfileRepo implements ProfileRepository {
   @override
   UserProfile load() => const UserProfile();
   @override
+  Future<UserProfile> refresh() async => load();
+  @override
   Future<void> save(UserProfile p) async {}
   @override
   Future<void> clear() async {}

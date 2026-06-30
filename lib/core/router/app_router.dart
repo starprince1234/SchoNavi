@@ -199,28 +199,38 @@ class _PreparationPlanFormRoute extends ConsumerWidget {
         body: const Center(child: Text('缺少竞赛信息')),
       );
     }
-    final base = ref.read(competitionCatalogRepositoryProvider).findById(
-          competitionId,
+    final baseAsync = ref.watch(competitionByIdProvider(competitionId));
+    return baseAsync.when(
+      data: (base) {
+        if (base == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('创建备赛计划')),
+            body: const Center(child: Text('未找到该竞赛')),
+          );
+        }
+        return PreparationPlanFormPage(
+          competition: CompetitionSnapshot(
+            id: base.id,
+            name: base.name,
+            category: base.category,
+            rulesSummary: CompetitionRulesSummary(
+              signupTime: base.signupTime,
+              contestTime: base.contestTime,
+              teamSize: base.teamSize,
+              format: base.format,
+              organizer: base.organizer,
+              officialUrl: base.officialUrl,
+            ),
+          ),
         );
-    if (base == null) {
-      return Scaffold(
+      },
+      loading: () => Scaffold(
         appBar: AppBar(title: const Text('创建备赛计划')),
-        body: const Center(child: Text('未找到该竞赛')),
-      );
-    }
-    return PreparationPlanFormPage(
-      competition: CompetitionSnapshot(
-        id: base.id,
-        name: base.name,
-        category: base.category,
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: base.signupTime,
-          contestTime: base.contestTime,
-          teamSize: base.teamSize,
-          format: base.format,
-          organizer: base.organizer,
-          officialUrl: base.officialUrl,
-        ),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Scaffold(
+        appBar: AppBar(title: const Text('创建备赛计划')),
+        body: const Center(child: Text('竞赛信息加载失败，请稍后重试')),
       ),
     );
   }

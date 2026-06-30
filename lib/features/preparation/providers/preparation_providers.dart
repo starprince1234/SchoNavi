@@ -9,11 +9,16 @@ import '../../../data/ai/ai_preparation_plan_assistant.dart';
 import '../../../data/http/http_preparation_personalizer.dart';
 import '../../../data/http/http_preparation_level_diagnoser.dart';
 import '../../../data/http/http_preparation_plan_assistant.dart';
+import '../../../data/http/http_preparation_config_repository.dart';
+import '../../../data/http/http_preparation_template_provider.dart';
 import '../../../data/local/assistant_history_store.dart';
 import '../../../data/local/level_diagnosis_store.dart';
 import '../../../data/local/local_preparation_plan_repository.dart';
 import '../../../data/local/local_preparation_template_provider.dart';
+import '../../../data/mock/mock_preparation_config_repository.dart';
+import '../../../domain/entities/preparation_config.dart';
 import '../../../domain/entities/preparation_plan.dart';
+import '../../../domain/repositories/preparation_config_repository.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
 import '../../../domain/repositories/preparation_level_diagnoser.dart';
 import '../../../domain/repositories/preparation_plan_assistant.dart';
@@ -37,10 +42,29 @@ final levelDiagnosisStoreProvider = Provider<LevelDiagnosisStore>(
   (ref) => LevelDiagnosisStore(ref.watch(localStoreProvider)),
 );
 
-/// 备赛模板提供者：本地 AssetBundle（赛类/赛事 JSON 叠加）。
-final preparationTemplateProvider = Provider<PreparationTemplateProvider>(
-  (_) => LocalPreparationTemplateProvider(bundle: rootBundle),
-);
+final preparationConfigRepositoryProvider =
+    Provider<PreparationConfigRepository>((ref) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm => const MockPreparationConfigRepository(),
+    DataSource.http => HttpPreparationConfigRepository(
+      ref.watch(apiDioProvider),
+    ),
+  };
+});
+
+final preparationConfigProvider = FutureProvider<PreparationConfig>((ref) {
+  return ref.watch(preparationConfigRepositoryProvider).fetch();
+});
+
+/// 备赛模板提供者：HTTP 模式走远端模板，LLM/离线模式保留本地 AssetBundle。
+final preparationTemplateProvider = Provider<PreparationTemplateProvider>((ref) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm => LocalPreparationTemplateProvider(bundle: rootBundle),
+    DataSource.http => HttpPreparationTemplateProvider(
+      ref.watch(apiDioProvider),
+    ),
+  };
+});
 
 /// 备赛个性化器：按 [DataSource] 切换 LLM / HTTP 实现。
 final preparationPersonalizerProvider = Provider<PreparationPersonalizer>((
@@ -49,7 +73,7 @@ final preparationPersonalizerProvider = Provider<PreparationPersonalizer>((
   return switch (ref.watch(appConfigProvider).dataSource) {
     DataSource.llm => AiPreparationPersonalizer(ref.watch(llmClientProvider)),
     DataSource.http =>
-      HttpPreparationPersonalizer(ref.watch(dioProvider)),
+      HttpPreparationPersonalizer(ref.watch(apiDioProvider)),
   };
 });
 
@@ -61,7 +85,7 @@ final preparationLevelDiagnoserProvider = Provider<PreparationLevelDiagnoser>((
     DataSource.llm =>
       AiPreparationLevelDiagnoser(ref.watch(llmClientProvider)),
     DataSource.http =>
-      HttpPreparationLevelDiagnoser(ref.watch(dioProvider)),
+      HttpPreparationLevelDiagnoser(ref.watch(apiDioProvider)),
   };
 });
 
@@ -74,7 +98,7 @@ final preparationPlanAssistantProvider = Provider<PreparationPlanAssistant>((
     DataSource.llm =>
       AiPreparationPlanAssistant(ref.watch(llmClientProvider)),
     DataSource.http =>
-      HttpPreparationPlanAssistant(ref.watch(dioProvider)),
+      HttpPreparationPlanAssistant(ref.watch(apiDioProvider)),
   };
 });
 

@@ -1,9 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
-import '../../core/auth/anonymous_credential_store.dart';
 import '../../core/error/app_exception.dart';
 import '../../core/ids/uuid_v7.dart';
 import '../../core/result/result.dart';
@@ -17,14 +15,11 @@ import '../dto/api_envelope.dart';
 import '../dto/chat_message_dto.dart';
 
 class HttpConversationRepository implements ConversationRepository {
-  HttpConversationRepository(this._dio, this._credentials, {UuidV7? ids})
+  HttpConversationRepository(this._dio, {UuidV7? ids})
     : _ids = ids ?? UuidV7();
 
   final Dio _dio;
-  final AnonymousCredentialStore _credentials;
   final UuidV7 _ids;
-  Future<String>? _tokenFuture;
-  Future<void>? _webIdentityFuture;
 
   @override
   Future<Result<ConversationSession>> createSession({String? professorId}) {
@@ -35,7 +30,6 @@ class HttpConversationRepository implements ConversationRepository {
           'kind': professorId == null ? 'general' : 'professor',
           'professor_id': ?professorId,
         },
-        options: await _authOptions(),
       ),
       (data) => _session(asJsonObject(data)),
     );
@@ -46,7 +40,6 @@ class HttpConversationRepository implements ConversationRepository {
     return guardApi(
       () async => _dio.get<dynamic>(
         '/api/v1/chat/sessions/$sessionId',
-        options: await _authOptions(),
       ),
       (data) {
         final json = asJsonObject(data);
@@ -78,11 +71,7 @@ class HttpConversationRepository implements ConversationRepository {
                         ),
                       )
                     : rawMessages)
-                .map(
-                  (m) => ChatMessageDto.fromJson(
-                    m,
-                  ).toEntity(m['id']?.toString() ?? _ids.generate()),
-                )
+                .map((m) => _message(m, m['id']?.toString() ?? _ids.generate()))
                 .toList(growable: false);
         final turns = visibleTurns
             .map((turn) => _turn(turn, messages))
@@ -106,7 +95,6 @@ class HttpConversationRepository implements ConversationRepository {
       () async => _dio.post<dynamic>(
         '/api/v1/chat/sessions/$sourceSessionId/forks',
         data: {'source_turn_id': sourceTurnId, 'professor_id': professorId},
-        options: await _authOptions(),
       ),
       (data) => _session(asJsonObject(data)),
     );
@@ -154,7 +142,6 @@ class HttpConversationRepository implements ConversationRepository {
   Future<Result<void>> cancelAttempt(String attemptId) => guardApi(
     () async => _dio.post<dynamic>(
       '/api/v1/chat/attempts/$attemptId/cancel',
-      options: await _authOptions(),
     ),
     (_) {},
   );
@@ -167,7 +154,6 @@ class HttpConversationRepository implements ConversationRepository {
     () async => _dio.patch<dynamic>(
       '/api/v1/chat/messages/$messageId/feedback',
       data: {'feedback': feedback.name},
-      options: await _authOptions(),
     ),
     (_) {},
   );
@@ -176,7 +162,6 @@ class HttpConversationRepository implements ConversationRepository {
   Future<Result<List<ConversationSession>>> listSessions() => guardApi(
     () async => _dio.get<dynamic>(
       '/api/v1/chat/sessions',
-      options: await _authOptions(),
     ),
     (data) {
       final items = data is List
@@ -194,7 +179,6 @@ class HttpConversationRepository implements ConversationRepository {
       guardApi(
         () async => _dio.get<dynamic>(
           '/api/v1/chat/sessions/$rootSessionId/forks',
-          options: await _authOptions(),
         ),
         (data) {
           final items = data is List
@@ -211,7 +195,6 @@ class HttpConversationRepository implements ConversationRepository {
   Future<Result<void>> deleteSession(String sessionId) => guardApi(
     () async => _dio.delete<dynamic>(
       '/api/v1/chat/sessions/$sessionId',
-      options: await _authOptions(),
     ),
     (_) {},
   );
@@ -222,8 +205,6 @@ class HttpConversationRepository implements ConversationRepository {
     required String requestId,
   }) async* {
     try {
-      final token = kIsWeb ? null : await _token();
-      if (kIsWeb) await _ensureWebIdentity();
       final response = await _dio.post<ResponseBody>(
         path,
         data: data,
@@ -232,7 +213,6 @@ class HttpConversationRepository implements ConversationRepository {
           headers: {
             'Accept': 'text/event-stream',
             'Idempotency-Key': requestId,
-            if (token != null) 'Authorization': 'Bearer $token',
           },
         ),
       );
@@ -263,8 +243,10 @@ class HttpConversationRepository implements ConversationRepository {
             turnId: turnId,
             attemptId: attemptId,
             revision: revision,
-            route: ConversationRoute.values.byName(
+            route: _enumByName(
+              ConversationRoute.values,
               json['route']?.toString() ?? 'conversation',
+              'route',
             ),
           ),
           'delta' => ConversationDelta(
@@ -274,20 +256,12 @@ class HttpConversationRepository implements ConversationRepository {
             revision: revision,
             text: json['text']?.toString() ?? '',
           ),
-          'completed' => ConversationCompleted(
+          'completed' => _completedEvent(
             sessionId: sessionId,
             turnId: turnId,
             attemptId: attemptId,
             revision: revision,
-            message: ChatMessageDto.fromJson(
-              Map<String, dynamic>.from(json['message'] as Map),
-            ).toEntity((json['message'] as Map)['id']?.toString() ?? ''),
-            session: _session(
-              Map<String, dynamic>.from(json['session'] as Map),
-            ),
-            quickActions: (json['quick_actions'] as List<dynamic>? ?? const [])
-                .map((e) => e.toString())
-                .toList(growable: false),
+            json: json,
           ),
           'error' => ConversationFailed(
             sessionId: sessionId,
@@ -322,6 +296,9 @@ class HttpConversationRepository implements ConversationRepository {
       rethrow;
     } on DioException catch (error) {
       throw mapDioException(error);
+    } on FormatException catch (error) {
+      final detail = error.message.isEmpty ? '响应结构不符合契约' : error.message;
+      throw ValidationException('服务返回格式异常：$detail');
     } catch (_) {
       throw const ServerException();
     }
@@ -331,8 +308,10 @@ class HttpConversationRepository implements ConversationRepository {
     final id = json['id']?.toString() ?? json['session_id']?.toString() ?? '';
     return ConversationSession(
       id: id,
-      kind: ConversationSessionKind.values.byName(
+      kind: _enumByName(
+        ConversationSessionKind.values,
         json['kind']?.toString() ?? 'general',
+        'kind',
       ),
       rootSessionId: json['root_session_id']?.toString() ?? id,
       sourceSessionId: json['source_session_id']?.toString(),
@@ -342,11 +321,9 @@ class HttpConversationRepository implements ConversationRepository {
       revision: (json['revision'] as num?)?.toInt() ?? 0,
       title: json['title']?.toString(),
       createdAt:
-          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
-          DateTime.now(),
+          _requiredDateTime(json['created_at'], 'created_at'),
       updatedAt:
-          DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
-          DateTime.now(),
+          _requiredDateTime(json['updated_at'], 'updated_at'),
       deletedAt: DateTime.tryParse(json['deleted_at']?.toString() ?? ''),
       legacyContextIncomplete: json['legacy_context_incomplete'] == true,
     );
@@ -371,44 +348,67 @@ class HttpConversationRepository implements ConversationRepository {
       id: json['id']?.toString() ?? '',
       sessionId: json['session_id']?.toString() ?? '',
       ordinal: (json['ordinal'] as num?)?.toInt() ?? 0,
-      status: ConversationTurnStatus.values.byName(
+      status: _enumByName(
+        ConversationTurnStatus.values,
         json['status']?.toString() ?? 'interrupted',
+        'status',
       ),
       route: json['route'] == null
           ? null
-          : ConversationRoute.values.byName(json['route'].toString()),
+          : _enumByName(
+              ConversationRoute.values,
+              json['route'].toString(),
+              'route',
+            ),
       userMessage: user,
       activeAttemptId: json['active_attempt_id']?.toString(),
       createdAt:
-          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
-          DateTime.now(),
+          _requiredDateTime(json['created_at'], 'created_at'),
       updatedAt:
-          DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
-          DateTime.now(),
+          _requiredDateTime(json['updated_at'], 'updated_at'),
     );
   }
 
-  Future<Options> _authOptions() async {
-    if (kIsWeb) {
-      await _ensureWebIdentity();
-      return Options();
-    }
-    return Options(headers: {'Authorization': 'Bearer ${await _token()}'});
+  ConversationCompleted _completedEvent({
+    required String sessionId,
+    required String turnId,
+    required String attemptId,
+    required int revision,
+    required Map<String, dynamic> json,
+  }) {
+    final messageJson = asJsonObject(json['message']);
+    return ConversationCompleted(
+      sessionId: sessionId,
+      turnId: turnId,
+      attemptId: attemptId,
+      revision: revision,
+      message: _message(messageJson, messageJson['id']?.toString() ?? ''),
+      session: _session(asJsonObject(json['session'])),
+      quickActions: (json['quick_actions'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(growable: false),
+    );
   }
 
-  Future<String> _token() => _tokenFuture ??= _loadOrCreateToken();
+  ChatMessage _message(Map<String, dynamic> json, String fallbackId) {
+    _requiredDateTime(json['created_at'], 'message.created_at');
+    return ChatMessageDto.fromJson(json).toEntity(fallbackId);
+  }
 
-  Future<void> _ensureWebIdentity() =>
-      _webIdentityFuture ??= _dio.post<dynamic>('/api/v1/identity/anonymous');
+  T _enumByName<T extends Enum>(List<T> values, String name, String field) {
+    for (final value in values) {
+      if (value.name == name) return value;
+    }
+    throw FormatException('unknown $field: $name');
+  }
 
-  Future<String> _loadOrCreateToken() async {
-    final stored = await _credentials.readToken();
-    if (stored != null && stored.isNotEmpty) return stored;
-    final response = await _dio.post<dynamic>('/api/v1/identity/anonymous');
-    final data = decodeEnvelope(response.data, (value) => asJsonObject(value));
-    final token = data['access_token']?.toString();
-    if (token == null || token.isEmpty) throw const ServerException();
-    await _credentials.writeToken(token);
-    return token;
+  DateTime _requiredDateTime(Object? value, String field) {
+    final raw = value?.toString();
+    if (raw == null || raw.isEmpty) {
+      throw FormatException('missing $field');
+    }
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) throw FormatException('invalid $field: $raw');
+    return parsed;
   }
 }

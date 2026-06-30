@@ -6,12 +6,11 @@ import '../../../core/calendar_date.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/fixtures/competition_timeline_defaults.dart';
+import '../../../domain/entities/preparation_config.dart';
 import '../../../domain/entities/level_diagnosis.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../domain/repositories/preparation_level_diagnoser.dart';
-import '../../../domain/services/competition_category_normalizer.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../providers/preparation_providers.dart';
@@ -58,7 +57,7 @@ enum _DiagPhase {
 
 class _PreparationPlanFormPageState
     extends ConsumerState<PreparationPlanFormPage> {
-  late CompetitionTimelineType _timelineType;
+  CompetitionTimelineType? _timelineType;
   DateTime? _targetDate;
   DateTime? _eventEndDate;
   DateTime? _defenseDate;
@@ -71,36 +70,43 @@ class _PreparationPlanFormPageState
   _DiagPhase _diagPhase = _DiagPhase.idle;
   LevelDiagnosis? _persistedDiagnosis;
   LevelDiagnosisSuggestion? _suggestion;
-  String _priorExperience = '从没参加';
-  String _domainFamiliarity = '不熟';
+  String? _priorExperience;
+  String? _domainFamiliarity;
   bool _diagLoading = false;
-
-  static const _priorExperienceOptions = ['从没参加', '参加过未获奖', '获得校级以上奖'];
-  static const _domainFamiliarityOptions = ['不熟', '一般', '熟悉'];
+  PreparationConfig? _config;
+  bool _initializedFromConfig = false;
 
   @override
   void initState() {
     super.initState();
-    _timelineType = CompetitionTimelineDefaults.defaultFor(widget.competition.id) ??
-        CompetitionTimelineType.submission;
     _experienceLevel = _experienceFromProfile(ref.read(profileProvider));
-    // 异步加载持久化画像；无则停在 idle 展示问答。
-    _loadPersistedDiagnosis();
   }
 
-  Future<void> _loadPersistedDiagnosis() async {
-    final key = CompetitionCategoryNormalizer.normalize(
-      widget.competition.category,
-    );
+  Future<void> _initializeFromConfig(PreparationConfig config) async {
+    if (_initializedFromConfig) return;
+    _initializedFromConfig = true;
+    _config = config;
+    _timelineType = config.defaultTimelineFor(widget.competition.id) ??
+        CompetitionTimelineType.submission;
+    _priorExperience = config.priorExperienceOptions.isEmpty
+        ? ''
+        : config.priorExperienceOptions.first;
+    _domainFamiliarity = config.domainFamiliarityOptions.isEmpty
+        ? ''
+        : config.domainFamiliarityOptions.first;
+    final key = config.normalizeCategory(widget.competition.category);
     final existing =
         await ref.read(levelDiagnosisStoreProvider).get(key);
     if (!mounted) return;
     if (existing != null) {
       setState(() {
+        _config = config;
         _persistedDiagnosis = existing;
         _experienceLevel = existing.effectiveLevel;
         _diagPhase = _DiagPhase.persisted;
       });
+    } else {
+      setState(() {});
     }
   }
 
@@ -124,17 +130,20 @@ class _PreparationPlanFormPageState
     return cfg.dataSource == DataSource.llm && cfg.llm.isConfigured;
   }
 
-  String get _categoryKey => CompetitionCategoryNormalizer.normalize(
+  String get _categoryKey => _config?.normalizeCategory(
         widget.competition.category,
-      );
+      ) ?? widget.competition.category.trim();
 
-  String get _dateRowLabel => _timelineType == CompetitionTimelineType.eventWindow
+  CompetitionTimelineType get _effectiveTimelineType =>
+      _timelineType ?? CompetitionTimelineType.submission;
+
+  String get _dateRowLabel => _effectiveTimelineType == CompetitionTimelineType.eventWindow
       ? '选择比赛起止日期'
       : '选择提交 DDL 与答辩';
 
   String get _dateRowValue {
     if (_targetDate == null) return '';
-    if (_timelineType == CompetitionTimelineType.eventWindow) {
+    if (_effectiveTimelineType == CompetitionTimelineType.eventWindow) {
       if (_eventEndDate == null) return _fmt(_targetDate!);
       return '${_fmt(_targetDate!)} – ${_fmt(_eventEndDate!)}';
     }
@@ -148,7 +157,7 @@ class _PreparationPlanFormPageState
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final today = CalendarDate.normalize(now);
-    final mode = _timelineType == CompetitionTimelineType.eventWindow
+    final mode = _effectiveTimelineType == CompetitionTimelineType.eventWindow
         ? PreparationDatePickerMode.range
         : PreparationDatePickerMode.multiAnchor;
     final picked = await showPreparationDatePicker(
@@ -160,7 +169,7 @@ class _PreparationPlanFormPageState
     );
     if (picked == null) return;
     setState(() {
-      if (_timelineType == CompetitionTimelineType.eventWindow) {
+      if (_effectiveTimelineType == CompetitionTimelineType.eventWindow) {
         _targetDate = picked.rangeStart;
         _eventEndDate = picked.rangeEnd;
         _defenseDate = null;
@@ -174,7 +183,7 @@ class _PreparationPlanFormPageState
   }
 
   PreparationDateSelection _initialSelection() {
-    if (_timelineType == CompetitionTimelineType.eventWindow) {
+    if (_effectiveTimelineType == CompetitionTimelineType.eventWindow) {
       return PreparationDateSelection(
         rangeStart: _targetDate,
         rangeEnd: _eventEndDate,
@@ -187,7 +196,7 @@ class _PreparationPlanFormPageState
   }
 
   String? _validate(DateTime today) {
-    if (_timelineType == CompetitionTimelineType.eventWindow) {
+    if (_effectiveTimelineType == CompetitionTimelineType.eventWindow) {
       final start = _targetDate;
       final end = _eventEndDate;
       if (start == null || end == null) return '请选择比赛起止日期';
@@ -217,11 +226,11 @@ class _PreparationPlanFormPageState
       answers: [
         DiagnosisAnswer(
           questionKey: 'prior_experience',
-          answer: _priorExperience,
+          answer: _priorExperience ?? '',
         ),
         DiagnosisAnswer(
           questionKey: 'domain_familiarity',
-          answer: _domainFamiliarity,
+          answer: _domainFamiliarity ?? '',
         ),
       ],
     );
@@ -253,8 +262,8 @@ class _PreparationPlanFormPageState
       suggestion: s.suggestion,
       diagnosedAt: DateTime.now().toUtc(),
       answers: {
-        'prior_experience': _priorExperience,
-        'domain_familiarity': _domainFamiliarity,
+        'prior_experience': _priorExperience ?? '',
+        'domain_familiarity': _domainFamiliarity ?? '',
       },
     );
     await ref.read(levelDiagnosisStoreProvider).save(diagnosis);
@@ -296,7 +305,7 @@ class _PreparationPlanFormPageState
           .read(preparationPlanGeneratorProvider)
           .generate(
             competition: widget.competition,
-            timelineType: _timelineType,
+            timelineType: _effectiveTimelineType,
             targetDate: _targetDate!,
             eventEndDate: _eventEndDate,
             defenseDate: _defenseDate,
@@ -319,6 +328,25 @@ class _PreparationPlanFormPageState
 
   @override
   Widget build(BuildContext context) {
+    final configAsync = ref.watch(preparationConfigProvider);
+    final config = configAsync.valueOrNull;
+    if (config == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('创建备赛计划')),
+        body: Center(
+          child: configAsync.hasError
+              ? const Text('备赛配置加载失败，请稍后重试')
+              : const CircularProgressIndicator(),
+        ),
+      );
+    }
+    if (!_initializedFromConfig) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _initializeFromConfig(config);
+        }
+      });
+    }
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('创建备赛计划')),
@@ -446,18 +474,22 @@ class _PreparationPlanFormPageState
   }
 
   Widget _questionsCard(ColorScheme cs) {
+    final config = _config;
+    final priorOptions = config?.priorExperienceOptions ?? const <String>[];
+    final familiarityOptions =
+        config?.domainFamiliarityOptions ?? const <String>[];
     return BentoTile(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _qaSegment('参赛经历', _priorExperience, _priorExperienceOptions, (v) {
+          _qaSegment('参赛经历', _priorExperience ?? '', priorOptions, (v) {
             setState(() => _priorExperience = v);
           }),
           const SizedBox(height: 12),
           _qaSegment(
             '领域熟悉度',
-            _domainFamiliarity,
-            _domainFamiliarityOptions,
+            _domainFamiliarity ?? '',
+            familiarityOptions,
             (v) => setState(() => _domainFamiliarity = v),
           ),
           const SizedBox(height: 14),
@@ -694,7 +726,7 @@ class _PreparationPlanFormPageState
 
   Widget _timelineSelector(ColorScheme cs) {
     return SegmentedButton<CompetitionTimelineType>(
-      selected: {_timelineType},
+      selected: {_effectiveTimelineType},
       onSelectionChanged: _submitting
           ? null
           : (s) => setState(() {

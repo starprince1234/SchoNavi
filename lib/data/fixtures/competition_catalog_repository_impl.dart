@@ -2,8 +2,7 @@ import '../../domain/entities/recommended_competition.dart';
 import '../../domain/repositories/competition_catalog_repository.dart';
 import 'competition_catalog.dart';
 
-class StaticCompetitionCatalogRepository
-    implements CompetitionCatalogRepository {
+class StaticCompetitionCatalogRepository extends CompetitionCatalogRepository {
   const StaticCompetitionCatalogRepository();
 
   @override
@@ -13,4 +12,7 @@ class StaticCompetitionCatalogRepository
     }
     return null;
   }
+
+  @override
+  Future<List<RecommendedCompetition>> list() async => competitionCatalog;
 }

@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
+import '../../profile/providers/profile_provider.dart';
 import '../../../shared/widgets/section_header.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -50,7 +52,7 @@ class SettingsPage extends ConsumerWidget {
                     ? 'LLM 模式：推荐、解析与排序由大模型完成'
                     : 'LLM 模式：未配置 LLM_API_KEY，请在构建时传入后重试',
                 DataSource.http => cfg.api.isConfigured
-                    ? '真实后端模式：${cfg.api.baseUrl}'
+                    ? '真实后端模式（后端 Origin）：${cfg.api.baseUrl}'
                     : '真实后端模式：未配置 API_BASE_URL',
               },
             ),
@@ -81,17 +83,27 @@ class SettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.delete_outline),
-            title: const Text('清除本地数据'),
-            subtitle: const Text('收藏 / 历史 / 个人背景（仅本机）'),
+            title: Text(
+              cfg.dataSource == DataSource.http ? '删除远端资料' : '清除本地数据',
+            ),
+            subtitle: Text(
+              cfg.dataSource == DataSource.http
+                  ? '请求后端删除收藏 / 历史 / 个人背景，并清除本机匿名凭证'
+                  : '收藏 / 历史 / 个人背景（仅本机）',
+            ),
             onTap: () {
               Haptics.light();
               _confirmClear(context, ref);
             },
           ),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text('数据如何使用'),
-            subtitle: Text('资料仅保存在本机；LLM 模式下会随请求发送给大模型用于解析与推荐。'),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('数据如何使用'),
+            subtitle: Text(
+              cfg.dataSource == DataSource.http
+                  ? '真实后端模式下，档案 / 收藏 / 历史会同步到后端；推荐、匹配和套磁请求会发送必要资料。'
+                  : '资料仅保存在本机；LLM 模式下会随请求发送给大模型用于解析与推荐。',
+            ),
           ),
           const Divider(),
           const Padding(
@@ -110,11 +122,16 @@ class SettingsPage extends ConsumerWidget {
 
   Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
+    final remote = ref.read(appConfigProvider).dataSource == DataSource.http;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('清除本地数据'),
-        content: const Text('将清除本机的收藏、历史与个人背景，且不可恢复。是否继续？'),
+        title: Text(remote ? '删除远端资料' : '清除本地数据'),
+        content: Text(
+          remote
+              ? '将请求后端删除当前身份下的收藏、历史与个人背景，并清除本机匿名凭证。是否继续？'
+              : '将清除本机的收藏、历史与个人背景，且不可恢复。是否继续？',
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -135,12 +152,23 @@ class SettingsPage extends ConsumerWidget {
     );
     if (ok != true) return;
 
-    final favoriteRepo = ref.read(favoriteRepositoryProvider);
-    for (final item in favoriteRepo.list()) {
-      await favoriteRepo.remove(item.professorId);
+    try {
+      final favoriteRepo = ref.read(favoriteRepositoryProvider);
+      for (final item in favoriteRepo.list()) {
+        await favoriteRepo.remove(item.professorId);
+      }
+      await ref.read(historyRepositoryProvider).clear();
+      await ref.read(profileRepositoryProvider).clear();
+      if (remote) await ref.read(apiAuthenticatorProvider).clear();
+      ref.invalidate(favoritesProvider);
+      ref.invalidate(searchHistoryProvider);
+      ref.invalidate(profileProvider);
+      messenger.showSnackBar(
+        SnackBar(content: Text(remote ? '已删除远端资料' : '已清除本地数据')),
+      );
+    } catch (error) {
+      final message = error is AppException ? error.message : '清除失败，请稍后重试';
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     }
-    await ref.read(historyRepositoryProvider).clear();
-    await ref.read(profileRepositoryProvider).clear();
-    messenger.showSnackBar(const SnackBar(content: Text('已清除本地数据')));
   }
 }

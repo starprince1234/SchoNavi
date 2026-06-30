@@ -41,21 +41,27 @@ class HttpFavoriteRepository implements FavoriteRepository {
       ),
       (data) => FavoriteStatusDto.fromJson(asJsonObject(data)),
     );
-    if (result is Success<FavoriteStatusDto>) {
-      final saved = result.data.item?.toEntity() ?? item;
-      _setSnapshot([
-        saved,
-        ..._snapshot.where((current) => current.professorId != item.professorId),
-      ]..sort(_byNewest));
+    switch (result) {
+      case Success<FavoriteStatusDto>(:final data):
+        final saved = data.item?.toEntity() ?? item;
+        _setSnapshot([
+          saved,
+          ..._snapshot.where(
+            (current) => current.professorId != item.professorId,
+          ),
+        ]..sort(_byNewest));
+      case Failure<FavoriteStatusDto>(:final error):
+        throw error;
     }
   }
 
   @override
   Future<void> remove(String professorId) async {
-    await guardApi(
+    final result = await guardApi(
       () => _dio.delete<dynamic>('/api/v1/favorites/$professorId'),
       (_) => true,
     );
+    if (result case Failure<bool>(:final error)) throw error;
     _setSnapshot(
       _snapshot
           .where((current) => current.professorId != professorId)

@@ -10,6 +10,7 @@ import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/home_config.dart';
 import '../../../domain/entities/home_prompt.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/recommendation.dart';
@@ -53,7 +54,7 @@ class _TabConfig {
 
 class _HomePageState extends ConsumerState<HomePage> {
   static const int _maxLen = 1000;
-  static const Map<_HomeTab, _TabConfig> _tabConfigs = {
+  static const Map<_HomeTab, _TabConfig> _fallbackTabConfigs = {
     _HomeTab.mentor: _TabConfig(
       taglines: [
         '说说你想研究的方向，我帮你找到合适的导师',
@@ -111,7 +112,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _messageCount = 0;
   _HomeTab _currentTab = _HomeTab.mentor;
 
-  _TabConfig get _currentConfig => _tabConfigs[_currentTab]!;
+  _TabConfig get _fallbackCurrentConfig => _fallbackTabConfigs[_currentTab]!;
 
   @override
   void initState() {
@@ -372,7 +373,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final scheme = theme.colorScheme;
-    final promptsAsync = ref.watch(homePromptsProvider(_currentTab.name));
+    final homeConfigAsync = ref.watch(homeConfigProvider(_currentTab.name));
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -396,7 +397,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               : _buildLandingContent(
                                   textTheme,
                                   scheme,
-                                  promptsAsync,
+                                  homeConfigAsync,
                                 ),
                         ),
                         _buildBottomInput(scheme),
@@ -406,27 +407,40 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ),
               ),
               // 左上悬浮：仅对话态出现「新对话」；落地态留空。
+              // SafeArea 避让系统状态栏，防止按钮贴顶被遮挡。
               if (_inConversation)
                 Positioned(
-                  top: 8,
-                  left: 12,
-                  child: FloatingTopButton(
-                    icon: Icons.edit_square,
-                    tooltip: '新对话',
-                    onPressed: _startNewConversation,
+                  top: 0,
+                  left: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 0, 0),
+                      child: FloatingTopButton(
+                        icon: Icons.edit_square,
+                        tooltip: '新对话',
+                        onPressed: _startNewConversation,
+                      ),
+                    ),
                   ),
                 ),
               // 右上悬浮：「菜单」常驻。
               Positioned(
-                top: 8,
-                right: 12,
-                child: FloatingTopButton(
-                  icon: Icons.menu_outlined,
-                  tooltip: '菜单',
-                  onPressed: () {
-                    Haptics.light();
-                    Scaffold.of(context).openEndDrawer();
-                  },
+                top: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 4, 12, 0),
+                    child: FloatingTopButton(
+                      icon: Icons.menu_outlined,
+                      tooltip: '菜单',
+                      onPressed: () {
+                        Haptics.light();
+                        Scaffold.of(context).openEndDrawer();
+                      },
+                    ),
+                  ),
                 ),
               ),
               // Right-edge swipe area. It stops 120 logical pixels above the
@@ -454,8 +468,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget _buildLandingContent(
     TextTheme textTheme,
     ColorScheme scheme,
-    AsyncValue<List<HomePrompt>> promptsAsync,
+    AsyncValue<HomeConfig> homeConfigAsync,
   ) {
+    final homeConfig = homeConfigAsync.value;
+    final allowLocalFallback = ref.watch(
+      appConfigProvider.select((cfg) => cfg.dataSource == DataSource.llm),
+    );
+    final tabConfig = _TabConfig(
+      taglines: homeConfig?.taglines ??
+          (allowLocalFallback ? _fallbackCurrentConfig.taglines : const []),
+      quickTags: homeConfig?.quickTags ?? const [],
+    );
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -497,7 +520,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     height: 44,
                     child: Center(
                       child: RotatingSubtitle(
-                        phrases: _currentConfig.taglines,
+                        phrases: tabConfig.taglines,
                         strategy: _kSubtitleStrategy,
                         style: textTheme.bodyMedium?.copyWith(
                           color: AppColors.inkSoft,
@@ -512,14 +535,17 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 24),
           AnimatedEntrance(
             index: 1,
-            child: promptsAsync.when(
-              data: (prompts) {
+            child: homeConfigAsync.when(
+              data: (config) {
                 return BentoGrid(
                   crossAxisCount: 2,
                   spacing: 12,
                   runSpacing: 12,
                   animateEntrance: false,
-                  children: prompts.take(4).map(_buildPromptTile).toList(),
+                  children: config.prompts
+                      .take(4)
+                      .map(_buildPromptTile)
+                      .toList(),
                 );
               },
               loading: () => _buildPromptGridSkeleton(),
@@ -731,22 +757,29 @@ class _HomePageState extends ConsumerState<HomePage> {
             const SizedBox(height: 12),
             // 落地态：quick tags；对话态：快捷操作由上方对话区承载，此处不再重复。
             if (!_inConversation)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: _currentConfig.quickTags.map((tag) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: QuickTag(
-                        label: tag,
-                        onTap: () => _appendTag(tag),
-                        haptic: Haptics.selection,
-                        color: _tagColor(tag, scheme),
-                      ),
-                    );
-                  }).toList(),
-                ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final config = ref.watch(homeConfigProvider(_currentTab.name));
+                  final tags = config.value?.quickTags ?? const <String>[];
+                  if (tags.isEmpty) return const SizedBox.shrink();
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: tags.map((tag) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: QuickTag(
+                            label: tag,
+                            onTap: () => _appendTag(tag),
+                            haptic: Haptics.selection,
+                            color: _tagColor(tag, scheme),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
               ),
           ],
         ),

@@ -13,9 +13,18 @@ class HttpProfileRepository implements ProfileRepository {
   UserProfile _snapshot = const UserProfile();
 
   @override
-  UserProfile load() {
-    _refresh();
-    return _snapshot;
+  UserProfile load() => _snapshot;
+
+  @override
+  Future<UserProfile> refresh() async {
+    final result = await guardApi(
+      () => _dio.get<dynamic>('/api/v1/profile'),
+      (data) => UserProfileDto.fromJson(asJsonObject(data)).toEntity(),
+    );
+    return switch (result) {
+      Success<UserProfile>(:final data) => _snapshot = data,
+      Failure<UserProfile>(:final error) => throw error,
+    };
   }
 
   @override
@@ -27,27 +36,21 @@ class HttpProfileRepository implements ProfileRepository {
       ),
       (data) => UserProfileDto.fromJson(asJsonObject(data)).toEntity(),
     );
-    if (saved is Success<UserProfile>) {
-      _snapshot = saved.data;
-    } else {
-      _snapshot = profile;
+    switch (saved) {
+      case Success<UserProfile>(:final data):
+        _snapshot = data;
+      case Failure<UserProfile>(:final error):
+        throw error;
     }
   }
 
   @override
   Future<void> clear() async {
-    await guardApi(
+    final result = await guardApi(
       () => _dio.delete<dynamic>('/api/v1/profile'),
       (_) => true,
     );
+    if (result case Failure<bool>(:final error)) throw error;
     _snapshot = const UserProfile();
-  }
-
-  Future<void> _refresh() async {
-    final result = await guardApi(
-      () => _dio.get<dynamic>('/api/v1/profile'),
-      (data) => UserProfileDto.fromJson(asJsonObject(data)).toEntity(),
-    );
-    if (result is Success<UserProfile>) _snapshot = result.data;
   }
 }

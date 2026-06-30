@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/ui/app_bottom_sheet.dart';
 import '../../../domain/entities/user_profile.dart';
@@ -20,6 +21,9 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider);
+    final isHttp = ref.watch(
+      appConfigProvider.select((cfg) => cfg.dataSource == DataSource.http),
+    );
 
     if (profile.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -106,7 +110,7 @@ class ProfilePage extends ConsumerWidget {
                     ),
                     _FooterLink(
                       label: '数据如何使用',
-                      onTap: () => _showDataUsage(context),
+                      onTap: () => _showDataUsage(context, isHttp: isHttp),
                     ),
                   ],
                 ),
@@ -209,18 +213,24 @@ class _FooterLink extends StatelessWidget {
   }
 }
 
-void _showDataUsage(BuildContext context) {
+void _showDataUsage(BuildContext context, {required bool isHttp}) {
   showDialog(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('数据如何使用'),
-      content: const Text(
-        '你的个人档案仅保存在本机，用于：\n\n'
-        '• 个性化导师推荐\n'
-        '• 生成 outreach 邮件\n'
-        '• 匹配度分析\n\n'
-        'LLM 模式下，档案信息会随请求发送给大模型用于解析。'
-        '你随时可以在「我的档案」中修改或删除数据。',
+      content: Text(
+        isHttp
+            ? '真实后端模式下，你的个人档案会同步到后端，用于：\n\n'
+                  '• 个性化导师推荐\n'
+                  '• 生成 outreach 邮件\n'
+                  '• 匹配度分析\n\n'
+                  '你随时可以在「我的档案」中修改，或在「设置」中删除远端资料。'
+            : '你的个人档案仅保存在本机，用于：\n\n'
+                  '• 个性化导师推荐\n'
+                  '• 生成 outreach 邮件\n'
+                  '• 匹配度分析\n\n'
+                  'LLM 模式下，档案信息会随请求发送给大模型用于解析。'
+                  '你随时可以在「我的档案」中修改或删除数据。',
       ),
       actions: [
         TextButton(

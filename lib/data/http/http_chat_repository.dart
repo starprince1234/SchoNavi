@@ -160,9 +160,10 @@ class HttpChatRepository implements ChatRepository {
             .whereType<Map>()
             .map((raw) {
               final json = Map<String, dynamic>.from(raw);
-              return ChatMessageDto.fromJson(
-                json,
-              ).toEntity(json['id']?.toString() ?? '');
+              _requiredDateTime(json['created_at'], 'message.created_at');
+              return ChatMessageDto.fromJson(json).toEntity(
+                json['id']?.toString() ?? '',
+              );
             })
             .toList(growable: false),
       );
@@ -187,9 +188,10 @@ class HttpChatRepository implements ChatRepository {
                   professorName: professorId.isEmpty ? '该导师' : professorId,
                   university: '',
                   college: null,
-                  createdAt:
-                      DateTime.tryParse(json['created_at']?.toString() ?? '') ??
-                      DateTime.now(),
+                  createdAt: _requiredDateTime(
+                    json['created_at'],
+                    'created_at',
+                  ),
                 );
               })
               .toList(growable: false);
@@ -201,4 +203,14 @@ class HttpChatRepository implements ChatRepository {
     () => _dio.delete<dynamic>('/api/v1/chat/sessions/$forkId'),
     (_) {},
   );
+}
+
+DateTime _requiredDateTime(Object? value, String field) {
+  final raw = value?.toString();
+  if (raw == null || raw.isEmpty) {
+    throw FormatException('missing $field');
+  }
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) throw FormatException('invalid $field: $raw');
+  return parsed;
 }

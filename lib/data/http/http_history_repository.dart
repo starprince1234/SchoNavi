@@ -107,7 +107,10 @@ class HttpHistoryRepository implements HistoryRepository {
       ),
       (data) => SearchHistoryItemDto.fromJson(asJsonObject(data)).toEntity(),
     );
-    final saved = result is Success<SearchHistoryItem> ? result.data : item;
+    final saved = switch (result) {
+      Success<SearchHistoryItem>(:final data) => data,
+      Failure<SearchHistoryItem>(:final error) => throw error,
+    };
     _setSnapshot(
       [
         saved,

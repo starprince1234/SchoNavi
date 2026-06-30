@@ -71,8 +71,15 @@ class ChatMessageDto {
     relatedRecommendations: relatedRecommendations
         .map((d) => d.toEntity())
         .toList(),
-    status: ChatMessageStatus.values.byName(status),
-    kind: ChatMessageKind.values.byName(kind),
-    feedback: ChatMessageFeedback.values.byName(feedback),
+    status: _enumByName(ChatMessageStatus.values, status, 'status'),
+    kind: _enumByName(ChatMessageKind.values, kind, 'kind'),
+    feedback: _enumByName(ChatMessageFeedback.values, feedback, 'feedback'),
   );
+}
+
+T _enumByName<T extends Enum>(List<T> values, String name, String field) {
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  throw FormatException('unknown $field: $name');
 }

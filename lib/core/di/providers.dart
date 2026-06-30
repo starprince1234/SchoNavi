@@ -16,12 +16,15 @@ import '../../data/ai/llm_quick_actions_source.dart';
 import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
 import '../../data/fixtures/competition_catalog_repository_impl.dart';
+import '../../data/http/api_auth.dart';
 import '../../data/http/http_chat_repository.dart';
 import '../../data/http/http_conversation_repository.dart';
+import '../../data/http/http_competition_catalog_repository.dart';
 import '../../data/http/http_comparison_repository.dart';
 import '../../data/http/http_competition_recommendation_repository.dart';
 import '../../data/http/http_favorite_repository.dart';
 import '../../data/http/http_history_repository.dart';
+import '../../data/http/http_home_config_repository.dart';
 import '../../data/local/local_chat_history_store.dart';
 import '../../data/local/conversation_database.dart';
 import '../../data/local/conversation_legacy_migrator.dart';
@@ -41,9 +44,12 @@ import '../../data/http/http_profile_repository.dart';
 import '../../data/http/http_quick_actions_source.dart';
 import '../../data/http/http_recommendation_need_classifier.dart';
 import '../../data/http/http_recommendation_repository.dart';
+import '../../data/mock/mock_home_config_repository.dart';
 import '../../data/mock/mock_home_prompt_repository.dart';
 import '../../domain/entities/favorite_item.dart';
+import '../../domain/entities/home_config.dart';
 import '../../domain/entities/home_prompt.dart';
+import '../../domain/entities/recommended_competition.dart';
 import '../../domain/entities/search_history_item.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/repositories/conversation_repository.dart';
@@ -52,6 +58,7 @@ import '../../domain/repositories/competition_catalog_repository.dart';
 import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../../domain/repositories/history_repository.dart';
+import '../../domain/repositories/home_config_repository.dart';
 import '../../domain/repositories/home_prompt_repository.dart';
 import '../../domain/repositories/match_analysis_repository.dart';
 import '../../domain/repositories/outreach_email_repository.dart';
@@ -75,18 +82,52 @@ import '../storage/shared_preferences_local_store.dart';
 
 final mockDbProvider = Provider<MockDb>((ref) => MockDb());
 
+BaseOptions _apiBaseOptions(AppConfig cfg) {
+  return BaseOptions(
+    baseUrl: cfg.api.baseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 30),
+    sendTimeout: const Duration(seconds: 10),
+    headers: const {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+  );
+}
+
+final apiIdentityDioProvider = Provider<Dio>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  return Dio(_apiBaseOptions(cfg));
+});
+
+final anonymousCredentialStoreProvider = Provider<AnonymousCredentialStore>(
+  (ref) => const SecureAnonymousCredentialStore(FlutterSecureStorage()),
+);
+
+final apiAuthenticatorProvider = Provider<ApiAuthenticator>((ref) {
+  return ApiAuthenticator(
+    ref.watch(apiIdentityDioProvider),
+    ref.watch(anonymousCredentialStoreProvider),
+  );
+});
+
+/// Authenticated Dio for the first-party API. Tests may still override
+/// [dioProvider]; [apiDioProvider] intentionally follows it for compatibility.
 final dioProvider = Provider<Dio>((ref) {
   final cfg = ref.watch(appConfigProvider);
+  return Dio(_apiBaseOptions(cfg))
+    ..interceptors.add(ApiAuthInterceptor(ref.watch(apiAuthenticatorProvider)));
+});
+
+final apiDioProvider = Provider<Dio>((ref) => ref.watch(dioProvider));
+
+final llmDioProvider = Provider<Dio>((ref) {
   return Dio(
     BaseOptions(
-      baseUrl: cfg.api.baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
       sendTimeout: const Duration(seconds: 10),
-      headers: const {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
+      headers: const {'Accept': 'application/json'},
     ),
   );
 });
@@ -95,7 +136,7 @@ final llmClientProvider = Provider<LlmClient>((ref) {
   final cfg = ref.watch(appConfigProvider);
   if (!cfg.llm.isConfigured) return const MissingLlmClient();
   final base = DeepSeekLlmClient(
-    dio: ref.watch(dioProvider),
+    dio: ref.watch(llmDioProvider),
     apiKey: cfg.llm.apiKey,
     baseUrl: cfg.llm.baseUrl,
     model: cfg.llm.model,
@@ -132,7 +173,7 @@ final recommendationNeedClassifierProvider =
           ref.watch(llmClientProvider),
         ),
         DataSource.http => HttpRecommendationNeedClassifier(
-          ref.watch(dioProvider),
+          ref.watch(apiDioProvider),
         ),
       };
     });
@@ -142,7 +183,7 @@ final recommendationNeedClassifierProvider =
 final quickActionsSourceProvider = Provider<QuickActionsSource>((ref) {
   return switch (ref.watch(appConfigProvider).dataSource) {
     DataSource.llm => LlmQuickActionsSource(ref.watch(llmClientProvider)),
-    DataSource.http => HttpQuickActionsSource(ref.watch(dioProvider)),
+    DataSource.http => HttpQuickActionsSource(ref.watch(apiDioProvider)),
   };
 });
 
@@ -157,7 +198,7 @@ final recommendationRepositoryProvider = Provider<RecommendationRepository>((
         candidates: ref.watch(professorCandidateSourceProvider),
       );
     case DataSource.http:
-      return HttpRecommendationRepository(ref.watch(dioProvider));
+      return HttpRecommendationRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -171,15 +212,25 @@ final competitionRecommendationRepositoryProvider =
           );
         case DataSource.http:
           return HttpCompetitionRecommendationRepository(
-            ref.watch(dioProvider),
+            ref.watch(apiDioProvider),
           );
       }
     });
 
 final competitionCatalogRepositoryProvider =
-    Provider<CompetitionCatalogRepository>(
-  (_) => const StaticCompetitionCatalogRepository(),
-);
+    Provider<CompetitionCatalogRepository>((ref) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm => const StaticCompetitionCatalogRepository(),
+    DataSource.http => HttpCompetitionCatalogRepository(
+      ref.watch(apiDioProvider),
+    ),
+  };
+});
+
+final competitionByIdProvider =
+    FutureProvider.family<RecommendedCompetition?, String>((ref, id) {
+  return ref.watch(competitionCatalogRepositoryProvider).fetchById(id);
+});
 
 final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
@@ -187,7 +238,7 @@ final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
     case DataSource.llm:
       return MockProfessorRepository(ref.watch(mockDbProvider));
     case DataSource.http:
-      return HttpProfessorRepository(ref.watch(dioProvider));
+      return HttpProfessorRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -201,13 +252,9 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
         historyStore: LocalChatHistoryStore(ref.watch(localStoreProvider)),
       );
     case DataSource.http:
-      return HttpChatRepository(ref.watch(dioProvider));
+      return HttpChatRepository(ref.watch(apiDioProvider));
   }
 });
-
-final anonymousCredentialStoreProvider = Provider<AnonymousCredentialStore>(
-  (ref) => const SecureAnonymousCredentialStore(FlutterSecureStorage()),
-);
 
 final conversationDatabaseProvider = Provider<ConversationDatabase>((ref) {
   final database = ConversationDatabase();
@@ -245,8 +292,7 @@ final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
       );
     case DataSource.http:
       return HttpConversationRepository(
-        ref.watch(dioProvider),
-        ref.watch(anonymousCredentialStoreProvider),
+        ref.watch(apiDioProvider),
       );
   }
 });
@@ -260,7 +306,7 @@ final comparisonRepositoryProvider = Provider<ComparisonRepository>((ref) {
         professorRepository: professorRepo,
       );
     case DataSource.http:
-      return HttpComparisonRepository(ref.watch(dioProvider));
+      return HttpComparisonRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -271,7 +317,7 @@ final matchAnalysisRepositoryProvider = Provider<MatchAnalysisRepository>((
     case DataSource.llm:
       return AiMatchAnalysisRepository(ref.watch(llmClientProvider));
     case DataSource.http:
-      return HttpMatchAnalysisRepository(ref.watch(dioProvider));
+      return HttpMatchAnalysisRepository(ref.watch(apiDioProvider));
   }
 });
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -280,7 +326,7 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
     case DataSource.llm:
       return LocalProfileRepository(ref.watch(localStoreProvider));
     case DataSource.http:
-      return HttpProfileRepository(ref.watch(dioProvider));
+      return HttpProfileRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -292,7 +338,7 @@ final outreachEmailRepositoryProvider = Provider<OutreachEmailRepository>((
     case DataSource.llm:
       return AiOutreachEmailRepository(ref.watch(llmClientProvider));
     case DataSource.http:
-      return HttpOutreachEmailRepository(ref.watch(dioProvider));
+      return HttpOutreachEmailRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -305,7 +351,7 @@ final profileExtractionRepositoryProvider =
           ref.watch(llmClientProvider),
         ),
         DataSource.http => HttpProfileExtractionRepository(
-          ref.watch(dioProvider),
+          ref.watch(apiDioProvider),
         ),
       };
     });
@@ -315,8 +361,22 @@ final homePromptRepositoryProvider = Provider<HomePromptRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   return switch (cfg.dataSource) {
     DataSource.llm => const MockHomePromptRepository(),
-    DataSource.http => HttpHomePromptRepository(ref.watch(dioProvider)),
+    DataSource.http => HttpHomePromptRepository(ref.watch(apiDioProvider)),
   };
+});
+
+final homeConfigRepositoryProvider = Provider<HomeConfigRepository>((ref) {
+  return switch (ref.watch(appConfigProvider).dataSource) {
+    DataSource.llm => const MockHomeConfigRepository(),
+    DataSource.http => HttpHomeConfigRepository(ref.watch(apiDioProvider)),
+  };
+});
+
+final homeConfigProvider = FutureProvider.family<HomeConfig, String>((
+  ref,
+  mode,
+) {
+  return ref.watch(homeConfigRepositoryProvider).fetchConfig(mode);
 });
 
 /// 首页快捷 prompt 列表，按模式（mentor / competition）缓存。
@@ -324,7 +384,9 @@ final homePromptsProvider = FutureProvider.family<List<HomePrompt>, String>((
   ref,
   mode,
 ) {
-  return ref.watch(homePromptRepositoryProvider).fetchPrompts(mode);
+  return ref.watch(homeConfigProvider(mode).future).then(
+        (config) => config.prompts,
+      );
 });
 
 /// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
@@ -353,7 +415,7 @@ final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
     case DataSource.llm:
     case DataSource.http:
       repo = cfg.dataSource == DataSource.http
-          ? HttpFavoriteRepository(ref.watch(dioProvider))
+          ? HttpFavoriteRepository(ref.watch(apiDioProvider))
           : LocalFavoriteRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
@@ -387,7 +449,7 @@ final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
     case DataSource.llm:
     case DataSource.http:
       repo = cfg.dataSource == DataSource.http
-          ? HttpHistoryRepository(ref.watch(dioProvider))
+          ? HttpHistoryRepository(ref.watch(apiDioProvider))
           : LocalHistoryRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {

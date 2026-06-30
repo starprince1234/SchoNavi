@@ -39,6 +39,9 @@ class LocalProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<UserProfile> refresh() async => load();
+
+  @override
   Future<void> save(UserProfile profile) => _store.setJson(storageKey, {
     if (profile.name != null) 'name': profile.name,
     if (profile.degreeStage != null) 'degree_stage': profile.degreeStage,

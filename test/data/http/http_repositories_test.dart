@@ -4,20 +4,23 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scho_navi/core/auth/anonymous_credential_store.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/http/http_chat_repository.dart';
 import 'package:scho_navi/data/http/http_conversation_repository.dart';
+import 'package:scho_navi/data/http/http_favorite_repository.dart';
 import 'package:scho_navi/data/http/http_history_repository.dart';
 import 'package:scho_navi/data/http/http_professor_repository.dart';
+import 'package:scho_navi/data/http/http_profile_repository.dart';
 import 'package:scho_navi/data/http/http_recommendation_repository.dart';
+import 'package:scho_navi/domain/entities/favorite_item.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/search_history_item.dart';
+import 'package:scho_navi/domain/entities/user_profile.dart';
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.handler);
@@ -35,19 +38,6 @@ class _FakeAdapter implements HttpClientAdapter {
   ) {
     return handler(options);
   }
-}
-
-class _MemoryCredentials implements AnonymousCredentialStore {
-  String? token = 'test-token';
-
-  @override
-  Future<void> clear() async => token = null;
-
-  @override
-  Future<String?> readToken() async => token;
-
-  @override
-  Future<void> writeToken(String token) async => this.token = token;
 }
 
 void main() {
@@ -180,6 +170,8 @@ void main() {
                   'source_turn_id': 'source-turn',
                   'professor_id': 'p_001',
                   'revision': 1,
+                  'created_at': '2026-06-28T10:00:00.000Z',
+                  'updated_at': '2026-06-28T10:00:00.000Z',
                 },
                 'turns': [
                   {
@@ -188,6 +180,8 @@ void main() {
                     'ordinal': 0,
                     'status': 'completed',
                     'user_message_id': 'source-user',
+                    'created_at': '2026-06-28T10:00:00.000Z',
+                    'updated_at': '2026-06-28T10:00:00.000Z',
                   },
                   {
                     'id': 'fork-turn',
@@ -195,6 +189,8 @@ void main() {
                     'ordinal': 0,
                     'status': 'completed',
                     'user_message_id': 'fork-user',
+                    'created_at': '2026-06-28T10:01:00.000Z',
+                    'updated_at': '2026-06-28T10:01:00.000Z',
                   },
                 ],
                 'messages': [
@@ -227,7 +223,6 @@ void main() {
             }),
           ),
         ),
-        _MemoryCredentials(),
       );
 
       final result = await repo.loadSession('fork-1');
@@ -240,6 +235,94 @@ void main() {
       ]);
     },
   );
+
+  test('HttpConversationRepository sends matching idempotency key', () async {
+    RequestOptions? captured;
+    final repo = HttpConversationRepository(
+      _dio((options) async {
+        captured = options;
+        return _sseBody([
+          'event: ack\n'
+              'data: {"session_id":"s_123","turn_id":"t_1","attempt_id":"a_1","revision":3}\n\n',
+        ]);
+      }),
+    );
+
+    final events = await repo
+        .submitTurn(
+          sessionId: 's_123',
+          text: 'hello',
+          expectedRevision: 3,
+          requestId: '0197b763-8a74-7000-8000-000000000001',
+        )
+        .toList();
+
+    expect(events, hasLength(1));
+    expect(
+      captured!.headers['Idempotency-Key'],
+      '0197b763-8a74-7000-8000-000000000001',
+    );
+    expect(
+      (captured!.data as Map)['request_id'],
+      captured!.headers['Idempotency-Key'],
+    );
+  });
+
+  test('HttpConversationRepository rejects malformed completed SSE payload',
+      () async {
+    final repo = HttpConversationRepository(
+      _dio((_) async {
+        return _sseBody([
+          'event: completed\n'
+              'data: {"session_id":"s_123","turn_id":"t_1","attempt_id":"a_1","revision":4}\n\n',
+        ]);
+      }),
+    );
+
+    await expectLater(
+      repo
+          .submitTurn(
+            sessionId: 's_123',
+            text: 'hello',
+            expectedRevision: 3,
+          )
+          .toList(),
+      throwsA(
+        isA<ValidationException>().having(
+          (error) => error.message,
+          'message',
+          contains('服务返回格式异常'),
+        ),
+      ),
+    );
+  });
+
+  test('HttpChatRepository does not synthesize missing fork createdAt',
+      () async {
+    final repo = HttpChatRepository(
+      _dio(
+        (_) async => _jsonString(
+          jsonEncode({
+            'code': 0,
+            'message': 'ok',
+            'data': {
+              'items': [
+                {
+                  'id': 'fork-1',
+                  'root_session_id': 's_123',
+                  'professor_id': 'p_001',
+                },
+              ],
+            },
+          }),
+        ),
+      ),
+    );
+
+    final result = await repo.listForks(mainSessionId: 's_123');
+
+    expect((result as Failure).error, isA<ServerException>());
+  });
 
   test('HttpHistoryRepository lists search history from envelope', () async {
     RequestOptions? captured;
@@ -298,6 +381,81 @@ void main() {
       'preferred_locations': ['上海'],
       'recommendation_count': 1,
     });
+  });
+
+  test('HttpProfileRepository does not update snapshot when save fails',
+      () async {
+    final repo = HttpProfileRepository(
+      _dio(
+        (_) async => _jsonString(
+          jsonEncode({
+            'code': 40001,
+            'message': '输入内容不合法',
+            'data': null,
+          }),
+        ),
+      ),
+    );
+
+    await expectLater(
+      repo.save(const UserProfile(name: '张三')),
+      throwsA(isA<ValidationException>()),
+    );
+
+    expect(repo.load().isEmpty, isTrue);
+  });
+
+  test('HttpFavoriteRepository does not remove snapshot when delete fails',
+      () async {
+    var calls = 0;
+    final repo = HttpFavoriteRepository(
+      _dio((_) async {
+        calls++;
+        if (calls == 1) {
+          return _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {'favorited': true, 'item': _favoriteJson('p_001')},
+            }),
+          );
+        }
+        return _jsonString(
+          jsonEncode({
+            'code': 50001,
+            'message': '服务异常，请稍后重试',
+            'data': null,
+          }),
+        );
+      }),
+    );
+
+    await repo.add(_favoriteItem('p_001'));
+    await expectLater(repo.remove('p_001'), throwsA(isA<ValidationException>()));
+
+    expect(repo.list().map((item) => item.professorId), contains('p_001'));
+  });
+
+  test('HttpHistoryRepository does not add snapshot when post fails', () async {
+    final repo = HttpHistoryRepository(
+      _dio(
+        (_) async => _jsonString(
+          jsonEncode({
+            'code': 50001,
+            'message': '服务异常，请稍后重试',
+            'data': null,
+          }),
+        ),
+      ),
+      now: () => DateTime.utc(2026, 6, 15, 10),
+    );
+
+    await expectLater(
+      repo.addFromResult(prompt: '医学影像 上海', result: _recommendationResult()),
+      throwsA(isA<ValidationException>()),
+    );
+
+    expect(repo.list(), isEmpty);
   });
 
   test(
@@ -374,6 +532,28 @@ Map<String, dynamic> _historyJson(String sessionId) => <String, dynamic>{
   'preferred_locations': ['上海'],
   'recommendation_count': 1,
 };
+
+Map<String, dynamic> _favoriteJson(String professorId) => <String, dynamic>{
+  'professor_id': professorId,
+  'name': '张三',
+  'university': '上海交通大学',
+  'college': '电子信息与电气工程学院',
+  'title': '教授',
+  'research_fields': ['医学影像'],
+  'homepage_url': 'https://example.edu.cn',
+  'favorited_at': '2026-06-15T10:00:00.000Z',
+};
+
+FavoriteItem _favoriteItem(String professorId) => FavoriteItem(
+  professorId: professorId,
+  name: '张三',
+  university: '上海交通大学',
+  college: '电子信息与电气工程学院',
+  title: '教授',
+  researchFields: const ['医学影像'],
+  homepageUrl: 'https://example.edu.cn',
+  favoritedAt: DateTime.utc(2026, 6, 15, 10),
+);
 
 Map<String, dynamic> _conversationMessageJson({
   required String id,

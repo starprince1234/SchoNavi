@@ -11,6 +11,9 @@ class MockProfileRepository implements ProfileRepository {
   UserProfile load() => _profile;
 
   @override
+  Future<UserProfile> refresh() async => _profile;
+
+  @override
   Future<void> save(UserProfile profile) async {
     await Future<void>.delayed(const Duration(milliseconds: 100));
     _profile = profile;

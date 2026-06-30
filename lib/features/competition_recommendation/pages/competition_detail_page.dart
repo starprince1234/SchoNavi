@@ -25,21 +25,56 @@ class CompetitionDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final base = ref.read(competitionCatalogRepositoryProvider).findById(
-          competitionId,
+    final baseAsync = ref.watch(competitionByIdProvider(competitionId));
+    return baseAsync.when(
+      data: (base) {
+        if (base == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: Center(
+              child: Text(
+                '未找到该竞赛',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+          );
+        }
+        return _CompetitionDetailBody(
+          competitionId: competitionId,
+          base: base,
+          recommended: recommended,
         );
-    if (base == null) {
-      return Scaffold(
+      },
+      loading: () => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Scaffold(
         appBar: AppBar(),
         body: Center(
           child: Text(
-            '未找到该竞赛',
+            '竞赛信息加载失败，请稍后重试',
             style: Theme.of(context).textTheme.bodyLarge,
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
+class _CompetitionDetailBody extends ConsumerWidget {
+  const _CompetitionDetailBody({
+    required this.competitionId,
+    required this.base,
+    required this.recommended,
+  });
+
+  final String competitionId;
+  final RecommendedCompetition base;
+  final RecommendedCompetition? recommended;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     // 目录事实优先；recommended 仅补 AI 字段与匹配度。
     final merged = recommended == null
         ? base

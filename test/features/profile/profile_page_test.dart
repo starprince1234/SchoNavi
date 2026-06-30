@@ -13,6 +13,8 @@ class _Repo implements ProfileRepository {
   @override
   UserProfile load() => _p;
   @override
+  Future<UserProfile> refresh() async => load();
+  @override
   Future<void> save(UserProfile profile) async => _p = profile;
   @override
   Future<void> clear() async {}
