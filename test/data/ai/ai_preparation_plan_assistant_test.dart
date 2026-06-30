@@ -27,6 +27,31 @@ class _StubLlm implements LlmClient {
   }) => throw UnimplementedError();
 }
 
+/// 按调用次数返回不同结果的 LLM stub：第 i 次（i 从 0 起）返回 `_outs[i]`。
+/// 用于验证重试行为（畸形 → 合法的自愈）。
+class _SequenceLlm implements LlmClient {
+  _SequenceLlm(this._outs);
+  final List<Result<String>> _outs;
+  int callCount = 0;
+
+  @override
+  Future<Result<String>> complete({
+    required List<LlmMessage> messages,
+    bool jsonMode = false,
+    double temperature = 0.7,
+  }) async {
+    final i = callCount;
+    callCount++;
+    return _outs[i];
+  }
+
+  @override
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) => throw UnimplementedError();
+}
+
 PreparationPlan _plan() => PreparationPlan(
       id: 'pp_1',
       competition: CompetitionSnapshot(
@@ -186,5 +211,60 @@ void main() {
     final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
     expect(r, isA<Failure<AssistantReply>>());
     expect((r as Failure).error, isA<ServerException>());
+  });
+
+  test('```json 代码块包裹的 JSON 仍可解析（清洗）', () async {
+    final wrapped = '```json\n${jsonEncode(_validReplyJson())}\n```';
+    final llm = _StubLlm(Success(wrapped));
+    final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
+    expect(r, isA<Success<AssistantReply>>());
+    final data = (r as Success<AssistantReply>).data;
+    expect(data.changeSet.id, 'cs_1');
+    expect(data.changeSet.cards.length, 2);
+  });
+
+  test('thinking 前缀 + 尾部多余文本仍可解析（取首 { 到末 }）', () async {
+    final noisy =
+        '好的，我来调整。\n{"reply":"已调整","change_set":${jsonEncode(_validReplyJson()['change_set'])}}\n以上是建议。';
+    final llm = _StubLlm(Success(noisy));
+    final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
+    expect(r, isA<Success<AssistantReply>>());
+    final data = (r as Success<AssistantReply>).data;
+    expect(data.reply, '已调整');
+    expect(data.changeSet.cards.length, 2);
+  });
+
+  test('首次畸形 + 第二次合法 → 重试后 Success', () async {
+    final llm = _SequenceLlm([
+      const Success('not json at all'),
+      Success(jsonEncode(_validReplyJson())),
+    ]);
+    final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
+    expect(r, isA<Success<AssistantReply>>());
+    expect(llm.callCount, 2);
+  });
+
+  test('MissingLlm 错误直接 Failure，不重试（调用次数==1）', () async {
+    final llm = _SequenceLlm([
+      const Failure(MissingLlmConfigurationException()),
+      const Failure(MissingLlmConfigurationException()),
+      const Failure(MissingLlmConfigurationException()),
+    ]);
+    final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
+    expect(r, isA<Failure<AssistantReply>>());
+    expect((r as Failure).error, isA<MissingLlmConfigurationException>());
+    expect(llm.callCount, 1);
+  });
+
+  test('连续 3 次畸形 JSON → Failure(ServerException)，调用次数==3', () async {
+    final llm = _SequenceLlm([
+      const Success('not json'),
+      const Success('also not json'),
+      const Success('{ broken'),
+    ]);
+    final r = await AiPreparationPlanAssistant(llm).suggestChanges(_req());
+    expect(r, isA<Failure<AssistantReply>>());
+    expect((r as Failure).error, isA<ServerException>());
+    expect(llm.callCount, 3);
   });
 }

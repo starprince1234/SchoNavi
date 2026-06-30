@@ -229,7 +229,7 @@ void main() {
     expect(t.takeException(), isNull);
   });
 
-  testWidgets('AppBar 无日历图标，PopupMenu 含调整目标日期', (t) async {
+  testWidgets('AppBar 无日历图标，更多菜单含调整目标日期', (t) async {
     final container = await bootstrap();
     await container.read(preparationPlanRepositoryProvider).save(_plan());
     await t.pumpWidget(
@@ -248,7 +248,8 @@ void main() {
       ),
       findsNothing,
     );
-    await t.tap(find.byType(PopupMenuButton<String>));
+    // 顶部三点按钮打开自定义更多菜单（bottom sheet）。
+    await t.tap(find.byIcon(Icons.more_vert));
     await t.pumpAndSettle();
     expect(find.text('调整目标日期'), findsOneWidget);
     expect(find.text('归档计划'), findsOneWidget);
@@ -270,7 +271,7 @@ void main() {
     await t.tap(fab);
     await t.pumpAndSettle();
     // 抽屉标题与输入条出现。
-    expect(find.text('AI 助手'), findsOneWidget);
+    expect(find.text('竞航小助手'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
   });
 

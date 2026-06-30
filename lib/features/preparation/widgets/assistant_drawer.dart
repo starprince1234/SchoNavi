@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/assistant_turn.dart';
+import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/plan_change_card.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../providers/preparation_assistant_controller.dart';
@@ -126,6 +127,23 @@ class _PreparationAssistantDrawerState
               .declineCard(turn, card),
         ));
       }
+    }
+    if (state.pendingUserMessage != null) {
+      messages.add(Padding(
+        key: ValueKey('${widget.planId}_pending_user'),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: ChatMessageBubble(
+          message: ChatMessage(
+            id: '${widget.planId}_pending_user',
+            role: ChatRole.user,
+            content: state.pendingUserMessage!,
+            createdAt: DateTime.now(),
+            relatedRecommendations: const [],
+            status: ChatMessageStatus.done,
+          ),
+          onTapRecommendation: (_) {},
+        ),
+      ));
     }
     if (state.sending) {
       messages.add(const Padding(
@@ -264,7 +282,7 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('AI 助手',
+                const Text('竞航小助手',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 Text(title,
                     style: TextStyle(fontSize: 12, color: AppColors.inkSoft),

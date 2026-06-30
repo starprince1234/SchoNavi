@@ -11,6 +11,7 @@ import '../providers/preparation_providers.dart';
 import '../widgets/assistant_drawer.dart';
 import '../widgets/preparation_anchor_bar.dart';
 import '../widgets/preparation_countdown.dart';
+import '../widgets/preparation_date_picker.dart';
 import '../widgets/preparation_phase_timeline.dart';
 import '../widgets/preparation_task_list.dart';
 
@@ -232,22 +233,10 @@ class _PreparationPlanDetailPageState
       appBar: AppBar(
         title: Text(plan.competition.name),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'targetDate') {
-                _changeTargetDate(plan);
-              } else if (v == 'archive') {
-                _confirmArchive(plan);
-              } else if (v == 'delete') {
-                _confirmDelete(plan);
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'targetDate', child: Text('调整目标日期')),
-              PopupMenuDivider(),
-              PopupMenuItem(value: 'archive', child: Text('归档计划')),
-              PopupMenuItem(value: 'delete', child: Text('删除计划')),
-            ],
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            tooltip: '更多',
+            onPressed: () => _openPlanMoreMenu(plan),
           ),
         ],
       ),
@@ -271,7 +260,7 @@ class _PreparationPlanDetailPageState
       ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'preparation_assistant_${plan.id}',
-        tooltip: 'AI 助手',
+        tooltip: '竞航小助手',
         backgroundColor: AppColors.indigo,
         foregroundColor: Colors.white,
         onPressed: () => _openAssistant(plan),
@@ -296,6 +285,22 @@ class _PreparationPlanDetailPageState
         child: PreparationAssistantDrawer(planId: plan.id, plan: plan),
       ),
     );
+  }
+
+  void _openPlanMoreMenu(PreparationPlan plan) {
+    showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PlanMoreSheet(plan: plan),
+    ).then((v) {
+      if (v == 'targetDate') {
+        _changeTargetDate(plan);
+      } else if (v == 'archive') {
+        _confirmArchive(plan);
+      } else if (v == 'delete') {
+        _confirmDelete(plan);
+      }
+    });
   }
 
   // ── 任务完成 / 撤销 ────────────────────────────────────────────────────
@@ -423,12 +428,14 @@ class _PreparationPlanDetailPageState
   Future<void> _changeTargetDate(PreparationPlan plan) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final picked = await showDatePicker(
+    final sel = await showPreparationDatePicker(
       context: context,
-      initialDate: plan.targetDate,
+      mode: PreparationDatePickerMode.single,
       firstDate: today.add(const Duration(days: 1)),
       lastDate: today.add(const Duration(days: 365 * 3)),
+      initial: PreparationDateSelection(single: plan.targetDate),
     );
+    final picked = sel?.single;
     if (picked == null || !mounted) return;
 
     final result = PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
@@ -668,6 +675,91 @@ class _TaskEditDialogState extends State<_TaskEditDialog> {
         ),
         FilledButton(onPressed: _submit, child: const Text('保存')),
       ],
+    );
+  }
+}
+
+/// 备赛详情页右上角「更多」自定义 bottom sheet（替换原生 PopupMenuButton）。
+class _PlanMoreSheet extends StatelessWidget {
+  const _PlanMoreSheet({required this.plan});
+
+  final PreparationPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 6),
+              child: Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.inkFaint.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            _MoreItem(
+              icon: Icons.event_outlined,
+              color: AppColors.indigo,
+              title: '调整目标日期',
+              onTap: () => Navigator.pop(context, 'targetDate'),
+            ),
+            Divider(height: 1, thickness: 1, color: AppColors.line),
+            _MoreItem(
+              icon: Icons.archive_outlined,
+              color: AppColors.inkSoft,
+              title: '归档计划',
+              onTap: () => Navigator.pop(context, 'archive'),
+            ),
+            Divider(height: 1, thickness: 1, color: AppColors.line),
+            _MoreItem(
+              icon: Icons.delete_outline,
+              color: AppColors.danger,
+              title: '删除计划',
+              isLast: true,
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreItem extends StatelessWidget {
+  const _MoreItem({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.inkFaint),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
 }

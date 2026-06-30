@@ -728,6 +728,62 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('发送瞬间用户消息乐观显示（AI 回复到达前）', (t) async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'))
+      ..httpClientAdapter = FakeBackendAdapter();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig(
+            dataSource: DataSource.http,
+            api: const ApiConfig(baseUrl: 'https://fake.local'),
+          ),
+        ),
+        dioProvider.overrideWithValue(dio),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
+    );
+    addTearDown(container.dispose);
+    addTearDown(dio.close);
+    addTearDown(() {
+      if (!completer.isCompleted) {
+        completer.complete(const AssistantReply(
+          reply: '',
+          changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
+          requestId: '',
+        ));
+      }
+    });
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(id: 'pp_1', revision: 0));
+
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), '乐观显示这条');
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_upward));
+    await t.pump(); // 让 send 同步前缀生效：pendingUserMessage 已置位。
+
+    // AI 尚未回复（completer 未 complete）：用户消息已立即出现。
+    expect(find.textContaining('乐观显示这条'), findsOneWidget);
+    // AI 固定回复尚未出现。
+    expect(find.textContaining('我整理了两项可单独确认的调整'), findsNothing);
+  });
+
+  testWidgets('header 显示「竞航小助手」标题', (t) async {
+    final container = await _bootstrap();
+    await t.pumpWidget(_harness(container));
+    await t.pumpAndSettle();
+
+    expect(find.text('竞航小助手'), findsOneWidget);
+  });
 }
 
 /// 模拟真实仓库 CAS 语义的仓库（与 [LocalPreparationPlanRepository.save]

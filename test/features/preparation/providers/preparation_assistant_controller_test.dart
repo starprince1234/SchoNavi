@@ -375,4 +375,92 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(ctrl.state.turns, hasLength(1)); // send 仍完成
   });
+
+  test('send 瞬间 pendingUserMessage 立即置位（乐观显示）', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('往后挪一周');
+    // 尚未 complete：sending=true，pendingUserMessage 已置位，turns 未追加。
+    expect(ctrl.state.sending, isTrue);
+    expect(ctrl.state.pendingUserMessage, '往后挪一周');
+    expect(ctrl.state.turns, isEmpty);
+
+    completer.complete(
+      const AssistantReply(
+        reply: '已调整',
+        changeSet: PlanChangeSet(
+          id: 'cs_1',
+          basePlanRevision: 1,
+          cards: [],
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    // 成功后 pendingUserMessage 清空，turns 追加真实 turn。
+    expect(ctrl.state.sending, isFalse);
+    expect(ctrl.state.pendingUserMessage, isNull);
+    expect(ctrl.state.turns, hasLength(1));
+    expect(ctrl.state.turns.first.userMessage, '往后挪一周');
+  });
+
+  test('send 失败后 pendingUserMessage 清空并追加 error turn', () async {
+    final completer = Completer<AssistantReply>();
+    final fake = _ControllableAssistant(completer);
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
+      ),
+      preparationPlanAssistantProvider.overrideWithValue(fake),
+    ]);
+    addTearDown(container.dispose);
+    await container.read(preparationPlanRepositoryProvider).save(
+      _plan(revision: 0),
+    );
+
+    final ctrl = container.read(
+      preparationAssistantControllerProvider('pp_1').notifier,
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    ctrl.send('问');
+    expect(ctrl.state.pendingUserMessage, '问');
+
+    completer.completeError(Exception('boom'));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(ctrl.state.sending, isFalse);
+    expect(ctrl.state.pendingUserMessage, isNull);
+    expect(ctrl.state.turns, hasLength(1));
+    expect(ctrl.state.turns.first.error, isTrue);
+    expect(ctrl.state.turns.first.userMessage, '问');
+  });
 }

@@ -25,6 +25,7 @@ class PreparationAssistantControllerState {
     required this.cardStatuses,
     required this.applying,
     required this.cardErrors,
+    this.pendingUserMessage,
   });
 
   final PreparationPlan? currentPlan;
@@ -34,6 +35,7 @@ class PreparationAssistantControllerState {
   final Map<String, Map<String, ChangeCardStatus>> cardStatuses;
   final Set<String> applying;
   final Map<String, String> cardErrors;
+  final String? pendingUserMessage;
 
   static const empty = PreparationAssistantControllerState(
     currentPlan: null,
@@ -43,6 +45,7 @@ class PreparationAssistantControllerState {
     cardStatuses: {},
     applying: {},
     cardErrors: {},
+    pendingUserMessage: null,
   );
 
   PreparationAssistantControllerState copyWith({
@@ -53,6 +56,7 @@ class PreparationAssistantControllerState {
     Map<String, Map<String, ChangeCardStatus>>? cardStatuses,
     Set<String>? applying,
     Map<String, String>? cardErrors,
+    String? pendingUserMessage,
   }) =>
       PreparationAssistantControllerState(
         currentPlan: currentPlan ?? this.currentPlan,
@@ -62,6 +66,7 @@ class PreparationAssistantControllerState {
         cardStatuses: cardStatuses ?? this.cardStatuses,
         applying: applying ?? this.applying,
         cardErrors: cardErrors ?? this.cardErrors,
+        pendingUserMessage: pendingUserMessage,
       );
 }
 
@@ -125,7 +130,7 @@ class PreparationAssistantController
         )
         .toList();
     final requestId = 'req_${DateTime.now().millisecondsSinceEpoch}';
-    state = state.copyWith(sending: true);
+    state = state.copyWith(sending: true, pendingUserMessage: trimmed);
     final request = PlanAssistantRequest(
       planId: planId,
       calendarToday: CalendarDate.normalize(DateTime.now()),
@@ -166,6 +171,7 @@ class PreparationAssistantController
               for (final c in data.changeSet.cards) c.id: c.status,
             },
           },
+          pendingUserMessage: null,
         );
       case Failure():
         final turn = AssistantTurn(
@@ -182,6 +188,7 @@ class PreparationAssistantController
         state = state.copyWith(
           sending: false,
           turns: [...state.turns, turn],
+          pendingUserMessage: null,
         );
     }
   }
@@ -324,6 +331,7 @@ class PreparationAssistantController
       cardStatuses: const {},
       applying: const {},
       cardErrors: const {},
+      pendingUserMessage: null,
     );
   }
 }

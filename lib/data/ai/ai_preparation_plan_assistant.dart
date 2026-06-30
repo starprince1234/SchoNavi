@@ -24,27 +24,44 @@ class AiPreparationPlanAssistant implements PreparationPlanAssistant {
 
   final LlmClient _llm;
 
+  /// LLM 调用重试上限。仅对「调用成功但 JSON 畸形」重试；`MissingLlm`/
+  /// 网络等 `complete` 本身 Failure 的错误不重试，避免无 key 时空转。
+  static const int _maxAttempts = 3;
+
   @override
   Future<Result<AssistantReply>> suggestChanges(
     PlanAssistantRequest request,
   ) async {
-    final result = await _llm.complete(
-      messages: [
-        const LlmMessage('system', _systemPrompt),
-        LlmMessage('user', _buildUserMessage(request)),
-      ],
-      jsonMode: true,
-      temperature: 0.3,
-    );
+    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
+      final result = await _llm.complete(
+        messages: [
+          const LlmMessage('system', _systemPrompt),
+          LlmMessage('user', _buildUserMessage(request)),
+        ],
+        jsonMode: true,
+        temperature: 0.3,
+      );
 
-    if (result is Failure<String>) return Failure(result.error);
+      // complete 本身失败（未配置/网络/超时）：不重试，直接返回。
+      if (result is Failure<String>) return Failure(result.error);
 
-    try {
       final content = (result as Success<String>).data;
-      final decoded = jsonDecode(content);
-      if (decoded is! Map<String, dynamic>) {
-        return const Failure(ServerException());
-      }
+      final decoded = _decodeOnce(request, content);
+      if (decoded is Success<AssistantReply>) return decoded;
+      // JSON 畸形：若仍有重试次数，继续重试（靠 LLM 输出随机性自愈）。
+    }
+    return const Failure(ServerException());
+  }
+
+  /// 单次解码：JSON 清洗 → 解析 → validator 校验。任意步骤失败返回
+  /// `Failure(ServerException)`，由调用方决定是否重试。
+  Result<AssistantReply> _decodeOnce(
+    PlanAssistantRequest request,
+    String content,
+  ) {
+    try {
+      final decoded = jsonDecode(_extractJson(content));
+      if (decoded is! Map<String, dynamic>) return const Failure(ServerException());
       final snapshot = PlanSnapshot.fromPlan(
         request.planSnapshot,
         calendarToday: request.calendarToday,
@@ -54,6 +71,24 @@ class AiPreparationPlanAssistant implements PreparationPlanAssistant {
     } catch (_) {
       return const Failure(ServerException());
     }
+  }
+
+  /// 从 LLM 输出中提取 JSON 文本。DeepSeek `deepseek-v4-flash` 默认 thinking
+  /// 模式，即使 `jsonMode=true` 也可能返回 ```json 代码块包裹、thinking 前缀
+  /// 或首尾多余文本。先剥代码块，再取首个 `{` 到末个 `}` 的子串。
+  static String _extractJson(String content) {
+    var text = content.trim();
+    final fence = RegExp(r'```(?:json)?\s*([\s\S]*?)\s*```');
+    final fenceMatch = fence.firstMatch(text);
+    if (fenceMatch != null) {
+      text = fenceMatch.group(1)!.trim();
+    }
+    final firstBrace = text.indexOf('{');
+    final lastBrace = text.lastIndexOf('}');
+    if (firstBrace != -1 && lastBrace > firstBrace) {
+      text = text.substring(firstBrace, lastBrace + 1);
+    }
+    return text.trim();
   }
 
   String _buildUserMessage(PlanAssistantRequest req) {
