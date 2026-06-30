@@ -23,6 +23,7 @@ import '../../data/http/http_competition_catalog_repository.dart';
 import '../../data/http/http_comparison_repository.dart';
 import '../../data/http/http_competition_recommendation_repository.dart';
 import '../../data/http/http_favorite_repository.dart';
+import '../../data/http/http_feedback_repository.dart';
 import '../../data/http/http_history_repository.dart';
 import '../../data/http/http_home_config_repository.dart';
 import '../../data/local/local_chat_history_store.dart';
@@ -46,6 +47,7 @@ import '../../data/http/http_recommendation_need_classifier.dart';
 import '../../data/http/http_recommendation_repository.dart';
 import '../../data/mock/mock_home_config_repository.dart';
 import '../../data/mock/mock_home_prompt_repository.dart';
+import '../../data/mock/mock_feedback_repository.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/entities/home_config.dart';
 import '../../domain/entities/home_prompt.dart';
@@ -57,6 +59,7 @@ import '../../domain/repositories/comparison_repository.dart';
 import '../../domain/repositories/competition_catalog_repository.dart';
 import '../../domain/repositories/competition_recommendation_repository.dart';
 import '../../domain/repositories/favorite_repository.dart';
+import '../../domain/repositories/feedback_repository.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../../domain/repositories/home_config_repository.dart';
 import '../../domain/repositories/home_prompt_repository.dart';
@@ -219,18 +222,18 @@ final competitionRecommendationRepositoryProvider =
 
 final competitionCatalogRepositoryProvider =
     Provider<CompetitionCatalogRepository>((ref) {
-  return switch (ref.watch(appConfigProvider).dataSource) {
-    DataSource.llm => const StaticCompetitionCatalogRepository(),
-    DataSource.http => HttpCompetitionCatalogRepository(
-      ref.watch(apiDioProvider),
-    ),
-  };
-});
+      return switch (ref.watch(appConfigProvider).dataSource) {
+        DataSource.llm => const StaticCompetitionCatalogRepository(),
+        DataSource.http => HttpCompetitionCatalogRepository(
+          ref.watch(apiDioProvider),
+        ),
+      };
+    });
 
 final competitionByIdProvider =
     FutureProvider.family<RecommendedCompetition?, String>((ref, id) {
-  return ref.watch(competitionCatalogRepositoryProvider).fetchById(id);
-});
+      return ref.watch(competitionCatalogRepositoryProvider).fetchById(id);
+    });
 
 final professorRepositoryProvider = Provider<ProfessorRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
@@ -291,9 +294,7 @@ final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
             ref.read(conversationLegacyMigratorProvider).migrateIfNeeded(),
       );
     case DataSource.http:
-      return HttpConversationRepository(
-        ref.watch(apiDioProvider),
-      );
+      return HttpConversationRepository(ref.watch(apiDioProvider));
   }
 });
 
@@ -384,9 +385,9 @@ final homePromptsProvider = FutureProvider.family<List<HomePrompt>, String>((
   ref,
   mode,
 ) {
-  return ref.watch(homeConfigProvider(mode).future).then(
-        (config) => config.prompts,
-      );
+  return ref
+      .watch(homeConfigProvider(mode).future)
+      .then((config) => config.prompts);
 });
 
 /// 在 main() 中用 SharedPreferences.getInstance() 的结果 override。
@@ -464,4 +465,12 @@ final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
 
 final searchHistoryProvider = StreamProvider<List<SearchHistoryItem>>((ref) {
   return ref.watch(historyRepositoryProvider).watch();
+});
+
+final feedbackRepositoryProvider = Provider<FeedbackRepository>((ref) {
+  final cfg = ref.watch(appConfigProvider);
+  return switch (cfg.dataSource) {
+    DataSource.http => HttpFeedbackRepository(ref.watch(apiDioProvider)),
+    DataSource.llm => MockFeedbackRepository(),
+  };
 });
