@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart format *)",
+      "Bash(\"C:/Users/xc150/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" d8ce5a4 *)",
+      "Bash(\"C:/Users/xc150/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" f61f000 *)",
+      "Bash(\"C:/Users/xc150/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package\" 4b27e8c d7b2dba)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
+    ]
+  }
+}
