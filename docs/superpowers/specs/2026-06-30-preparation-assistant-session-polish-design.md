@@ -243,9 +243,13 @@ class PreparationAssistantControllerState {
 
 ```dart
 class PreparationAssistantController
-    extends FamilyNotifier<PreparationAssistantControllerState, String> {
+    extends Notifier<PreparationAssistantControllerState> {
+  PreparationAssistantController(this.planId);
+
+  final String planId;
+
   @override
-  PreparationAssistantControllerState build(String planId) {
+  PreparationAssistantControllerState build() {
     // 首帧后加载历史与最新计划。
     Future.microtask(() => load());
     return PreparationAssistantControllerState.empty;
@@ -259,8 +263,8 @@ class PreparationAssistantController
       ref.read(preparationPlanAssistantProvider);
 
   Future<void> load() async {
-    final plan = _repo.findById(arg!);
-    final turns = await _store.list(arg!);
+    final plan = _repo.findById(planId);
+    final turns = await _store.list(planId);
     final expected = <String, int>{};
     final statuses = <String, Map<String, ChangeCardStatus>>{};
     for (final t in turns) {
@@ -283,11 +287,13 @@ provider（非 autoDispose，注册在 [preparation_providers.dart](../../../lib
 
 ```dart
 final preparationAssistantControllerProvider =
-    NotifierProviderFamily<PreparationAssistantController,
+    NotifierProvider.family<PreparationAssistantController,
         PreparationAssistantControllerState, String>(
   PreparationAssistantController.new,
 );
 ```
+
+> **Riverpod 3 适配**：本 repo pin Riverpod 3.2.1，无 `FamilyNotifier`/`arg!`。controller 用 `extends Notifier<State>` + 构造注入 `final String planId`，无参 `build()`，`NotifierProvider.family<Controller,State,String>(Controller.new)`（Riverpod 3 把 family arg 传给构造函数）。读取约定：`ref.watch(provider(planId))` 返回 state，`ref.read(provider(planId).notifier)` 返回 notifier 供调方法。下文所有 `arg!` 均指 `planId` 字段。
 
 **关键不变量：非 autoDispose。** 关闭抽屉只销毁 widget，不销毁 controller，在途 `Future` 继续持有在 controller 上。App 整体退出才释放。
 
@@ -297,7 +303,7 @@ final preparationAssistantControllerProvider =
 Future<void> send(String text) async {
   final trimmed = text.trim();
   if (trimmed.isEmpty || state.sending) return;
-  final plan = _repo.findById(arg!);           // 最新快照，非 widget.plan
+  final plan = _repo.findById(planId);           // 最新快照，非 widget.plan
   if (plan == null) return;                     // 计划已删
   final history = state.turns
       .slice(state.turns.length > 10 ? state.turns.length - 10 : 0)
@@ -309,7 +315,7 @@ Future<void> send(String text) async {
   final requestId = 'req_${DateTime.now().millisecondsSinceEpoch}';
   state = state.copyWith(sending: true);
   final request = PlanAssistantRequest(
-    planId: arg!,
+    planId: planId,
     calendarToday: CalendarDate.normalize(DateTime.now()),
     basePlanRevision: plan.revision,          // 最新 revision
     planSnapshot: plan,
@@ -323,16 +329,17 @@ Future<void> send(String text) async {
     case Success(:final data):
       final turn = AssistantTurn(
         id: 'turn_${DateTime.now().millisecondsSinceEpoch}',
-        planId: arg!,
+        planId: planId,
         userMessage: trimmed,
         reply: data.reply,
         createdAt: DateTime.now().toUtc(),
         cardStatuses: {for (final c in data.changeSet.cards) c.id: c.status},
         changeSet: data.changeSet,
-        requestId: requestId,
+        // 服务端 echo 优先，缺失时回退客户端 requestId（spec §3.1 契约）。
+        requestId: data.requestId.isNotEmpty ? data.requestId : requestId,
       );
-      await _store.append(arg!, turn);
-      final latest = _repo.findById(arg!);    // 重读，避免接受流程基线过旧
+      await _store.append(planId, turn);
+      final latest = _repo.findById(planId);    // 重读，避免接受流程基线过旧
       state = state.copyWith(
         currentPlan: latest,
         sending: false,
@@ -346,16 +353,16 @@ Future<void> send(String text) async {
     case Failure():
       final turn = AssistantTurn(
         id: 'turn_${DateTime.now().millisecondsSinceEpoch}_err',
-        planId: arg!,
+        planId: planId,
         userMessage: trimmed,
         reply: '助手调用失败，请稍后重试。',
         createdAt: DateTime.now().toUtc(),
         cardStatuses: const {},
         error: true,
-        requestId: requestId,
+        requestId: requestId,                  // 失败无 echo，保留客户端 requestId
       );
       // 失败 turn 是否落盘：落盘（便于重开看到失败记录与重试入口），但无卡。
-      await _store.append(arg!, turn);
+      await _store.append(planId, turn);
       state = state.copyWith(sending: false, turns: [...state.turns, turn]);
   }
 }
@@ -367,11 +374,11 @@ Future<void> send(String text) async {
 
 > 在途 vs 失败 turn 的区别：「在途」指 `sending:true`、请求尚未返回的状态——只活在内存，永不落盘。「失败 turn」指请求已返回 `Failure` 后构造的 `error:true` turn——已结束，正常落盘。两者不矛盾：本设计不落盘的是「未完成的进行中状态」，不是「已完成的失败结果」。
 
-**`.slice` 扩展迁移**：现有抽屉末尾的私有 `extension _ListSlice<T> on List<T>`（[assistant_drawer.dart:531-533](../../../lib/features/preparation/widgets/assistant_drawer.dart#L531-L533)）随 `send` 逻辑搬入 controller 文件（或提到共享 utils），`state.turns.slice(...)` 依赖它。
+**`.slice` 扩展**：`send` 用到的私有 `extension _ListSlice<T> on List<T>`（`List<T> slice(int start)`）随 `send` 逻辑放入 controller 文件，`state.turns.slice(...)` 依赖它。
 
-### 4.3 accept / decline（搬迁自现有 drawer）
+### 4.3 accept / decline（搬迁自原 drawer）
 
-把 [assistant_drawer.dart:178-293](../../../lib/features/preparation/widgets/assistant_drawer.dart#L178-L293) 的 `_acceptCard` / `_cascadeStale` / `_declineCard` / `_persistStatuses` 逻辑**原样搬入 controller**，行为完全不变：
+把原 drawer 的 `_acceptCard` / `_cascadeStale` / `_declineCard` / `_persistStatuses` 逻辑**原样搬入 controller**，行为完全不变：
 
 - 接受：读最新计划 → revision 不匹配则本 change set 剩余 pending 卡标 stale；匹配则 `PlanChangeApplier.applyCard` → CAS save → 成功标 applied + bump expectedRevision；`ConflictException` 卡保持 pending + 错误；已 applied 幂等返回。
 - 拒绝：declined 折叠，可撤销回 pending。
@@ -385,7 +392,7 @@ Future<void> send(String text) async {
 ```dart
 Future<void> clearContext() async {
   if (state.sending) return;                   // 发送中禁止清理
-  await _store.clear(arg!);                      // 复用现有 AssistantHistoryStore.clear
+  await _store.clear(planId);                      // 复用现有 AssistantHistoryStore.clear
   state = state.copyWith(
     turns: const [],
     expectedRevisions: const {},
@@ -414,14 +421,14 @@ Future<void> clearContext() async {
 
 [lib/features/preparation/widgets/assistant_drawer.dart](../../../lib/features/preparation/widgets/assistant_drawer.dart)：
 
-- 改为 `ConsumerWidget`（或保留 `ConsumerStatefulWidget` 但只持有 `_input`/`_scroll`）。
-- watch `preparationAssistantControllerProvider(widget.planId)` 取 state。
+- 改为 `ConsumerStatefulWidget`（保留 `_input`/`_scroll` 在 Stateful 内）。
+- watch `preparationAssistantControllerProvider(widget.planId)` 取 state（Riverpod 3：`ref.watch` 返回 state）。
 - 移除 `_turns` / `_cardStatuses` / `_expectedRevisions` / `_applying` / `_cardErrors` / `_loading` 本地字段，全部读 state。
-- `_send` → `ref.read(controllerProvider).send(text)`，`_input.clear()` 仍由 UI 做。
-- `_acceptCard` / `_declineCard` → `ref.read(controllerProvider).acceptCard/declineCard(turn, card)`。
+- `_send` → `ref.read(controllerProvider(widget.planId).notifier).send(text)`，`_input.clear()` 仍由 UI 做。
+- `_acceptCard` / `_declineCard` → `ref.read(controllerProvider(widget.planId).notifier).acceptCard/declineCard(turn, card)`。
 - 渲染逻辑（`_buildConversation` 经 mapper + `ChatMessageBubble` + 横滑卡）不变。
-- `_loading` 判断改为 `state.sending`。
-- 构造参数：保留 `planId`；`plan` 参数可删（发送已不依赖），但 `_Header` 的标题（计划名）改为从 `state.currentPlan?.competition.name` 取，缺失时回退 `widget.plan` 兜底。**保留 `plan` 入参作兜底标题**，避免 controller 未加载完成时标题空白。
+- `_loading` 判断改为 `state.sending`（`sending` 已在 state 中）。
+- 构造参数：保留 `planId`；`plan` 参数保留作兜底标题——`_Header` 标题从 `state.currentPlan?.competition.name` 取，缺失时回退 `widget.plan.competition.name`，避免 controller 未加载完成时标题空白。
 
 ### 5.3 抽屉「清理上下文」入口
 
@@ -435,7 +442,7 @@ IconButton(
 ),
 ```
 
-`_confirmClear` 弹 `AlertDialog`：「清理上下文会清空本计划的助手对话历史，但不删除计划本身。确认清理？」→ 确认调 `ref.read(controllerProvider).clearContext()`。`sending` 时按钮禁用。
+`_confirmClear` 弹 `AlertDialog`：「清理上下文会清空本计划的助手对话历史，但不删除计划本身。确认清理？」→ 确认调 `ref.read(controllerProvider(widget.planId).notifier).clearContext()`。`sending` 时按钮禁用。
 
 ### 5.4 发送中禁用
 
