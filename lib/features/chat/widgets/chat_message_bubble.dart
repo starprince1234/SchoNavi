@@ -23,6 +23,8 @@ class ChatMessageBubble extends StatelessWidget {
     this.onRegenerate,
     this.onFeedback,
     this.onRerouteHome,
+    this.feedbackSessionId,
+    this.feedbackUserPrompt,
   });
 
   final ChatMessage message;
@@ -33,6 +35,8 @@ class ChatMessageBubble extends StatelessWidget {
   final void Function(String messageId, ChatMessageFeedback feedback)?
   onFeedback;
   final VoidCallback? onRerouteHome;
+  final String? feedbackSessionId;
+  final String? feedbackUserPrompt;
 
   /// AI 回复正文统一行高（spec §4.6 可测试常量），上机后微调。
   ///
@@ -60,9 +64,9 @@ class ChatMessageBubble extends StatelessWidget {
         isError && message.kind == ChatMessageKind.recommendation;
     final isStreaming = message.status == ChatMessageStatus.streaming;
 
-    final assistantStyle = DefaultTextStyle.of(context).style.copyWith(
-          height: ChatMessageBubble.assistantLineHeight,
-        );
+    final assistantStyle = DefaultTextStyle.of(
+      context,
+    ).style.copyWith(height: ChatMessageBubble.assistantLineHeight);
 
     final Widget body;
     if (isError && !isRecommendationError) {
@@ -104,8 +108,10 @@ class ChatMessageBubble extends StatelessWidget {
         ? content
         : (isError ? content : SelectionArea(child: content));
 
-    final double maxWidth =
-        math.min(360.0, MediaQuery.sizeOf(context).width * 0.78);
+    final double maxWidth = math.min(
+      360.0,
+      MediaQuery.sizeOf(context).width * 0.78,
+    );
 
     final Widget messageBody = isUser
         ? Container(
@@ -150,11 +156,37 @@ class ChatMessageBubble extends StatelessWidget {
               label: const Text('重试推荐'),
             ),
           ),
+        if (message.kind == ChatMessageKind.recommendation &&
+            message.status == ChatMessageStatus.done)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 2, bottom: 6),
+            child: _ActionButton(
+              tooltip: '反馈这条推荐',
+              icon: Icons.report_gmailerrorred_outlined,
+              onPressed: () => context.push(
+                Uri(
+                  path: '/feedback',
+                  queryParameters: <String, String>{
+                    'type': 'recommendation',
+                    if (message.id.isNotEmpty) 'mid': message.id,
+                    if (feedbackSessionId != null &&
+                        feedbackSessionId!.isNotEmpty)
+                      'sid': feedbackSessionId!,
+                    if (feedbackUserPrompt != null &&
+                        feedbackUserPrompt!.isNotEmpty)
+                      'prompt': feedbackUserPrompt!,
+                  },
+                ).toString(),
+              ),
+            ),
+          ),
         if (_showActions)
           _MessageActions(
             message: message,
             onRegenerate: onRegenerate,
             onFeedback: onFeedback,
+            feedbackSessionId: feedbackSessionId,
+            feedbackUserPrompt: feedbackUserPrompt,
           ),
         if (message.kind == ChatMessageKind.forkReroute &&
             message.status == ChatMessageStatus.done &&
@@ -195,12 +227,16 @@ class _MessageActions extends StatelessWidget {
     required this.message,
     this.onRegenerate,
     this.onFeedback,
+    this.feedbackSessionId,
+    this.feedbackUserPrompt,
   });
 
   final ChatMessage message;
   final void Function(String messageId)? onRegenerate;
   final void Function(String messageId, ChatMessageFeedback feedback)?
   onFeedback;
+  final String? feedbackSessionId;
+  final String? feedbackUserPrompt;
 
   @override
   Widget build(BuildContext context) {
@@ -277,11 +313,19 @@ class _MessageActions extends StatelessWidget {
             tooltip: '反馈这条推荐',
             icon: Icons.report_gmailerrorred_outlined,
             onPressed: () => context.push(
-              Uri(path: '/feedback', queryParameters: {
-                'type': 'recommendation',
-                'mid': message.id,
-                'prompt': message.content,
-              }).toString(),
+              Uri(
+                path: '/feedback',
+                queryParameters: <String, String>{
+                  'type': 'recommendation',
+                  'mid': message.id,
+                  if (feedbackSessionId != null &&
+                      feedbackSessionId!.isNotEmpty)
+                    'sid': feedbackSessionId!,
+                  if (feedbackUserPrompt != null &&
+                      feedbackUserPrompt!.isNotEmpty)
+                    'prompt': feedbackUserPrompt!,
+                },
+              ).toString(),
             ),
           ),
         ],

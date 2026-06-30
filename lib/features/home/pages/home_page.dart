@@ -475,7 +475,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       appConfigProvider.select((cfg) => cfg.dataSource == DataSource.llm),
     );
     final tabConfig = _TabConfig(
-      taglines: homeConfig?.taglines ??
+      taglines:
+          homeConfig?.taglines ??
           (allowLocalFallback ? _fallbackCurrentConfig.taglines : const []),
       quickTags: homeConfig?.quickTags ?? const [],
     );
@@ -685,6 +686,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   onFeedback: (id, feedback) => ref
                       .read(_chatProvider.notifier)
                       .setFeedback(id, feedback),
+                  feedbackSessionId: ref.read(_chatProvider).sessionId,
+                  feedbackUserPrompt: _userPromptForMessageIndex(state, index),
                 ),
               );
             },
@@ -759,7 +762,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             if (!_inConversation)
               Consumer(
                 builder: (context, ref, _) {
-                  final config = ref.watch(homeConfigProvider(_currentTab.name));
+                  final config = ref.watch(
+                    homeConfigProvider(_currentTab.name),
+                  );
                   final tags = config.value?.quickTags ?? const <String>[];
                   if (tags.isEmpty) return const SizedBox.shrink();
                   return SingleChildScrollView(
@@ -856,5 +861,14 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
     if (turnIndex < 0 || turnIndex >= state.turns.length) return null;
     return state.turns[turnIndex].id;
+  }
+
+  String? _userPromptForMessageIndex(ChatState state, int messageIndex) {
+    for (var i = messageIndex; i >= 0; i--) {
+      if (state.messages[i].role == ChatRole.user) {
+        return state.messages[i].content;
+      }
+    }
+    return null;
   }
 }

@@ -281,8 +281,7 @@ void main() {
       final box = c.decoration as BoxDecoration;
       return box.color != null && box.borderRadius != null;
     });
-    expect(bubbleContainers, isEmpty,
-        reason: '助手回复不应有带背景色的圆角气泡');
+    expect(bubbleContainers, isEmpty, reason: '助手回复不应有带背景色的圆角气泡');
     expect(find.byType(GptMarkdown), findsOneWidget);
   });
 
@@ -309,5 +308,19 @@ void main() {
 
   testWidgets('助手回复行高常量可读取且大于0', (tester) async {
     expect(ChatMessageBubble.assistantLineHeight, greaterThan(0));
+  });
+
+  testWidgets('推荐卡片 done 态展示反馈按钮', (tester) async {
+    await _pump(
+      tester,
+      _msg(
+        role: ChatRole.assistant,
+        content: '推荐如下',
+        status: ChatMessageStatus.done,
+        kind: ChatMessageKind.recommendation,
+      ),
+    );
+
+    expect(find.byTooltip('反馈这条推荐'), findsOneWidget);
   });
 }
