@@ -92,10 +92,16 @@ class MethodChannelPreparationReminderPlatform
   Future<void> _handleNativeCall(MethodCall call) async {
     if (call.method != 'openRoute') return;
     final route = call.arguments as String?;
-    if (route != null && route.startsWith('/preparation-plans')) {
+    if (route != null && _isAllowedRoute(route)) {
       _routeHandler?.call(route);
     }
   }
+
+  bool _isAllowedRoute(String route) =>
+      route == '/home' ||
+      route.startsWith('/home?') ||
+      route == '/preparation-plans' ||
+      route.startsWith('/preparation-plans/');
 
   ReminderNotificationStatus _status(String? value) => switch (value) {
     'granted' => ReminderNotificationStatus.granted,

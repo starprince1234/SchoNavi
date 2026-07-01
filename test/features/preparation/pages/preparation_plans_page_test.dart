@@ -68,8 +68,7 @@ GoRouter _router() => GoRouter(
   ],
 );
 
-class _FakePreparationReminderPlatform
-    implements PreparationReminderPlatform {
+class _FakePreparationReminderPlatform implements PreparationReminderPlatform {
   var pinWidgetCalls = 0;
   ReminderRouteHandler? routeHandler;
 
