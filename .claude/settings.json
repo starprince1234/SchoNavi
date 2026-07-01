@@ -11,7 +11,18 @@
       "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/**)",
       "Read(//c/Users/xc150/.pub-cache/hosted/**)",
       "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/gpt_markdown-1.1.7/**)",
-      "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/gpt_markdown-1.1.7/lib/**)"
+      "Read(//c/Users/xc150/AppData/Local/Pub/Cache/hosted/pub.dev/gpt_markdown-1.1.7/lib/**)",
+      "Bash(cmd /c \"flutter test test/features/profile/profile_intro_page_test.dart\")",
+      "Bash(\"D:/Program Files/Flutter/bin/flutter\" test test/features/profile/profile_intro_page_test.dart)",
+      "Bash(\"/d/Program Files/Flutter/flutter/bin/flutter\" test test/features/profile/profile_intro_page_test.dart)",
+      "Bash(which flutter *)",
+      "Read(//d/Program Files/Flutter/bin/**)",
+      "Bash(curl -sSL -o /tmp/sqlite3.x64.windows.dll \"https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-3.3.3/sqlite3.x64.windows.dll\")",
+      "Read(//tmp/**)",
+      "Bash(grep -rn \"sqlite3.x64.windows.dll\\\\|download\\\\|out_dir\\\\|File\\(\" \"D:/Androidprj/.pub-cache/hosted/pub.dev/sqlite3-3.3.3/\" --include=\"*.dart\" 2>/dev/null | head -30)",
+      "Read(//d/Androidprj/.pub-cache/hosted/pub.dev/sqlite3-3.3.3/**)",
+      "Read(//d/Androidprj/.pub-cache/hosted/pub.dev/sqlite3-3.3.3/lib/src/hook/**)",
+      "Bash(sha256sum /tmp/sqlite3.x64.windows.dll; echo \"---shared build dir---\"; ls -la \"D:/Androidprj/AIGC-LXJH/scho_navi/.dart_tool/hooks_runner/shared/sqlite3/build/\" 2>&1)"
     ]
   }
 }
