@@ -62,4 +62,23 @@ void main() {
       contains('<action android:name="android.intent.action.DATE_CHANGED"/>'),
     );
   });
+
+  test('values/colors.xml defines widget palette for light mode', () {
+    final colors = File(
+      'android/app/src/main/res/values/colors.xml',
+    ).readAsStringSync();
+    for (final name in [
+      'widget_surface',
+      'widget_border',
+      'widget_primary',
+      'widget_secondary',
+      'widget_accent',
+      'widget_text_primary',
+      'widget_text_secondary',
+      'widget_chip',
+      'widget_progress_track',
+    ]) {
+      expect(colors, contains('name="$name"'), reason: 'missing $name in light colors');
+    }
+  });
 }

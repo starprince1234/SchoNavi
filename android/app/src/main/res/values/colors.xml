@@ -4,4 +4,14 @@
     <color name="launch_paper">#FBF8F1</color>
     <!-- 冷调底色（= AppColors.paper #F8FAFC），与应用内 splash 动画底色一致 -->
     <color name="splash_paper">#F8FAFC</color>
+    <!-- Widget 日间调色板（对齐 AppColors 冷调玻璃拟态） -->
+    <color name="widget_surface">#FFFFFF</color>
+    <color name="widget_border">#E2E8F0</color>
+    <color name="widget_primary">#4F46E5</color>
+    <color name="widget_secondary">#0891B2</color>
+    <color name="widget_accent">#C2410C</color>
+    <color name="widget_text_primary">#0F172A</color>
+    <color name="widget_text_secondary">#475569</color>
+    <color name="widget_chip">#E0E7FF</color>
+    <color name="widget_progress_track">#E2E8F0</color>
 </resources>
