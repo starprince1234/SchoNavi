@@ -61,6 +61,11 @@ class PreparationWidgetProvider : AppWidgetProvider() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         appWidgetIds.forEach { ReminderStorage.deleteWidgetIndex(context, it) }
+        val manager = AppWidgetManager.getInstance(context)
+        val remaining = manager.getAppWidgetIds(
+            ComponentName(context, PreparationWidgetProvider::class.java),
+        )
+        if (remaining.isEmpty()) WidgetRotationScheduler.stop(context)
     }
 
     private fun layoutFor(options: Bundle): Int {
