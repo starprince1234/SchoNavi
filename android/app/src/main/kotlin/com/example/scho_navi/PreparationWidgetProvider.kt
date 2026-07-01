@@ -15,6 +15,7 @@ import java.time.temporal.ChronoUnit
 class PreparationWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "com.example.scho_navi.action.REFRESH_PREPARATION_WIDGET"
+        const val ACTION_ROTATE = "com.example.scho_navi.action.ROTATE_PREPARATION_WIDGET"
 
         fun refreshAll(context: Context) {
             context.sendBroadcast(
@@ -26,13 +27,19 @@ class PreparationWidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ACTION_REFRESH) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, PreparationWidgetProvider::class.java))
-            ids.forEach { render(context, manager, it, rotate = false) }
-            return
+        when (intent.action) {
+            ACTION_REFRESH -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, PreparationWidgetProvider::class.java))
+                ids.forEach { render(context, manager, it, rotate = false) }
+            }
+            ACTION_ROTATE -> {
+                val manager = AppWidgetManager.getInstance(context)
+                val ids = manager.getAppWidgetIds(ComponentName(context, PreparationWidgetProvider::class.java))
+                ids.forEach { render(context, manager, it, rotate = true) }
+            }
+            else -> super.onReceive(context, intent)
         }
-        super.onReceive(context, intent)
     }
 
     override fun onUpdate(
@@ -56,6 +63,17 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         appWidgetIds.forEach { ReminderStorage.deleteWidgetIndex(context, it) }
     }
 
+    private fun layoutFor(options: Bundle): Int {
+        val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+        return when {
+            minWidth < 180 || minHeight < 110 -> R.layout.preparation_widget_micro
+            minWidth < 250 -> R.layout.preparation_widget_small
+            minHeight < 180 -> R.layout.preparation_widget_wide
+            else -> R.layout.preparation_widget_hero
+        }
+    }
+
     private fun render(
         context: Context,
         manager: AppWidgetManager,
@@ -64,11 +82,7 @@ class PreparationWidgetProvider : AppWidgetProvider() {
     ) {
         val snapshot = ReminderStorage.loadSnapshot(context)
         val options = manager.getAppWidgetOptions(appWidgetId)
-        val expanded = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) >= 250
-        val views = RemoteViews(
-            context.packageName,
-            if (expanded) R.layout.preparation_widget_expanded else R.layout.preparation_widget_compact,
-        )
+        val views = RemoteViews(context.packageName, layoutFor(options))
         if (snapshot.plans.isEmpty()) {
             renderEmpty(context, views, appWidgetId)
             manager.updateAppWidget(appWidgetId, views)
@@ -136,7 +150,45 @@ class PreparationWidgetProvider : AppWidgetProvider() {
             R.id.widget_root,
             "${plan.competitionName}，${viewsCountdown(days)}，下一项${plan.nextTaskTitle ?: "任务已完成"}",
         )
+        bindPhaseRow(context, views, plan)
         manager.updateAppWidget(appWidgetId, views)
+    }
+
+    private fun bindPhaseRow(context: Context, views: RemoteViews, plan: ReminderPlan) {
+        val phases = plan.phases
+        val phaseViewIds = intArrayOf(
+            R.id.widget_phase_0, R.id.widget_phase_1, R.id.widget_phase_2,
+            R.id.widget_phase_3, R.id.widget_phase_4,
+        )
+        val labelViewIds = intArrayOf(
+            R.id.widget_phase_label_0, R.id.widget_phase_label_1, R.id.widget_phase_label_2,
+            R.id.widget_phase_label_3, R.id.widget_phase_label_4,
+        )
+        for (i in phaseViewIds.indices) {
+            if (i < phases.size) {
+                val phase = phases[i]
+                views.setViewVisibility(phaseViewIds[i], View.VISIBLE)
+                views.setViewVisibility(labelViewIds[i], View.VISIBLE)
+                val drawable = when (phase.status) {
+                    "completed" -> R.drawable.preparation_widget_phase_done
+                    "active" -> R.drawable.preparation_widget_phase_active
+                    else -> R.drawable.preparation_widget_phase_upcoming
+                }
+                views.setInt(phaseViewIds[i], "setBackgroundResource", drawable)
+                views.setTextViewText(labelViewIds[i], phase.title)
+                views.setTextColor(
+                    labelViewIds[i],
+                    if (phase.status == "active") {
+                        context.getColor(R.color.widget_primary)
+                    } else {
+                        context.getColor(R.color.widget_text_secondary)
+                    },
+                )
+            } else {
+                views.setViewVisibility(phaseViewIds[i], View.INVISIBLE)
+                views.setViewVisibility(labelViewIds[i], View.INVISIBLE)
+            }
+        }
     }
 
     private fun renderEmpty(context: Context, views: RemoteViews, appWidgetId: Int) {
