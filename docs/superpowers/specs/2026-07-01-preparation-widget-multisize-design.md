@@ -14,7 +14,7 @@
 
 1. **多尺寸**：提供 Micro（1×1/1×2）、Small（2×2）、Wide（4×2）、Hero（4×3）四档布局，按系统格子尺寸自适应。
 2. **视觉升级**：冷调玻璃拟态，倒计时+进度双视觉为主锚点（Micro 退化为倒计时大字 + 进度细线）；跟随系统明暗模式。
-3. **充分利用系统能力**：`targetCellWidth/Height` + `minResizeWidth/Height` + `resizeMode` 让用户长按拖拽边框自由调尺寸；`AlarmManager` 90s 间隔自动轮换多个进行中计划；保持一键 `requestPinAppWidget`。
+3. **充分利用系统能力**：`targetCellWidth/Height` + `minResizeWidth/Height` + `resizeMode` 让用户长按拖拽边框自由调尺寸；`AlarmManager` 30s 间隔自动轮换多个进行中计划；保持一键 `requestPinAppWidget`。
 4. **修复 Bug**：补齐 `values/colors.xml` 的 widget 调色板。
 
 ### 非目标（YAGNI）
@@ -38,7 +38,7 @@
 | [ReminderStorage.kt](android/app/src/main/kotlin/com/example/scho_navi/ReminderStorage.kt) | 解析 snapshot v1 | 解析新增 `phases` 字段，升 schemaVersion=2 |
 | [preparation_reminder.dart](lib/domain/entities/preparation_reminder.dart) | snapshot 实体 | 新增 `phases` 字段 + schemaVersion=2 |
 | [preparation_reminder_builder.dart](lib/domain/services/preparation_reminder_builder.dart) | 构建 snapshot | 计算每阶段 status 并填入 |
-| [PreparationWidgetProvider.kt](android/app/src/main/kotlin/com/example/scho_navi/PreparationWidgetProvider.kt) `rotate` | `onUpdate` 30min 轮换 | 新增 `WidgetRotationScheduler`（AlarmManager 90s） |
+| [PreparationWidgetProvider.kt](android/app/src/main/kotlin/com/example/scho_navi/PreparationWidgetProvider.kt) `rotate` | `onUpdate` 30min 轮换 | 新增 `WidgetRotationScheduler`（AlarmManager 30s） |
 | [ReminderScheduler.kt](android/app/src/main/kotlin/com/example/scho_navi/ReminderScheduler.kt) | 通知调度 | 不动，新增独立的 `WidgetRotationReceiver` |
 | [AndroidManifest.xml](android/app/src/main/AndroidManifest.xml) | 注册 WidgetProvider | 注册 `WidgetRotationReceiver` |
 | [test/android_manifest_test.dart](test/android_manifest_test.dart) | 断言 manifest 集成 | 扩充断言新 receiver + 四档布局资源存在 |
@@ -175,13 +175,13 @@ class PreparationReminderPhaseSummary {
 
 夜间（values-night）保留现有，仅 `widget_accent` 由 `#FDBA74` 保持。进度渐变用 `GradientDrawable`（`preparation_widget_progress.xml` 新增）替代纯色 `progressTint`。
 
-## 5. 自动轮换机制（AlarmManager 90s）
+## 5. 自动轮换机制（AlarmManager 30s）
 
 ### 5.1 新增 WidgetRotationScheduler
 
 新文件 `WidgetRotationScheduler.kt` + `WidgetRotationReceiver`：
 
-- `WidgetRotationScheduler.start(context)` / `stop(context)`：用 `AlarmManager.setRepeating(RTC, now+90s, 90_000ms, pi)` 排定。`RTC`（非 `_WAKEUP`）避免唤醒设备 —— 屏幕灭时不必轮换，亮屏后自然刷新。
+- `WidgetRotationScheduler.start(context)` / `stop(context)`：用 `AlarmManager.setRepeating(RTC, now+30s, 30_000ms, pi)` 排定。`RTC`（非 `_WAKEUP`）避免唤醒设备 —— 屏幕灭时不必轮换，亮屏后自然刷新。
 - `WidgetRotationReceiver.onReceive`：发送 `ACTION_ROTATE` 广播给 `PreparationWidgetProvider`（**非** 现有 `ACTION_REFRESH`）。
 - 触发点：
   - `MainActivity` `syncSnapshot` 成功后，按阈值 `start`/`stop`（见下）
@@ -201,7 +201,7 @@ class PreparationReminderPhaseSummary {
 
 ### 5.3 系统约束遵守
 
-- `setRepeating` 在 Android 12+ 仍可用（非 Doze-whitehole，但 90s 间隔对前台可见 widget 可接受）。若需更严格可用 `setExactAndAllowWhileIdle` 但会触发权限提示，本次不采用。
+- `setRepeating` 在 Android 12+ 仍可用（非 Doze-whitehole，但 30s 间隔对前台可见 widget 可接受）。若需更严格可用 `setExactAndAllowWhileIdle` 但会触发权限提示，本次不采用。
 - 无需新增权限（`AlarmManager` 不需声明权限，`setRepeating` 普通权限）。
 
 ## 6. 视觉与资源文件清单
@@ -250,7 +250,7 @@ CLAUDE.md 要求 UI 改动需运行 App 验证。本次为原生 widget，需：
 - `flutter run` 安装 App → 同步一个含 2+ 计划的 snapshot
 - 长按桌面添加 SchoNavi 小组件 → 拖拽边框在 1×1 / 2×2 / 4×2 / 4×3 间切换，确认四档正确切档
 - 切换系统明暗模式，确认两套调色板
-- 等待 90s 确认自动轮换到下一计划
+- 等待 30s 确认自动轮换到下一计划
 
 若本地无设备/模拟器，明确说明"未做实机验证"。
 
@@ -267,7 +267,7 @@ CLAUDE.md 要求 UI 改动需运行 App 验证。本次为原生 widget，需：
 
 ## 9. 风险与回退
 
-- **风险**：`setRepeating` 90s 在部分国产 ROM（MIUI/EMUI）被限制为最小间隔。**缓解**：若 `setRepeating` 失效，退化为 30min `onUpdate` 轮换（现状），不影响功能只影响体验。
+- **风险**：`setRepeating` 30s 在部分国产 ROM（MIUI/EMUI）被限制为最小间隔。**缓解**：若 `setRepeating` 失效，退化为 30min `onUpdate` 轮换（现状），不影响功能只影响体验。
 - **风险**：进度环预渲染 drawable 工作量大（11 档 × 渐变）。**缓解**：先用横条 ProgressBar 上线，进度环作为 Wide/Hero 的"视觉加分项"可后续补；spec 标注为 P1。
 - **回退**：Dart 侧仅扩展 snapshot 字段（向后兼容 v1，旧数据 `phases` 缺失按空列表解析，不破坏既有备赛/提醒业务）；原生侧为资源 + Kotlin 改动。回退即还原 layout 文件、`widget_info.xml` 与 Kotlin 新增文件，snapshot v2 字段保留无害。
 
@@ -276,7 +276,7 @@ CLAUDE.md 要求 UI 改动需运行 App 验证。本次为原生 widget，需：
 - [ ] 四档 layout 在对应尺寸下正确渲染，无内容溢出/截断
 - [ ] 用户长按拖拽 widget 边框能实时切档
 - [ ] 系统明暗切换后调色板正确（无未定义资源报错）
-- [ ] 多计划（≥2）时 90s 内自动轮换；单计划不轮换
+- [ ] 多计划（≥2）时 30s 内自动轮换；单计划不轮换
 - [ ] 空态（无进行中计划）显示"还没有进行中的备赛计划"
 - [ ] 点击任意档跳转对应计划详情页
 - [ ] `flutter test` 全绿（新增 builder/store 测试通过）
