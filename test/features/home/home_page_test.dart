@@ -5,9 +5,14 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/chat_result.dart';
+import 'package:scho_navi/domain/entities/conversation_aggregate.dart';
+import 'package:scho_navi/domain/entities/conversation_event.dart';
+import 'package:scho_navi/domain/entities/conversation_session.dart';
+import 'package:scho_navi/domain/entities/conversation_turn.dart';
 import 'package:scho_navi/domain/entities/fork_ref.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
@@ -19,6 +24,7 @@ import 'package:scho_navi/domain/entities/competition_recommendation_result.dart
 import 'package:scho_navi/domain/entities/recommended_competition.dart';
 import 'package:scho_navi/domain/repositories/chat_repository.dart';
 import 'package:scho_navi/domain/repositories/competition_recommendation_repository.dart';
+import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/home/pages/home_page.dart';
 import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
@@ -153,6 +159,168 @@ class _FakeNeedClassifier implements RecommendationNeedClassifier {
   }) async => false;
 }
 
+class _FakeConversationRepo implements ConversationRepository {
+  ConversationSession? _session;
+  ConversationTurn? _turn;
+  List<ChatMessage> _messages = const [];
+
+  @override
+  Future<Result<ConversationSession>> createSession({String? professorId}) async {
+    final now = DateTime(2026, 6, 30, 10);
+    final session = ConversationSession(
+      id: 'home-session',
+      kind: ConversationSessionKind.general,
+      rootSessionId: 'home-session',
+      ownerId: 'local',
+      revision: 0,
+      createdAt: now,
+      updatedAt: now,
+      title: '导师推荐',
+      professorId: professorId,
+    );
+    _session = session;
+    _messages = const [];
+    _turn = null;
+    return Success(session);
+  }
+
+  @override
+  Future<Result<ConversationAggregate>> loadSession(String sessionId) async {
+    final session = _session;
+    if (session == null || session.id != sessionId) {
+      return Failure(UnknownException());
+    }
+    return Success(
+      ConversationAggregate(
+        session: session,
+        turns: [?_turn],
+        messages: _messages,
+      ),
+    );
+  }
+
+  @override
+  Stream<ConversationEvent> submitTurn({
+    required String sessionId,
+    required String text,
+    required int expectedRevision,
+    String? requestId,
+  }) async* {
+    final session = _session;
+    if (session == null) return;
+    final now = DateTime(2026, 6, 30, 10, 1);
+    const turnId = 'turn-1';
+    const attemptId = 'attempt-1';
+    final user = ChatMessage(
+      id: 'user-1',
+      role: ChatRole.user,
+      content: text,
+      createdAt: now,
+      relatedRecommendations: const [],
+      status: ChatMessageStatus.done,
+    );
+    final assistant = ChatMessage(
+      id: 'assistant-1',
+      role: ChatRole.assistant,
+      content: '为你找到这些导师：',
+      createdAt: now,
+      relatedRecommendations: _recResult.recommendations,
+      status: ChatMessageStatus.done,
+      kind: ChatMessageKind.recommendation,
+    );
+    _turn = ConversationTurn(
+      id: turnId,
+      sessionId: sessionId,
+      ordinal: 0,
+      status: ConversationTurnStatus.completed,
+      userMessage: user,
+      route: ConversationRoute.recommendation,
+      activeAttemptId: attemptId,
+      createdAt: now,
+      updatedAt: now,
+    );
+    _messages = [user, assistant];
+    _session = ConversationSession(
+      id: session.id,
+      kind: session.kind,
+      rootSessionId: session.rootSessionId,
+      ownerId: session.ownerId,
+      revision: expectedRevision + 1,
+      createdAt: session.createdAt,
+      updatedAt: now,
+      sourceSessionId: session.sourceSessionId,
+      sourceTurnId: session.sourceTurnId,
+      professorId: session.professorId,
+      title: session.title,
+      deletedAt: session.deletedAt,
+      legacyContextIncomplete: session.legacyContextIncomplete,
+    );
+
+    yield const ConversationAcknowledged(
+      sessionId: 'home-session',
+      turnId: turnId,
+      attemptId: attemptId,
+      revision: 1,
+    );
+    yield const ConversationRouted(
+      sessionId: 'home-session',
+      turnId: turnId,
+      attemptId: attemptId,
+      revision: 1,
+      route: ConversationRoute.recommendation,
+    );
+    yield ConversationCompleted(
+      sessionId: 'home-session',
+      turnId: turnId,
+      attemptId: attemptId,
+      revision: 1,
+      message: assistant,
+      session: _session!,
+      quickActions: _recResult.followUpQuestions,
+    );
+  }
+
+  @override
+  Stream<ConversationEvent> regenerateTurn({
+    required String sessionId,
+    required String turnId,
+    required int expectedRevision,
+    String? requestId,
+  }) => const Stream.empty();
+
+  @override
+  Future<Result<ConversationSession>> forkSessionAtTurn({
+    required String sourceSessionId,
+    required String sourceTurnId,
+    required String professorId,
+  }) async => Failure(UnknownException());
+
+  @override
+  Future<Result<void>> cancelAttempt(String attemptId) async => const Success(null);
+
+  @override
+  Future<Result<void>> setMessageFeedback(
+    String messageId,
+    ChatMessageFeedback feedback,
+  ) async => const Success(null);
+
+  @override
+  Future<Result<List<ConversationSession>>> listSessions() async =>
+      Success([?_session]);
+
+  @override
+  Future<Result<List<ConversationSession>>> listForks(String rootSessionId) async =>
+      const Success([]);
+
+  @override
+  Future<Result<void>> deleteSession(String sessionId) async {
+    _session = null;
+    _turn = null;
+    _messages = const [];
+    return const Success(null);
+  }
+}
+
 Future<Widget> _wrap({bool configured = true}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
@@ -162,14 +330,6 @@ Future<Widget> _wrap({bool configured = true}) async {
       GoRoute(
         path: '/chat',
         builder: (_, s) => Text('chat-marker:${s.uri.queryParameters['q']}'),
-      ),
-      GoRoute(
-        path: '/recommendation',
-        builder: (_, _) => const Text('mentor-marker'),
-      ),
-      GoRoute(
-        path: '/competition-recommendation',
-        builder: (_, _) => const Text('competition-marker'),
       ),
       GoRoute(path: '/professor/:id', builder: (_, _) => const Placeholder()),
       GoRoute(path: '/profile/wizard', builder: (_, _) => const Text('wizard')),
@@ -183,6 +343,7 @@ Future<Widget> _wrap({bool configured = true}) async {
         AppConfig(llm: LlmConfig(apiKey: configured ? 'test-key' : '')),
       ),
       recommendationRepositoryProvider.overrideWithValue(_FakeRecRepo()),
+      conversationRepositoryProvider.overrideWithValue(_FakeConversationRepo()),
       competitionRecommendationRepositoryProvider.overrideWithValue(
         _FakeCompetitionRepo(),
       ),
@@ -255,6 +416,7 @@ void main() {
 
       // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
       expect(find.text('competition-marker'), findsNothing);
+      expect(find.byType(HomePage), findsOneWidget);
       expect(find.text('我想参加蓝桥杯', skipOffstage: false), findsOneWidget);
       expect(find.text('蓝桥杯'), findsOneWidget);
       expect(find.text('调整条件'), findsOneWidget);
@@ -317,6 +479,7 @@ void main() {
 
       // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
       expect(find.text('competition-marker'), findsNothing);
+      expect(find.byType(HomePage), findsOneWidget);
       expect(find.text('蓝桥杯'), findsOneWidget);
       expect(find.text('调整条件'), findsOneWidget);
     },

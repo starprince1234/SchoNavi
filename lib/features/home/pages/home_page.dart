@@ -33,14 +33,17 @@ import '../../../shared/widgets/scho_navi_logo.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/sliding_pill_switch.dart';
 
+/// 首页双 tab：导师推荐 / 竞赛推荐。公开以供路由层按 `?tab=` 预选。
+enum HomeTab { mentor, competition }
+
 class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.initialTab = HomeTab.mentor});
+
+  final HomeTab initialTab;
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
 }
-
-enum _HomeTab { mentor, competition }
 
 /// 首页副标题动效。后期可替换为 FadeSlideStrategy() / CrossfadeStrategy()。
 const SubtitleAnimationStrategy _kSubtitleStrategy = TypewriterStrategy();
@@ -54,8 +57,8 @@ class _TabConfig {
 
 class _HomePageState extends ConsumerState<HomePage> {
   static const int _maxLen = 1000;
-  static const Map<_HomeTab, _TabConfig> _fallbackTabConfigs = {
-    _HomeTab.mentor: _TabConfig(
+  static const Map<HomeTab, _TabConfig> _fallbackTabConfigs = {
+    HomeTab.mentor: _TabConfig(
       taglines: [
         '说说你想研究的方向，我帮你找到合适的导师',
         '想做哪个方向的研究？我来帮你找导师',
@@ -75,7 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         '推荐系统',
       ],
     ),
-    _HomeTab.competition: _TabConfig(
+    HomeTab.competition: _TabConfig(
       taglines: [
         '说说你的兴趣，我帮你找到适合的竞赛',
         '想参加什么样的比赛？我来帮你找',
@@ -110,7 +113,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _inConversationStarted = false;
   String? _competitionPrompt;
   int _messageCount = 0;
-  _HomeTab _currentTab = _HomeTab.mentor;
+  late HomeTab _currentTab = widget.initialTab;
 
   _TabConfig get _fallbackCurrentConfig => _fallbackTabConfigs[_currentTab]!;
 
@@ -140,7 +143,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final prompt = _controller.plainText.trim();
     if (prompt.isEmpty || _submitting) return;
     final config = ref.read(appConfigProvider);
-    final isMentor = _currentTab == _HomeTab.mentor;
+    final isMentor = _currentTab == HomeTab.mentor;
     if (isMentor &&
         config.dataSource == DataSource.llm &&
         !config.llm.isConfigured) {
@@ -208,7 +211,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _stopGeneration() => ref.read(_chatProvider.notifier).stop();
 
   void _startNewConversation() {
-    if (_currentTab == _HomeTab.competition) {
+    if (_currentTab == HomeTab.competition) {
       ref.read(competitionHomeProvider.notifier).reset();
       setState(() {
         _inConversation = false;
@@ -284,25 +287,26 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Color _tagColor(String tag, ColorScheme scheme) {
+    final isDark = scheme.brightness == Brightness.dark;
     if (tag == '北京' || tag == '上海' || tag == '江浙沪') {
-      return AppColors.cyanSoft;
+      return AppColors.cyanSoftOf(isDark);
     }
     if (tag == '博士申请' || tag == '硕士申请') {
-      return AppColors.indigoSoft;
+      return AppColors.indigoSoftOf(isDark);
     }
     if (tag == '计算机视觉' ||
         tag == '自然语言处理' ||
         tag == '机器人' ||
         tag == '人工智能' ||
         tag == '推荐系统') {
-      return AppColors.indigoSoft;
+      return AppColors.indigoSoftOf(isDark);
     }
     if (tag.contains('竞赛') ||
         tag == '挑战杯' ||
         tag == '互联网+' ||
         tag == '蓝桥杯' ||
         tag == '近期可报名') {
-      return AppColors.indigoSoft;
+      return AppColors.indigoSoftOf(isDark);
     }
     return scheme.surfaceContainer;
   }
@@ -506,8 +510,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   // 模式切换器，居中放大。
                   SizedBox(
                     width: 200,
-                    child: SlidingPillSwitch<_HomeTab>(
-                      values: const [_HomeTab.mentor, _HomeTab.competition],
+                    child: SlidingPillSwitch<HomeTab>(
+                      values: const [HomeTab.mentor, HomeTab.competition],
                       selected: _currentTab,
                       labels: const ['导师', '竞赛'],
                       onChanged: (value) {
@@ -523,9 +527,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: RotatingSubtitle(
                         phrases: tabConfig.taglines,
                         strategy: _kSubtitleStrategy,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: AppColors.inkSoft,
-                        ),
+	                        style: textTheme.bodyMedium?.copyWith(
+	                          color: scheme.onSurfaceVariant,
+	                        ),
                       ),
                     ),
                   ),
@@ -583,7 +587,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   /// 对话态：消息流（复用 ChatMessageBubble）+ 快捷操作横滑条。
   Widget _buildConversationContent(TextTheme textTheme, ColorScheme scheme) {
-    if (_currentTab == _HomeTab.competition) {
+    if (_currentTab == HomeTab.competition) {
       return _buildCompetitionResultContent();
     }
 
@@ -843,11 +847,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: SizedBox(
             width: 40,
             height: 40,
-            child: Icon(
-              Icons.arrow_upward,
-              color: _canSubmit ? Colors.white : AppColors.inkSoft,
-              size: 20,
-            ),
+	            child: Icon(
+	              Icons.arrow_upward,
+	              color: _canSubmit ? Colors.white : scheme.onSurfaceVariant,
+	              size: 20,
+	            ),
           ),
         ),
       ),

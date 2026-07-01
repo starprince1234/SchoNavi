@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import 'package:scho_navi/data/ai/ai_competition_recommendation_repository.dart'
 import 'package:scho_navi/data/ai/ai_profile_extraction_repository.dart';
 import 'package:scho_navi/data/ai/ai_recommendation_repository.dart';
 import 'package:scho_navi/data/http/http_chat_repository.dart';
+import 'package:scho_navi/data/http/http_conversation_repository.dart';
 import 'package:scho_navi/data/http/http_comparison_repository.dart';
 import 'package:scho_navi/data/http/http_competition_recommendation_repository.dart';
 import 'package:scho_navi/data/http/http_favorite_repository.dart';
@@ -21,8 +23,10 @@ import 'package:scho_navi/data/http/http_recommendation_repository.dart';
 import 'package:scho_navi/data/local/local_favorite_repository.dart';
 import 'package:scho_navi/data/local/local_history_repository.dart';
 import 'package:scho_navi/data/local/local_profile_repository.dart';
+import 'package:scho_navi/data/local/local_conversation_repository.dart';
 import 'package:scho_navi/data/mock/mock_professor_repository.dart';
 import 'package:scho_navi/domain/repositories/competition_recommendation_repository.dart';
+import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/domain/repositories/comparison_repository.dart';
 import 'package:scho_navi/domain/repositories/favorite_repository.dart';
 import 'package:scho_navi/domain/repositories/history_repository.dart';
@@ -34,6 +38,44 @@ import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 
 void main() {
+  test('theme mode defaults to system and persists explicit choices', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read(appThemeModeProvider), ThemeMode.system);
+
+    await container
+        .read(appThemeModeProvider.notifier)
+        .setThemeMode(ThemeMode.dark);
+
+    expect(container.read(appThemeModeProvider), ThemeMode.dark);
+    expect(prefs.getString(appThemeModePreferenceKey), 'dark');
+  });
+
+  test('theme mode reads saved values and falls back to system', () async {
+    for (final entry in <String, ThemeMode>{
+      'light': ThemeMode.light,
+      'dark': ThemeMode.dark,
+      'system': ThemeMode.system,
+      'invalid': ThemeMode.system,
+    }.entries) {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        appThemeModePreferenceKey: entry.key,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(appThemeModeProvider), entry.value);
+    }
+  });
+
   test('default config wires LLM-first repositories', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
@@ -72,6 +114,10 @@ void main() {
       isA<AiProfileExtractionRepository>(),
     );
     expect(
+      container.read(conversationRepositoryProvider),
+      isA<LocalConversationRepository>(),
+    );
+    expect(
       container.read(recommendationRepositoryProvider),
       isA<RecommendationRepository>(),
     );
@@ -92,6 +138,10 @@ void main() {
     expect(
       container.read(profileExtractionRepositoryProvider),
       isA<ProfileExtractionRepository>(),
+    );
+    expect(
+      container.read(conversationRepositoryProvider),
+      isA<ConversationRepository>(),
     );
   });
 
@@ -149,6 +199,10 @@ void main() {
       container.read(historyRepositoryProvider),
       isA<HttpHistoryRepository>(),
     );
+    expect(
+      container.read(conversationRepositoryProvider),
+      isA<HttpConversationRepository>(),
+    );
 
     expect(
       container.read(recommendationRepositoryProvider),
@@ -180,5 +234,9 @@ void main() {
     );
     expect(container.read(historyRepositoryProvider), isA<HistoryRepository>());
     expect(container.read(profileRepositoryProvider), isA<ProfileRepository>());
+    expect(
+      container.read(conversationRepositoryProvider),
+      isA<ConversationRepository>(),
+    );
   });
 }

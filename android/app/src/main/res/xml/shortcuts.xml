@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="ai_mentor"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_ai_mentor"
+        android:shortcutShortLabel="@string/shortcut_ai_mentor_short"
+        android:shortcutLongLabel="@string/shortcut_ai_mentor_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.example.scho_navi"
+            android:targetClass="com.example.scho_navi.MainActivity">
+            <extra
+                android:name="route"
+                android:value="/home?tab=mentor" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="ai_competition"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_ai_competition"
+        android:shortcutShortLabel="@string/shortcut_ai_competition_short"
+        android:shortcutLongLabel="@string/shortcut_ai_competition_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.example.scho_navi"
+            android:targetClass="com.example.scho_navi.MainActivity">
+            <extra
+                android:name="route"
+                android:value="/home?tab=competition" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="preparation_plans"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_preparation_plans"
+        android:shortcutShortLabel="@string/shortcut_preparation_plans_short"
+        android:shortcutLongLabel="@string/shortcut_preparation_plans_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.example.scho_navi"
+            android:targetClass="com.example.scho_navi.MainActivity">
+            <extra
+                android:name="route"
+                android:value="/preparation-plans" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="today_tasks"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_today_tasks"
+        android:shortcutShortLabel="@string/shortcut_today_tasks_short"
+        android:shortcutLongLabel="@string/shortcut_today_tasks_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.example.scho_navi"
+            android:targetClass="com.example.scho_navi.MainActivity">
+            <extra
+                android:name="route"
+                android:value="/preparation-plans/today" />
+        </intent>
+    </shortcut>
+</shortcuts>

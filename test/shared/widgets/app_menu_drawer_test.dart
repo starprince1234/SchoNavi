@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/theme/app_theme.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/domain/entities/competition_query_understanding.dart';
 import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
@@ -18,6 +19,7 @@ import 'package:scho_navi/shared/widgets/app_menu_drawer.dart';
 
 Future<Widget> _pumpDrawer({
   List<ConversationSession> sessions = const [],
+  ThemeMode themeMode = ThemeMode.light,
 }) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
@@ -44,6 +46,9 @@ Future<Widget> _pumpDrawer({
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp.router(
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: themeMode,
       routerConfig: GoRouter(
         routes: [
           GoRoute(
@@ -66,9 +71,9 @@ Future<Widget> _pumpDrawer({
                 Text('chat:${state.uri.queryParameters['sid'] ?? ''}'),
           ),
           GoRoute(
-            path: '/competition-recommendation',
+            path: '/home',
             builder: (_, state) =>
-                Text('竞赛：${state.uri.queryParameters['q'] ?? ''}'),
+                Text('home:tab=${state.uri.queryParameters['tab'] ?? ''}'),
           ),
         ],
       ),
@@ -176,7 +181,7 @@ void main() {
 
     await tester.tap(find.text('数学建模 团队赛'));
     await tester.pumpAndSettle();
-    expect(find.text('竞赛：数学建模 团队赛'), findsOneWidget);
+    expect(find.text('home:tab=competition'), findsOneWidget);
   });
 
   testWidgets('drawer search matches competition label', (tester) async {
@@ -201,6 +206,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('我的备赛'), findsOneWidget);
+  });
+
+  testWidgets('dark drawer uses dark theme surfaces for contrast', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      await _pumpDrawer(
+        sessions: [_mentorSession()],
+        themeMode: ThemeMode.dark,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+
+    final drawer = tester.widget<Drawer>(find.byType(Drawer));
+    expect(drawer.backgroundColor, AppTheme.dark().colorScheme.surface);
+
+    final historyTileMaterial = tester.widgetList<Material>(
+      find.ancestor(
+        of: find.text('医学影像 上海'),
+        matching: find.byType(Material),
+      ),
+    ).firstWhere((material) => material.color != Colors.transparent);
+    expect(
+      historyTileMaterial.color,
+      AppTheme.dark().colorScheme.surfaceContainer,
+    );
   });
 }
 

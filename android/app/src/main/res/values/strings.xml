@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="preparation_widget_description">备赛倒计时、进度与阶段 · 四档尺寸自适应 · 多计划轮换</string>
+    <string name="shortcut_ai_mentor_short">AI导师</string>
+    <string name="shortcut_ai_mentor_long">AI 推荐导师</string>
+    <string name="shortcut_ai_competition_short">AI竞赛</string>
+    <string name="shortcut_ai_competition_long">AI 推荐竞赛</string>
+    <string name="shortcut_preparation_plans_short">备赛计划</string>
+    <string name="shortcut_preparation_plans_long">我的备赛计划</string>
+    <string name="shortcut_today_tasks_short">今日任务</string>
+    <string name="shortcut_today_tasks_long">今日任务</string>
 </resources>

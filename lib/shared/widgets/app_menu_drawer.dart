@@ -20,9 +20,10 @@ class AppMenuDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(searchHistoryProvider);
     final conversationsAsync = ref.watch(conversationHistoryProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Drawer(
-      backgroundColor: AppColors.paper,
+      backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       width: MediaQuery.of(context).size.width * 0.82,
@@ -32,7 +33,7 @@ class AppMenuDrawer extends ConsumerWidget {
           children: [
             // ── 顶部档案入口 ─────────────────────────────────────────────
             _ProfileHeader(onTap: () => _navigate(context, '/profile')),
-            Divider(height: 1, color: AppColors.line),
+            Divider(height: 1, color: scheme.outline),
 
             // ── 功能入口 ─────────────────────────────────────────────────
             _DrawerTile(
@@ -61,7 +62,7 @@ class AppMenuDrawer extends ConsumerWidget {
               onTap: () => _navigate(context, '/settings'),
             ),
 
-            Divider(height: 1, color: AppColors.line),
+            Divider(height: 1, color: scheme.outline),
 
             // ── 最近：导师/教授会话（对话库）+ 竞赛搜索史 ────────────────
             Expanded(
@@ -126,6 +127,8 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: () {
@@ -138,7 +141,7 @@ class _ProfileHeader extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: AppColors.indigoSoft,
+              backgroundColor: AppColors.indigoSoftOf(isDark),
               child: Icon(Icons.person, color: AppColors.indigo, size: 26),
             ),
             const SizedBox(width: 14),
@@ -150,14 +153,14 @@ class _ProfileHeader extends StatelessWidget {
                   Text(
                     '我的档案',
                     style: textTheme.titleMedium?.copyWith(
-                      color: AppColors.ink,
+                      color: scheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     '查看并编辑个人信息',
                     style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSoft,
+                      color: scheme.onSurfaceVariant,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -165,7 +168,7 @@ class _ProfileHeader extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.inkSoft),
+            Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
           ],
         ),
       ),
@@ -188,14 +191,15 @@ class _DrawerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: label,
       child: ListTile(
-        leading: Icon(icon, color: AppColors.inkSoft, size: 22),
+        leading: Icon(icon, color: scheme.onSurfaceVariant, size: 22),
         title: Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppColors.ink,
+            color: scheme.onSurface,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -243,8 +247,7 @@ class _RecentEntry {
       typeLabel: '竞赛',
       icon: Icons.emoji_events_outlined,
       timestamp: item.createdAt,
-      route:
-          '/competition-recommendation?q=${Uri.encodeComponent(item.prompt)}',
+      route: '/home?tab=competition',
     );
   }
 
@@ -304,7 +307,9 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final scheme = theme.colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,7 +321,7 @@ class _RecentSearchPanelState extends State<_RecentSearchPanel> {
               Text(
                 '最近',
                 style: textTheme.labelLarge?.copyWith(
-                  color: AppColors.inkSoft,
+                  color: scheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -394,10 +399,11 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: AppColors.surface,
+        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -406,7 +412,7 @@ class _HistoryTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                Icon(entry.icon, size: 16, color: AppColors.inkSoft),
+                Icon(entry.icon, size: 16, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -414,7 +420,7 @@ class _HistoryTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.ink,
+                      color: scheme.onSurface,
                       fontWeight: FontWeight.w500,
                       height: 1.35,
                     ),
@@ -439,15 +445,16 @@ class _EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 40, color: AppColors.line),
+          Icon(icon, size: 40, color: scheme.outline),
           const SizedBox(height: 12),
           Text(
             message,
-            style: TextStyle(color: AppColors.inkSoft, fontSize: 14),
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
           ),
         ],
       ),

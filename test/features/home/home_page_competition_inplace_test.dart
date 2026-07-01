@@ -94,10 +94,6 @@ Future<Widget> _wrap() async {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomePage()),
-      GoRoute(
-        path: '/competition-recommendation',
-        builder: (_, _) => const Text('competition-marker'),
-      ),
       GoRoute(path: '/competition/:id', builder: (_, _) => const Placeholder()),
     ],
   );
@@ -132,9 +128,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pumpAndSettle();
 
-    // 原地展示竞赛推荐卡及调整条件按钮，不应出现独立结果页 marker。
+    // 原地展示竞赛推荐卡及调整条件按钮，不跳独立结果页。
     expect(find.text('原地竞赛卡'), findsOneWidget);
     expect(find.text('调整条件'), findsOneWidget);
-    expect(find.text('competition-marker'), findsNothing);
+    expect(find.byType(HomePage), findsOneWidget);
   });
 }

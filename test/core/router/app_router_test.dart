@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/app.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/router/app_router.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
+import 'package:scho_navi/features/preparation/pages/today_tasks_page.dart';
 import 'package:scho_navi/features/profile/providers/profile_provider.dart';
 
 Future<Widget> _wrap() async {
@@ -51,7 +53,8 @@ void main() {
     expect(menuButton, findsOneWidget);
 
     await tester.tap(menuButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('历史'), findsOneWidget);
     expect(find.byTooltip('我的收藏'), findsOneWidget);
@@ -62,11 +65,46 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('菜单'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     await tester.tap(find.byTooltip('历史'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('历史'), findsWidgets);
+  });
+
+  testWidgets('/preparation-plans/today resolves before plan id route', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'seenOnboarding': true,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        profileProvider.overrideWith(
+          () => _StubProfileController(const UserProfile(name: 'Test User')),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = container.read(routerProvider);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    router.go('/preparation-plans/today');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TodayTasksPage), findsOneWidget);
+    expect(find.text('今日任务'), findsOneWidget);
   });
 }
