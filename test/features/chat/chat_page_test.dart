@@ -551,6 +551,88 @@ void main() {
 
     expect(find.text('root-marker'), findsOneWidget);
   });
+
+  testWidgets('生成中点返回箭头弹确认对话框，取消则不退出', (tester) async {
+    final controller = StreamController<String>();
+    addTearDown(controller.close);
+    await tester.pumpWidget(_wrap(_StreamChatRepo(() => controller.stream)));
+    await tester.pumpAndSettle();
+
+    // 触发流式
+    await tester.tap(find.text('适合硕士'));
+    await tester.pump();
+    controller.add('部分答案');
+    await tester.pump();
+
+    // 点左上「返回」
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pumpAndSettle();
+
+    // 弹确认框
+    expect(find.text('正在生成中'), findsOneWidget);
+    expect(find.text('继续生成'), findsOneWidget);
+    expect(find.text('离开'), findsOneWidget);
+
+    // 取消
+    await tester.tap(find.text('继续生成'));
+    await tester.pumpAndSettle();
+
+    // 对话框关闭，仍在 chat 页
+    expect(find.text('正在生成中'), findsNothing);
+    expect(find.byType(ChatPage), findsOneWidget);
+  });
+
+  testWidgets('非生成态点返回箭头直接 pop，无对话框', (tester) async {
+    final repo = _StreamChatRepo(() => Stream.fromIterable(const ['答案']));
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    // 未触发流式 → 非生成态
+    expect(find.text('正在生成中'), findsNothing);
+
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pumpAndSettle();
+
+    // 直接退出，无对话框
+    expect(find.text('正在生成中'), findsNothing);
+  });
+
+  testWidgets('生成中按系统返回手势也弹确认框', (tester) async {
+    final controller = StreamController<String>();
+    addTearDown(controller.close);
+    await tester.pumpWidget(_wrap(_StreamChatRepo(() => controller.stream)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('适合硕士'));
+    await tester.pump();
+    controller.add('部分答案');
+    await tester.pump();
+
+    final popScope = tester.widget<PopScope>(find.byType(PopScope));
+    expect(popScope.canPop, isFalse);
+  });
+
+  testWidgets('生成中确认离开后调用 stop 并 pop', (tester) async {
+    final controller = StreamController<String>();
+    addTearDown(controller.close);
+    final repo = _StreamChatRepo(() => controller.stream);
+    await tester.pumpWidget(_wrap(repo));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('适合硕士'));
+    await tester.pump();
+    controller.add('部分答案');
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('返回').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('离开'));
+    await tester.pumpAndSettle();
+
+    // 确认后对话框关闭、页面退出
+    expect(find.text('正在生成中'), findsNothing);
+  });
 }
 
 class _FakeRecRepo implements RecommendationRepository {

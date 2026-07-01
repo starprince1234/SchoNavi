@@ -128,6 +128,39 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
   }
 
+  bool _isStreaming(ChatState state) =>
+      state.activity == ChatActivity.streaming;
+
+  Future<bool> _confirmExit(BuildContext context) async {
+    if (!_isStreaming(ref.read(_provider))) return true;
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('正在生成中'),
+        content: const Text('当前对话正在生成，离开会中断本轮。要离开吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('继续生成'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('离开'),
+          ),
+        ],
+      ),
+    );
+    if (shouldLeave == true) {
+      await ref.read(_provider.notifier).stop();
+    }
+    return shouldLeave ?? false;
+  }
+
+  Future<void> _handleBack(BuildContext context) async {
+    final shouldLeave = await _confirmExit(context);
+    if (shouldLeave && context.mounted) context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
@@ -155,219 +188,231 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         }
       });
     }
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(child: CoolScaffoldBackground()),
-          blocked
-              ? ErrorView(
-                  message: const MissingLlmConfigurationException().message,
-                )
-              : state.activity == ChatActivity.loadFailed
-              ? ErrorView(
-                  message: state.errorMessage ?? '会话加载失败',
-                  onRetry: () {
-                    final sid = widget.sessionId ?? widget.forkId;
-                    if (sid != null && sid.isNotEmpty) {
-                      ref.read(_provider.notifier).resume(sessionId: sid);
-                    } else {
-                      ref
-                          .read(_provider.notifier)
-                          .create(professorId: widget.professorId);
-                    }
-                  },
-                )
-              : SafeArea(
-                  child: Column(
-                    children: [
-                      if (state.activity == ChatActivity.creating ||
-                          state.activity == ChatActivity.hydrating ||
-                          state.activity == ChatActivity.deleting)
-                        _ChatStateNotice(
-                          message: switch (state.activity) {
-                            ChatActivity.creating => '正在创建会话…',
-                            ChatActivity.hydrating => '正在恢复会话与上下文…',
-                            ChatActivity.deleting => '正在删除会话…',
-                            _ => '',
-                          },
-                          showProgress: true,
-                        ),
-                      if (state.activity == ChatActivity.interrupted ||
-                          state.activity == ChatActivity.turnFailed)
-                        _ChatStateNotice(
-                          message:
-                              state.errorMessage ??
-                              (state.activity == ChatActivity.interrupted
-                                  ? '上次生成已中断，部分内容已保存。'
-                                  : '本轮处理失败，可以重试同一轮。'),
-                          primaryLabel: state.canRegenerate ? '重试本轮' : null,
-                          onPrimary: state.canRegenerate
-                              ? () => ref.read(_provider.notifier).regenerate()
-                              : null,
-                          secondaryLabel: '放弃本轮',
-                          onSecondary: () => ref
-                              .read(_provider.notifier)
-                              .abandonInterruptedTurn(),
-                        ),
-                      if (state.legacyContextIncomplete)
-                        _ChatStateNotice(
-                          message: '旧分支的来源推荐轮次无法准确恢复，当前仅供只读查看。',
-                          primaryLabel: '新建会话',
-                          onPrimary: () => ref
-                              .read(_provider.notifier)
-                              .create(professorId: state.professorId),
-                        ),
-                      Expanded(
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: EdgeInsets.fromLTRB(
-                            20,
-                            state.forkAnchor != null ? 108.0 : 56.0,
-                            20,
-                            12,
+    return PopScope(
+      canPop: !_isStreaming(state),
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final shouldLeave = await _confirmExit(context);
+        if (shouldLeave && context.mounted) context.pop();
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const Positioned.fill(child: CoolScaffoldBackground()),
+            blocked
+                ? ErrorView(
+                    message: const MissingLlmConfigurationException().message,
+                  )
+                : state.activity == ChatActivity.loadFailed
+                ? ErrorView(
+                    message: state.errorMessage ?? '会话加载失败',
+                    onRetry: () {
+                      final sid = widget.sessionId ?? widget.forkId;
+                      if (sid != null && sid.isNotEmpty) {
+                        ref.read(_provider.notifier).resume(sessionId: sid);
+                      } else {
+                        ref
+                            .read(_provider.notifier)
+                            .create(professorId: widget.professorId);
+                      }
+                    },
+                  )
+                : SafeArea(
+                    child: Column(
+                      children: [
+                        if (state.activity == ChatActivity.creating ||
+                            state.activity == ChatActivity.hydrating ||
+                            state.activity == ChatActivity.deleting)
+                          _ChatStateNotice(
+                            message: switch (state.activity) {
+                              ChatActivity.creating => '正在创建会话…',
+                              ChatActivity.hydrating => '正在恢复会话与上下文…',
+                              ChatActivity.deleting => '正在删除会话…',
+                              _ => '',
+                            },
+                            showProgress: true,
                           ),
-                          itemCount:
-                              state.messages.length + (showWelcome ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (showWelcome && index == 0) {
+                        if (state.activity == ChatActivity.interrupted ||
+                            state.activity == ChatActivity.turnFailed)
+                          _ChatStateNotice(
+                            message:
+                                state.errorMessage ??
+                                (state.activity == ChatActivity.interrupted
+                                    ? '上次生成已中断，部分内容已保存。'
+                                    : '本轮处理失败，可以重试同一轮。'),
+                            primaryLabel: state.canRegenerate ? '重试本轮' : null,
+                            onPrimary: state.canRegenerate
+                                ? () =>
+                                      ref.read(_provider.notifier).regenerate()
+                                : null,
+                            secondaryLabel: '放弃本轮',
+                            onSecondary: () => ref
+                                .read(_provider.notifier)
+                                .abandonInterruptedTurn(),
+                          ),
+                        if (state.legacyContextIncomplete)
+                          _ChatStateNotice(
+                            message: '旧分支的来源推荐轮次无法准确恢复，当前仅供只读查看。',
+                            primaryLabel: '新建会话',
+                            onPrimary: () => ref
+                                .read(_provider.notifier)
+                                .create(professorId: state.professorId),
+                          ),
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              state.forkAnchor != null ? 108.0 : 56.0,
+                              20,
+                              12,
+                            ),
+                            itemCount:
+                                state.messages.length + (showWelcome ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (showWelcome && index == 0) {
+                                return AnimatedEntrance(
+                                  index: 0,
+                                  slideOffset: const Offset(0, 12),
+                                  duration: const Duration(milliseconds: 300),
+                                  child: _WelcomeCard(
+                                    professorName:
+                                        state.forkAnchor?.professorName,
+                                  ),
+                                );
+                              }
+                              final messageIndex = showWelcome
+                                  ? index - 1
+                                  : index;
                               return AnimatedEntrance(
-                                index: 0,
+                                index: index,
                                 slideOffset: const Offset(0, 12),
                                 duration: const Duration(milliseconds: 300),
-                                child: _WelcomeCard(
-                                  professorName:
-                                      state.forkAnchor?.professorName,
+                                child: ChatMessageBubble(
+                                  key: ValueKey(
+                                    state.messages[messageIndex].id,
+                                  ),
+                                  message: state.messages[messageIndex],
+                                  onTapRecommendation: (id) {
+                                    final sid =
+                                        state.kind ==
+                                            ConversationSessionKind.fork
+                                        ? state.sourceSessionId
+                                        : state.sessionId;
+                                    final turnId = _turnIdForMessageIndex(
+                                      state,
+                                      messageIndex,
+                                    );
+                                    final query = <String, String>{
+                                      'msid': ?sid,
+                                      'stid': ?turnId,
+                                    };
+                                    context.push(
+                                      Uri(
+                                        path: '/professor/$id',
+                                        queryParameters: query.isEmpty
+                                            ? null
+                                            : query,
+                                      ).toString(),
+                                    );
+                                  },
+                                  onOpenHomepage: _openHomepage,
+                                  onRerouteHome: () => context.go('/home'),
+                                  onRetryRecommendation: (id) => ref
+                                      .read(_provider.notifier)
+                                      .retryRecommendation(id),
+                                  onRegenerate: (id) => ref
+                                      .read(_provider.notifier)
+                                      .regenerateMessage(id),
+                                  onFeedback: (id, feedback) => ref
+                                      .read(_provider.notifier)
+                                      .setFeedback(id, feedback),
                                 ),
                               );
-                            }
-                            final messageIndex = showWelcome
-                                ? index - 1
-                                : index;
-                            return AnimatedEntrance(
-                              index: index,
-                              slideOffset: const Offset(0, 12),
-                              duration: const Duration(milliseconds: 300),
-                              child: ChatMessageBubble(
-                                key: ValueKey(state.messages[messageIndex].id),
-                                message: state.messages[messageIndex],
-                                onTapRecommendation: (id) {
-                                  final sid =
-                                      state.kind == ConversationSessionKind.fork
-                                      ? state.sourceSessionId
-                                      : state.sessionId;
-                                  final turnId = _turnIdForMessageIndex(
-                                    state,
-                                    messageIndex,
-                                  );
-                                  final query = <String, String>{
-                                    'msid': ?sid,
-                                    'stid': ?turnId,
-                                  };
-                                  context.push(
-                                    Uri(
-                                      path: '/professor/$id',
-                                      queryParameters: query.isEmpty
-                                          ? null
-                                          : query,
-                                    ).toString(),
-                                  );
-                                },
-                                onOpenHomepage: _openHomepage,
-                                onRerouteHome: () => context.go('/home'),
-                                onRetryRecommendation: (id) => ref
-                                    .read(_provider.notifier)
-                                    .retryRecommendation(id),
-                                onRegenerate: (id) => ref
-                                    .read(_provider.notifier)
-                                    .regenerateMessage(id),
-                                onFeedback: (id, feedback) => ref
-                                    .read(_provider.notifier)
-                                    .setFeedback(id, feedback),
-                              ),
-                            );
-                          },
+                            },
+                          ),
                         ),
-                      ),
-                      ChatQuickActions(
-                        actions: state.followUpQuestions,
-                        enabled: state.canSend,
-                        onTap: _send,
-                      ),
-                      ChatInputBar(
-                        controller: _controller,
-                        isBusy: !state.canSend,
-                        canStop: state.activity == ChatActivity.streaming,
-                        isNewSession: isNewSession,
-                        onSubmit: _send,
-                        onStop: () => ref.read(_provider.notifier).stop(),
-                      ),
-                    ],
+                        ChatQuickActions(
+                          actions: state.followUpQuestions,
+                          enabled: state.canSend,
+                          onTap: _send,
+                        ),
+                        ChatInputBar(
+                          controller: _controller,
+                          isBusy: !state.canSend,
+                          canStop: state.activity == ChatActivity.streaming,
+                          isNewSession: isNewSession,
+                          onSubmit: _send,
+                          onStop: () => ref.read(_provider.notifier).stop(),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-          if (state.forkAnchor != null)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: ProfessorAnchorBar(
-                  anchor: state.forkAnchor!,
-                  onTap: () => context.push(
-                    '/professor/${state.forkAnchor!.professorId}'
-                    '?msid=${Uri.encodeComponent(state.sourceSessionId ?? state.forkAnchor!.mainSessionId)}'
-                    '${state.sourceTurnId == null ? '' : '&stid=${Uri.encodeComponent(state.sourceTurnId!)}'}',
-                  ),
-                  // fork 追问页：把「返回」「重新生成」收进锚点条同一行，
-                  // 避免它们作为独立 Positioned 与锚点条在顶部重叠。
-                  leading: FloatingTopButton(
-                    icon: Icons.arrow_back,
-                    tooltip: '返回',
-                    onPressed: () => context.pop(),
-                  ),
-                  trailing: FloatingTopButton(
-                    icon: Icons.refresh,
-                    tooltip: '重新生成',
-                    onPressed: state.canRegenerate
-                        ? () => ref.read(_provider.notifier).regenerate()
-                        : null,
-                  ),
-                ),
-              ),
-            )
-          else ...[
-            // 左上悬浮：新会话页（initialPrompt 首页提交入口）显示「新对话」
-            // 回首页；旧会话追问页（推荐页/详情页「继续追问」push 进来）显示
-            // 「返回」，pop 回上一页而非丢弃会话跳首页。
-            Positioned(
-              top: 8,
-              left: 12,
-              child: isNewSession
-                  ? FloatingTopButton(
-                      icon: Icons.edit_square,
-                      tooltip: '新对话',
-                      onPressed: () => context.go('/home'),
-                    )
-                  : FloatingTopButton(
+            if (state.forkAnchor != null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: ProfessorAnchorBar(
+                    anchor: state.forkAnchor!,
+                    onTap: () => context.push(
+                      '/professor/${state.forkAnchor!.professorId}'
+                      '?msid=${Uri.encodeComponent(state.sourceSessionId ?? state.forkAnchor!.mainSessionId)}'
+                      '${state.sourceTurnId == null ? '' : '&stid=${Uri.encodeComponent(state.sourceTurnId!)}'}',
+                    ),
+                    // fork 追问页：把「返回」「重新生成」收进锚点条同一行，
+                    // 避免它们作为独立 Positioned 与锚点条在顶部重叠。
+                    leading: FloatingTopButton(
                       icon: Icons.arrow_back,
                       tooltip: '返回',
-                      onPressed: () => context.pop(),
+                      onPressed: () => _handleBack(context),
                     ),
-            ),
-            // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
-            Positioned(
-              top: 8,
-              right: 12,
-              child: FloatingTopButton(
-                icon: Icons.refresh,
-                tooltip: '重新生成',
-                onPressed: state.canRegenerate
-                    ? () => ref.read(_provider.notifier).regenerate()
-                    : null,
+                    trailing: FloatingTopButton(
+                      icon: Icons.refresh,
+                      tooltip: '重新生成',
+                      onPressed: state.canRegenerate
+                          ? () => ref.read(_provider.notifier).regenerate()
+                          : null,
+                    ),
+                  ),
+                ),
+              )
+            else ...[
+              // 左上悬浮：新会话页（initialPrompt 首页提交入口）显示「新对话」
+              // 回首页；旧会话追问页（推荐页/详情页「继续追问」push 进来）显示
+              // 「返回」，pop 回上一页而非丢弃会话跳首页。
+              Positioned(
+                top: 8,
+                left: 12,
+                child: isNewSession
+                    ? FloatingTopButton(
+                        icon: Icons.edit_square,
+                        tooltip: '新对话',
+                        onPressed: () => context.go('/home'),
+                      )
+                    : FloatingTopButton(
+                        icon: Icons.arrow_back,
+                        tooltip: '返回',
+                        onPressed: () => _handleBack(context),
+                      ),
               ),
-            ),
+              // 右上悬浮：「重新生成」；canRegenerate=false 时 disabled。
+              Positioned(
+                top: 8,
+                right: 12,
+                child: FloatingTopButton(
+                  icon: Icons.refresh,
+                  tooltip: '重新生成',
+                  onPressed: state.canRegenerate
+                      ? () => ref.read(_provider.notifier).regenerate()
+                      : null,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
