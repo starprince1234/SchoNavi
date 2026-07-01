@@ -5,16 +5,22 @@ void main() {
   group('PreparationTask', () {
     test('completedAt != null 即完成', () {
       final t = PreparationTask(
-        id: 't1', title: '组队', kind: PreparationTaskKind.required,
-        estimatedHours: 4, dueDate: DateTime(2026, 7, 1),
+        id: 't1',
+        title: '组队',
+        kind: PreparationTaskKind.required,
+        estimatedHours: 4,
+        dueDate: DateTime(2026, 7, 1),
         completedAt: DateTime(2026, 6, 28),
       );
       expect(t.completed, isTrue);
     });
     test('completedAt null 即未完成', () {
       final t = PreparationTask(
-        id: 't1', title: '组队', kind: PreparationTaskKind.required,
-        estimatedHours: 4, dueDate: DateTime(2026, 7, 1),
+        id: 't1',
+        title: '组队',
+        kind: PreparationTaskKind.required,
+        estimatedHours: 4,
+        dueDate: DateTime(2026, 7, 1),
       );
       expect(t.completed, isFalse);
     });
@@ -34,10 +40,16 @@ void main() {
       final plan = PreparationPlan(
         id: 'p1',
         competition: CompetitionSnapshot(
-          id: 'comp_icpc', name: 'ACM-ICPC', category: '计算机类',
+          id: 'comp_icpc',
+          name: 'ACM-ICPC',
+          category: '计算机类',
           rulesSummary: CompetitionRulesSummary(
-            signupTime: '4月', contestTime: '9-12月', teamSize: '3人',
-            format: '编程', organizer: 'ACM', officialUrl: 'https://x',
+            signupTime: '4月',
+            contestTime: '9-12月',
+            teamSize: '3人',
+            format: '编程',
+            organizer: 'ACM',
+            officialUrl: 'https://x',
           ),
         ),
         targetDate: DateTime(2026, 9, 1),
@@ -46,12 +58,20 @@ void main() {
         status: PreparationPlanStatus.active,
         phases: [
           PreparationPhase(
-            key: 'team_formation', title: '组队',
-            startDate: DateTime(2026, 6, 28), endDate: DateTime(2026, 7, 5),
+            key: 'team_formation',
+            title: '组队',
+            startDate: DateTime(2026, 6, 28),
+            endDate: DateTime(2026, 7, 5),
             tasks: [
-              PreparationTask(id: 't1', templateKey: 'team_form', title: '组建三人队伍',
-                kind: PreparationTaskKind.required, estimatedHours: 3,
-                dueDate: DateTime(2026, 7, 1), note: '找算法强的队友'),
+              PreparationTask(
+                id: 't1',
+                templateKey: 'team_form',
+                title: '组建三人队伍',
+                kind: PreparationTaskKind.required,
+                estimatedHours: 3,
+                dueDate: DateTime(2026, 7, 1),
+                note: '找算法强的队友',
+              ),
             ],
             personalizedAdvice: '建议按算法/几何/DP 分工',
           ),
@@ -78,28 +98,31 @@ void main() {
   });
 
   group('PreparationPlan 双段时间模型', () {
-    test('toJson/fromJson 往返保留 timelineType/eventEndDate/defenseDate/revision', () {
-      final plan = PreparationPlan(
-        id: 'pp_1',
-        competition: _comp(),
-        targetDate: DateTime(2026, 6, 1),
-        timelineType: CompetitionTimelineType.eventWindow,
-        eventEndDate: DateTime(2026, 6, 3),
-        defenseDate: null,
-        weeklyCommitment: WeeklyCommitment.hours6to10,
-        experienceLevel: ExperienceLevel.intermediate,
-        status: PreparationPlanStatus.active,
-        phases: const [],
-        createdAt: DateTime(2026, 5, 1),
-        updatedAt: DateTime(2026, 5, 1),
-        revision: 0,
-      );
-      final decoded = PreparationPlan.fromJson(plan.toJson());
-      expect(decoded.timelineType, CompetitionTimelineType.eventWindow);
-      expect(decoded.eventEndDate, DateTime(2026, 6, 3));
-      expect(decoded.defenseDate, isNull);
-      expect(decoded.revision, 0);
-    });
+    test(
+      'toJson/fromJson 往返保留 timelineType/eventEndDate/defenseDate/revision',
+      () {
+        final plan = PreparationPlan(
+          id: 'pp_1',
+          competition: _comp(),
+          targetDate: DateTime(2026, 6, 1),
+          timelineType: CompetitionTimelineType.eventWindow,
+          eventEndDate: DateTime(2026, 6, 3),
+          defenseDate: null,
+          weeklyCommitment: WeeklyCommitment.hours6to10,
+          experienceLevel: ExperienceLevel.intermediate,
+          status: PreparationPlanStatus.active,
+          phases: const [],
+          createdAt: DateTime(2026, 5, 1),
+          updatedAt: DateTime(2026, 5, 1),
+          revision: 0,
+        );
+        final decoded = PreparationPlan.fromJson(plan.toJson());
+        expect(decoded.timelineType, CompetitionTimelineType.eventWindow);
+        expect(decoded.eventEndDate, DateTime(2026, 6, 3));
+        expect(decoded.defenseDate, isNull);
+        expect(decoded.revision, 0);
+      },
+    );
 
     test('旧 v1 JSON（缺新字段）默认 submission + revision 0', () {
       final legacy = <String, dynamic>{
@@ -125,14 +148,14 @@ void main() {
 }
 
 CompetitionSnapshot _comp() => CompetitionSnapshot(
-      id: 'c1',
-      name: '测试赛',
-      category: '计算机类',
-      rulesSummary: CompetitionRulesSummary(
-        signupTime: '2026-01',
-        contestTime: '2026-06',
-        teamSize: '3',
-        format: '现场',
-        organizer: '某',
-      ),
-    );
+  id: 'c1',
+  name: '测试赛',
+  category: '计算机类',
+  rulesSummary: CompetitionRulesSummary(
+    signupTime: '2026-01',
+    contestTime: '2026-06',
+    teamSize: '3',
+    format: '现场',
+    organizer: '某',
+  ),
+);

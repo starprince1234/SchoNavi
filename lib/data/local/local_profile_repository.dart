@@ -72,10 +72,7 @@ class LocalProfileRepository implements ProfileRepository {
     return null;
   }
 
-  List<T> _list<T>(
-    Object? value,
-    T Function(Map<String, dynamic>) from,
-  ) =>
+  List<T> _list<T>(Object? value, T Function(Map<String, dynamic>) from) =>
       (value as List<dynamic>? ?? const <dynamic>[])
           .whereType<Map<String, dynamic>>()
           .map(from)

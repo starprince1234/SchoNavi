@@ -10,7 +10,10 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(
-            child: GpaField(value: const AcademicScore(), onChanged: (s) => out = s),
+            child: GpaField(
+              value: const AcademicScore(),
+              onChanged: (s) => out = s,
+            ),
           ),
         ),
       ),

@@ -6,9 +6,7 @@ import 'package:scho_navi/shared/widgets/bento_tile.dart';
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  testWidgets('chip 保持纤细高度，不被 BentoTile 的 48px 触摸目标撑成圆胖', (
-    tester,
-  ) async {
+  testWidgets('chip 保持纤细高度，不被 BentoTile 的 48px 触摸目标撑成圆胖', (tester) async {
     String? tapped;
     await tester.pumpWidget(
       _wrap(
@@ -25,8 +23,11 @@ void main() {
     // BentoTile 在 onTap != null 时曾用 ConstrainedBox(minHeight: 48) 撑高 chip，
     // 配合 borderRadius:20 渲染成又圆又胖的 stadium。修复后 chip 应回到内在高度。
     final chipHeight = tester.getSize(find.byType(BentoTile).first).height;
-    expect(chipHeight, lessThan(48),
-        reason: 'chip 不应被 BentoTile 的 minHeight:48 撑高成圆胖');
+    expect(
+      chipHeight,
+      lessThan(48),
+      reason: 'chip 不应被 BentoTile 的 minHeight:48 撑高成圆胖',
+    );
     expect(chipHeight, greaterThan(0));
 
     // 触摸目标放宽后，点击仍要可用。
@@ -34,8 +35,7 @@ void main() {
     expect(tapped, '换一批');
   });
 
-  testWidgets('actions 为空且不传 fallback 时隐藏 chip（不渲染兜底常量）',
-      (tester) async {
+  testWidgets('actions 为空且不传 fallback 时隐藏 chip（不渲染兜底常量）', (tester) async {
     await tester.pumpWidget(
       _wrap(
         SingleChildScrollView(

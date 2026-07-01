@@ -23,7 +23,8 @@ class _FakeCompetitionRepo implements CompetitionRecommendationRepository {
     required String prompt,
     UserProfile? profile,
     String? sessionId,
-  }) async => Success(CompetitionRecommendationResult(
+  }) async => Success(
+    CompetitionRecommendationResult(
       sessionId: 's-test',
       understanding: const CompetitionQueryUnderstanding(
         directions: ['算法'],
@@ -52,7 +53,8 @@ class _FakeCompetitionRepo implements CompetitionRecommendationRepository {
         ),
       ],
       followUpQuestions: const [],
-    ));
+    ),
+  );
 }
 
 class _FakeHistoryRepo implements HistoryRepository {

@@ -19,8 +19,8 @@ class HttpHomePromptRepository implements HomePromptRepository {
   Future<List<HomePrompt>> fetchPrompts(String mode) async {
     final result = await guardApi(
       () => _dio.get<dynamic>(
-      '/api/v1/home/prompts',
-      queryParameters: {'mode': mode},
+        '/api/v1/home/prompts',
+        queryParameters: {'mode': mode},
       ),
       (data) => (data as List<dynamic>? ?? const <dynamic>[])
           .map((item) => HomePromptDto.fromJson(asJsonObject(item)).toEntity())

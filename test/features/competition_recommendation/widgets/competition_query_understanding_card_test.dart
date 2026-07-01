@@ -6,19 +6,21 @@ import 'package:scho_navi/features/competition_recommendation/widgets/competitio
 
 void main() {
   testWidgets('渲染 AI 标题 + 键值行 + 待确认', (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(
-        body: CompetitionQueryUnderstandingCard(
-          understanding: CompetitionQueryUnderstanding(
-            directions: ['算法'],
-            categories: ['计算机类'],
-            timingPreferences: ['近期'],
-            teamPreferences: ['个人'],
-            uncertainties: ['是否需要组队'],
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: CompetitionQueryUnderstandingCard(
+            understanding: CompetitionQueryUnderstanding(
+              directions: ['算法'],
+              categories: ['计算机类'],
+              timingPreferences: ['近期'],
+              teamPreferences: ['个人'],
+              uncertainties: ['是否需要组队'],
+            ),
           ),
         ),
       ),
-    ));
+    );
 
     expect(find.text('我理解到的需求'), findsOneWidget);
     expect(find.text('算法'), findsOneWidget);

@@ -9,9 +9,7 @@ import 'fake_backend.dart';
 ///
 /// 由 [FakeBackendAdapter] 注册，亦可被单测直接经 `RequestOptions` 调用——
 /// 同一函数两处消费，对齐 `preparationGenerateHandler` 模式。
-Future<ResponseBody> preparationDiagnoseHandler(
-  RequestOptions options,
-) async {
+Future<ResponseBody> preparationDiagnoseHandler(RequestOptions options) async {
   return ResponseBody.fromString(
     jsonEncode({
       'code': 0,

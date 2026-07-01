@@ -6,24 +6,29 @@ import 'package:scho_navi/domain/repositories/preparation_plan_assistant.dart';
 import 'package:scho_navi/domain/services/plan_change_validator.dart';
 
 PreparationPlan _plan() => PreparationPlan(
-      id: 'pp_1',
-      competition: CompetitionSnapshot(
-        id: 'comp_demo',
-        name: 'Demo',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: '', contestTime: '', teamSize: '', format: '', organizer: '', officialUrl: null,
-        ),
-      ),
-      targetDate: DateTime(2026, 5, 30),
-      timelineType: CompetitionTimelineType.submission,
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.intermediate,
-      status: PreparationPlanStatus.active,
-      phases: const [],
-      createdAt: DateTime(2026, 5, 1),
-      updatedAt: DateTime(2026, 5, 1),
-    );
+  id: 'pp_1',
+  competition: CompetitionSnapshot(
+    id: 'comp_demo',
+    name: 'Demo',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 5, 30),
+  timelineType: CompetitionTimelineType.submission,
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.intermediate,
+  status: PreparationPlanStatus.active,
+  phases: const [],
+  createdAt: DateTime(2026, 5, 1),
+  updatedAt: DateTime(2026, 5, 1),
+);
 
 void main() {
   test('planAssistantRequestToJson 输出 request_id', () {
@@ -49,7 +54,10 @@ void main() {
         'cards': <dynamic>[],
       },
     };
-    final snapshot = PlanSnapshot.fromPlan(_plan(), calendarToday: DateTime(2026, 5, 1));
+    final snapshot = PlanSnapshot.fromPlan(
+      _plan(),
+      calendarToday: DateTime(2026, 5, 1),
+    );
     final dto = AssistantReplyDto.fromJson(data, snapshot);
     expect(dto.toEntity().requestId, 'req_xyz');
   });
@@ -63,7 +71,10 @@ void main() {
         'cards': <dynamic>[],
       },
     };
-    final snapshot = PlanSnapshot.fromPlan(_plan(), calendarToday: DateTime(2026, 5, 1));
+    final snapshot = PlanSnapshot.fromPlan(
+      _plan(),
+      calendarToday: DateTime(2026, 5, 1),
+    );
     final dto = AssistantReplyDto.fromJson(data, snapshot);
     expect(dto.toEntity().requestId, '');
   });

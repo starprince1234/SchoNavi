@@ -7,8 +7,29 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: StepDots(count: 3, index: 1))),
     );
-    expect(find.byWidgetPredicate((w) => w is AnimatedContainer && (w.key as ValueKey?)?.value == 'step-dot-0'), findsOneWidget);
-    expect(find.byWidgetPredicate((w) => w is AnimatedContainer && (w.key as ValueKey?)?.value == 'step-dot-1'), findsOneWidget);
-    expect(find.byWidgetPredicate((w) => w is AnimatedContainer && (w.key as ValueKey?)?.value == 'step-dot-2'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is AnimatedContainer &&
+            (w.key as ValueKey?)?.value == 'step-dot-0',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is AnimatedContainer &&
+            (w.key as ValueKey?)?.value == 'step-dot-1',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is AnimatedContainer &&
+            (w.key as ValueKey?)?.value == 'step-dot-2',
+      ),
+      findsOneWidget,
+    );
   });
 }

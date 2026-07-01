@@ -32,11 +32,7 @@ void main() {
   }
 
   testWidgets('初始 none 不显示输入区', (tester) async {
-    await pumpRank(
-      tester,
-      value: const AcademicScore(),
-      onChanged: (_) {},
-    );
+    await pumpRank(tester, value: const AcademicScore(), onChanged: (_) {});
     expect(find.text('不填'), findsOneWidget);
     expect(find.byKey(const Key('rank-percent')), findsNothing);
     expect(find.byKey(const Key('rank-position')), findsNothing);
@@ -150,7 +146,9 @@ void main() {
     await pumpRank(
       tester,
       value: const AcademicScore(
-        rankMode: RankMode.ordinal, rankPosition: 3, rankTotal: 120,
+        rankMode: RankMode.ordinal,
+        rankPosition: 3,
+        rankTotal: 120,
       ),
       onChanged: (s) => out = s,
     );

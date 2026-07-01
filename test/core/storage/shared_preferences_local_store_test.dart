@@ -26,7 +26,10 @@ void main() {
 
   test('json 对象往返（用户信息场景）', () async {
     await store.setJson('user', <String, dynamic>{'id': 'u1', 'isGuest': true});
-    expect(store.getJson('user'), <String, dynamic>{'id': 'u1', 'isGuest': true});
+    expect(store.getJson('user'), <String, dynamic>{
+      'id': 'u1',
+      'isGuest': true,
+    });
   });
 
   test('json 数组往返（收藏/历史场景）', () async {

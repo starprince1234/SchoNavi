@@ -50,12 +50,14 @@ void main() {
         'data': {'owner_id': 'owner-1', 'access_token': 'token-1'},
       });
     });
-    final apiDio = _dio((options) async {
-      expect(options.headers['Authorization'], 'Bearer token-1');
-      return _json({'code': 0, 'message': 'ok', 'data': {}});
-    })..interceptors.add(
-        ApiAuthInterceptor(ApiAuthenticator(identityDio, credentials)),
-      );
+    final apiDio =
+        _dio((options) async {
+            expect(options.headers['Authorization'], 'Bearer token-1');
+            return _json({'code': 0, 'message': 'ok', 'data': {}});
+          })
+          ..interceptors.add(
+            ApiAuthInterceptor(ApiAuthenticator(identityDio, credentials)),
+          );
 
     await apiDio.get<dynamic>('/api/v1/profile');
     await apiDio.get<dynamic>('/api/v1/history');
@@ -75,16 +77,20 @@ void main() {
         'data': {'owner_id': 'owner-1', 'access_token': 'token-1'},
       });
     });
-    final apiDio = _dio((options) async {
-      captured = options;
-      return _json({
-        'code': 0,
-        'message': 'ok',
-        'data': {'owner_id': 'owner-1', 'access_token': 'token-1'},
-      });
-    })..interceptors.add(
-        ApiAuthInterceptor(ApiAuthenticator(identityDio, _MemoryCredentials())),
-      );
+    final apiDio =
+        _dio((options) async {
+            captured = options;
+            return _json({
+              'code': 0,
+              'message': 'ok',
+              'data': {'owner_id': 'owner-1', 'access_token': 'token-1'},
+            });
+          })
+          ..interceptors.add(
+            ApiAuthInterceptor(
+              ApiAuthenticator(identityDio, _MemoryCredentials()),
+            ),
+          );
 
     await apiDio.post<dynamic>('/api/v1/identity/anonymous');
 

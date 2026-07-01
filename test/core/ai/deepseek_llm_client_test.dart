@@ -63,10 +63,9 @@ void main() {
       );
     });
 
-    final res = await _client(adapter).complete(
-      messages: const [LlmMessage('user', 'hi')],
-      jsonMode: true,
-    );
+    final res = await _client(
+      adapter,
+    ).complete(messages: const [LlmMessage('user', 'hi')], jsonMode: true);
 
     expect((res as Success<String>).data, '生成结果');
     final data = captured!.data as Map;

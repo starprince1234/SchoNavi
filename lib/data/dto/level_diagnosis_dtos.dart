@@ -9,10 +9,12 @@ Map<String, dynamic> levelDiagnosisRequestToJson(LevelDiagnosisRequest req) {
     if (req.profile != null && !req.profile!.isEmpty)
       'profile': UserProfileDto.fromEntity(req.profile!).toJson(),
     'answers': req.answers
-        .map((a) => <String, dynamic>{
-              'question_key': a.questionKey,
-              'answer': a.answer,
-            })
+        .map(
+          (a) => <String, dynamic>{
+            'question_key': a.questionKey,
+            'answer': a.answer,
+          },
+        )
         .toList(),
   };
 }
@@ -48,10 +50,10 @@ class LevelDiagnosisSuggestionDto {
   }
 
   LevelDiagnosisSuggestion toEntity() => LevelDiagnosisSuggestion(
-        level: level,
-        rationale: rationale,
-        suggestion: suggestion,
-      );
+    level: level,
+    rationale: rationale,
+    suggestion: suggestion,
+  );
 
   static ExperienceLevel? _parseLevel(String? raw) {
     if (raw == null || raw.isEmpty) return null;

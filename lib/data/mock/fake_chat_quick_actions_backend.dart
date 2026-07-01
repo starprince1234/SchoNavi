@@ -18,9 +18,9 @@ Future<ResponseBody> chatQuickActionsHandler(RequestOptions options) async {
       : '';
   final recaps = data is Map<String, dynamic>
       ? (data['last_recommendations'] as List? ?? const <dynamic>[])
-          .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList(growable: false)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList(growable: false)
       : const <Map<String, dynamic>>[];
   final actions = pickQuickActionsByContext(followUp, recaps);
   return _jsonEnvelope(actions);

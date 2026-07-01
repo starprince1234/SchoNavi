@@ -130,11 +130,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       db = MockDb();
       store = LocalChatHistoryStore(_MemStore());
-      repo = AiChatRepository(
-        llm: _StubLlm('回答'),
-        db: db,
-        historyStore: store,
-      );
+      repo = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
     });
 
     test('forkSession 复制源历史到 forkId', () async {
@@ -231,15 +227,19 @@ void main() {
       ]);
       final prof = db.allProfessors.first;
       final forkId =
-          (await repo.forkSession(
-                sourceSessionId: 's1',
-                professorId: prof.id,
-              )
-              as Success<String>)
-          .data;
+          (await repo.forkSession(sourceSessionId: 's1', professorId: prof.id)
+                  as Success<String>)
+              .data;
       await repo.deleteFork(forkId: forkId);
-      expect(await repo.listForks(mainSessionId: 's1'), isA<Success<List<dynamic>>>());
-      expect(((await repo.listForks(mainSessionId: 's1')) as Success<List<dynamic>>).data, isEmpty);
+      expect(
+        await repo.listForks(mainSessionId: 's1'),
+        isA<Success<List<dynamic>>>(),
+      );
+      expect(
+        ((await repo.listForks(mainSessionId: 's1')) as Success<List<dynamic>>)
+            .data,
+        isEmpty,
+      );
     });
   });
 }

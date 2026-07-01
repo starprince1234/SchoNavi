@@ -63,7 +63,9 @@ class _RecommendationPageState extends ConsumerState<RecommendationPage> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                QueryUnderstandingCard(understanding: result.queryUnderstanding),
+                QueryUnderstandingCard(
+                  understanding: result.queryUnderstanding,
+                ),
                 const SizedBox(height: 8),
                 ...result.recommendations.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -131,10 +133,7 @@ class _AiTracePanel extends ConsumerWidget {
         child: ExpansionTile(
           leading: Icon(Icons.science_outlined, color: scheme.secondary),
           title: Text('查看 AI 详情', style: textTheme.titleMedium),
-          subtitle: Text(
-            '本次大模型调用快照（演示模式）',
-            style: textTheme.bodySmall,
-          ),
+          subtitle: Text('本次大模型调用快照（演示模式）', style: textTheme.bodySmall),
           shape: const Border(),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           children: [

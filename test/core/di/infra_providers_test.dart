@@ -21,17 +21,20 @@ void main() {
     expect(caught.toString(), contains('overridden in main()'));
   });
 
-  test('override 后 localStoreProvider 产出 SharedPreferencesLocalStore', () async {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
-    addTearDown(container.dispose);
-    final store = container.read(localStoreProvider);
-    expect(store, isA<SharedPreferencesLocalStore>());
-    expect(store, isA<LocalStore>());
-  });
+  test(
+    'override 后 localStoreProvider 产出 SharedPreferencesLocalStore',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+      final store = container.read(localStoreProvider);
+      expect(store, isA<SharedPreferencesLocalStore>());
+      expect(store, isA<LocalStore>());
+    },
+  );
 
   test('linkLauncherProvider 产出 UrlLauncherLinkLauncher', () {
     final container = ProviderContainer();

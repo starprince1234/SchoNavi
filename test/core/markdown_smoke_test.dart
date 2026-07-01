@@ -17,7 +17,9 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(GptMarkdown), findsOneWidget);
     // 次要断言：原始 markdown 标记不应作为整段字面文本出现。
-    expect(find.text('你好 **世界**，这是 `inline code` 与一段列表：\n- A\n- B'),
-        findsNothing);
+    expect(
+      find.text('你好 **世界**，这是 `inline code` 与一段列表：\n- A\n- B'),
+      findsNothing,
+    );
   });
 }

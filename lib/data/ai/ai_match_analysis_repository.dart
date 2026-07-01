@@ -66,13 +66,7 @@ class AiMatchAnalysisRepository implements MatchAnalysisRepository {
       .where((item) => item.isNotEmpty)
       .toList();
 
-  static const List<String> _axes = [
-    '方向契合',
-    '方法匹配',
-    '地域',
-    '学历目标',
-    '产出活跃',
-  ];
+  static const List<String> _axes = ['方向契合', '方法匹配', '地域', '学历目标', '产出活跃'];
 
   List<MatchDimension> _dimensions(Object? value) {
     final list = value as List? ?? const [];
@@ -94,8 +88,7 @@ class AiMatchAnalysisRepository implements MatchAnalysisRepository {
     if (parsed.isEmpty) return const [];
     return [
       for (final axis in _axes)
-        parsed[axis] ??
-            MatchDimension(label: axis, score: 0, comment: '信息不足'),
+        parsed[axis] ?? MatchDimension(label: axis, score: 0, comment: '信息不足'),
     ];
   }
 

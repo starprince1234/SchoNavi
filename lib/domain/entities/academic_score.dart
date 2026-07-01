@@ -23,19 +23,29 @@ class AcademicScore {
     RankMode.none => null,
     RankMode.percent => percent == null ? null : '前 $percent%',
     RankMode.ordinal =>
-      (rankPosition == null || rankTotal == null) ? null : '$rankPosition/$rankTotal',
+      (rankPosition == null || rankTotal == null)
+          ? null
+          : '$rankPosition/$rankTotal',
   };
 
   bool get isEmpty => gpa == null && scale == null && rank == null;
 
   AcademicScore withGpa(double? gpa) => AcademicScore(
-    gpa: gpa, scale: scale, rankMode: rankMode,
-    percent: percent, rankPosition: rankPosition, rankTotal: rankTotal,
+    gpa: gpa,
+    scale: scale,
+    rankMode: rankMode,
+    percent: percent,
+    rankPosition: rankPosition,
+    rankTotal: rankTotal,
   );
 
   AcademicScore withScale(double? scale) => AcademicScore(
-    gpa: gpa, scale: scale, rankMode: rankMode,
-    percent: percent, rankPosition: rankPosition, rankTotal: rankTotal,
+    gpa: gpa,
+    scale: scale,
+    rankMode: rankMode,
+    percent: percent,
+    rankPosition: rankPosition,
+    rankTotal: rankTotal,
   );
 
   /// mode==none 时清空三件套；mode!=none 时未传字段保留原值（?? this.x）。
@@ -49,7 +59,9 @@ class AcademicScore {
       return AcademicScore(gpa: gpa, scale: scale, rankMode: RankMode.none);
     }
     return AcademicScore(
-      gpa: gpa, scale: scale, rankMode: mode,
+      gpa: gpa,
+      scale: scale,
+      rankMode: mode,
       percent: percent ?? this.percent,
       rankPosition: rankPosition ?? this.rankPosition,
       rankTotal: rankTotal ?? this.rankTotal,

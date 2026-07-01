@@ -10,7 +10,8 @@ class PrivacyAgreementPage extends ConsumerStatefulWidget {
   const PrivacyAgreementPage({super.key});
 
   @override
-  ConsumerState<PrivacyAgreementPage> createState() => _PrivacyAgreementPageState();
+  ConsumerState<PrivacyAgreementPage> createState() =>
+      _PrivacyAgreementPageState();
 }
 
 class _PrivacyAgreementPageState extends ConsumerState<PrivacyAgreementPage> {
@@ -45,10 +46,7 @@ class _PrivacyAgreementPageState extends ConsumerState<PrivacyAgreementPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '我们尊重你的隐私。在使用个人档案功能前，请阅读以下协议：',
-                style: textTheme.bodyMedium,
-              ),
+              Text('我们尊重你的隐私。在使用个人档案功能前，请阅读以下协议：', style: textTheme.bodyMedium),
               const SizedBox(height: 16),
               Expanded(
                 child: BentoTile(

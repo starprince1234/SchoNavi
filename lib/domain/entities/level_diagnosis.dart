@@ -39,15 +39,15 @@ class LevelDiagnosis {
   final Map<String, String> answers;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'categoryKey': categoryKey,
-        'diagnosedLevel': diagnosedLevel.name,
-        'effectiveLevel': effectiveLevel.name,
-        'source': source.name,
-        'rationale': rationale,
-        'suggestion': suggestion,
-        'diagnosedAt': diagnosedAt.toIso8601String(),
-        'answers': answers,
-      };
+    'categoryKey': categoryKey,
+    'diagnosedLevel': diagnosedLevel.name,
+    'effectiveLevel': effectiveLevel.name,
+    'source': source.name,
+    'rationale': rationale,
+    'suggestion': suggestion,
+    'diagnosedAt': diagnosedAt.toIso8601String(),
+    'answers': answers,
+  };
 
   static LevelDiagnosis? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -76,7 +76,7 @@ class LevelDiagnosis {
         suggestion: map['suggestion'] as String?,
         diagnosedAt:
             DateTime.tryParse(map['diagnosedAt'] as String? ?? '') ??
-                DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
         answers: answers,
       );
     } catch (_) {

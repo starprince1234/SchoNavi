@@ -99,14 +99,16 @@ void main() {
     // 注入一条 trace（模拟推荐调用已记录）
     final element = tester.element(find.byType(RecommendationPage));
     final container = ProviderScope.containerOf(element);
-    container.read(aiTraceProvider.notifier).record(
-      const LlmTrace(
-        model: 'deepseek-chat',
-        messages: [LlmMessage('system', 'sys'), LlmMessage('user', '医学影像')],
-        rawResponse: '{"recommendations":[]}',
-        elapsedMs: 123,
-      ),
-    );
+    container
+        .read(aiTraceProvider.notifier)
+        .record(
+          const LlmTrace(
+            model: 'deepseek-chat',
+            messages: [LlmMessage('system', 'sys'), LlmMessage('user', '医学影像')],
+            rawResponse: '{"recommendations":[]}',
+            elapsedMs: 123,
+          ),
+        );
     await tester.pumpAndSettle();
 
     expect(find.text('查看 AI 详情'), findsOneWidget);

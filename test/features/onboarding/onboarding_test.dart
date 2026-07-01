@@ -37,7 +37,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('说出你的方向'), findsOneWidget);
-    expect(find.text('输入研究兴趣、目标院校或想申请的专业，SchoNavi 帮你快速找到合适的导师线索。'), findsOneWidget);
+    expect(
+      find.text('输入研究兴趣、目标院校或想申请的专业，SchoNavi 帮你快速找到合适的导师线索。'),
+      findsOneWidget,
+    );
 
     await tester.drag(find.byType(PageView), const Offset(-400, 0));
     await tester.pumpAndSettle();

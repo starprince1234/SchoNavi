@@ -72,20 +72,17 @@ class _StreamChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>
@@ -461,13 +458,9 @@ void main() {
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, _) =>
-              const ChatPage(initialPrompt: '想做计算机视觉'),
+          builder: (_, _) => const ChatPage(initialPrompt: '想做计算机视觉'),
         ),
-        GoRoute(
-          path: '/home',
-          builder: (_, _) => const Text('home-marker'),
-        ),
+        GoRoute(path: '/home', builder: (_, _) => const Text('home-marker')),
       ],
     );
     await tester.pumpWidget(
@@ -522,10 +515,7 @@ void main() {
     final repo = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
     final router = GoRouter(
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) => const Text('root-marker'),
-        ),
+        GoRoute(path: '/', builder: (_, _) => const Text('root-marker')),
         GoRoute(
           path: '/chat',
           builder: (_, _) => const ChatPage(sessionId: 's_test'),

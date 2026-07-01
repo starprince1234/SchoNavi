@@ -30,4 +30,3 @@ class HttpMatchAnalysisRepository implements MatchAnalysisRepository {
     );
   }
 }
-

@@ -21,10 +21,7 @@ class LevelDiagnosisRequest {
 
 /// 单条诊断问答答案。
 class DiagnosisAnswer {
-  const DiagnosisAnswer({
-    required this.questionKey,
-    required this.answer,
-  });
+  const DiagnosisAnswer({required this.questionKey, required this.answer});
 
   final String questionKey;
   final String answer;

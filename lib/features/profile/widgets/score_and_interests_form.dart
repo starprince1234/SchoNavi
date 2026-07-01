@@ -44,8 +44,9 @@ class _ScoreAndInterestsFormState extends State<ScoreAndInterestsForm> {
   void _removeInterest(String v) {
     widget.onChanged(
       widget.value.copyWith(
-        researchInterests:
-            widget.value.researchInterests.where((e) => e != v).toList(),
+        researchInterests: widget.value.researchInterests
+            .where((e) => e != v)
+            .toList(),
       ),
     );
   }
@@ -78,9 +79,7 @@ class _ScoreAndInterestsFormState extends State<ScoreAndInterestsForm> {
               icon: const Icon(Icons.add),
               onPressed: _addInterest,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           ),
           onSubmitted: (_) => _addInterest(),
         ),

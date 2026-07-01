@@ -37,9 +37,7 @@ void main() {
     });
 
     test('解释性问句返回 need:false 信封', () async {
-      final body = await chatRouteHandler(
-        _post({'follow_up': '他的研究方向是什么？'}),
-      );
+      final body = await chatRouteHandler(_post({'follow_up': '他的研究方向是什么？'}));
       final json = await _decode(body);
 
       expect((json['data'] as Map)['need'], isFalse);
@@ -65,9 +63,10 @@ void main() {
       final dio = Dio(BaseOptions(baseUrl: 'https://api.example.com'))
         ..httpClientAdapter = FakeBackendAdapter();
 
-      final res = await dio.post<dynamic>('/api/v1/chat/route', data: {
-        'follow_up': '再推荐几位',
-      });
+      final res = await dio.post<dynamic>(
+        '/api/v1/chat/route',
+        data: {'follow_up': '再推荐几位'},
+      );
       expect(res.data['code'], 0);
       expect((res.data['data'] as Map)['need'], isTrue);
     });
@@ -87,7 +86,11 @@ void main() {
           'POST',
           '/api/v1/ping',
           (options) async => ResponseBody.fromString(
-            jsonEncode({'code': 0, 'message': 'ok', 'data': {'pong': true}}),
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {'pong': true},
+            }),
             200,
             headers: {
               Headers.contentTypeHeader: [Headers.jsonContentType],

@@ -9,10 +9,7 @@ import 'scho_navi_logo.dart';
 /// top-right. The hamburger opens the [Scaffold]'s end drawer (the
 /// comprehensive menu like ChatGPT).
 class SchoNaviAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const SchoNaviAppBar({
-    super.key,
-    this.backgroundColor,
-  });
+  const SchoNaviAppBar({super.key, this.backgroundColor});
 
   final Color? backgroundColor;
 
@@ -31,9 +28,7 @@ class SchoNaviAppBar extends StatelessWidget implements PreferredSizeWidget {
         withWordmark: true,
         wordmarkStyle: Theme.of(context).appBarTheme.titleTextStyle,
       ),
-      actions: const [
-        _AppMenuButton(),
-      ],
+      actions: const [_AppMenuButton()],
     );
   }
 }

@@ -20,7 +20,9 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: LabeledTextField(
-            label: '字段', onChanged: _noop, errorText: '不能为空',
+            label: '字段',
+            onChanged: _noop,
+            errorText: '不能为空',
           ),
         ),
       ),

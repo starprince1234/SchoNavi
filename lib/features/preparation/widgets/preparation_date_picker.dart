@@ -101,7 +101,8 @@ class _PreparationDatePickerSheetState
           _single = day;
           break;
         case PreparationDatePickerMode.range:
-          if (_rangeStart == null || (_rangeStart != null && _rangeEnd != null)) {
+          if (_rangeStart == null ||
+              (_rangeStart != null && _rangeEnd != null)) {
             _rangeStart = day;
             _rangeEnd = null;
           } else {
@@ -137,7 +138,9 @@ class _PreparationDatePickerSheetState
         return PreparationDateSelection(single: _single);
       case PreparationDatePickerMode.range:
         return PreparationDateSelection(
-            rangeStart: _rangeStart, rangeEnd: _rangeEnd);
+          rangeStart: _rangeStart,
+          rangeEnd: _rangeEnd,
+        );
       case PreparationDatePickerMode.multiAnchor:
         return PreparationDateSelection(deadline: _deadline, defense: _defense);
     }
@@ -172,7 +175,9 @@ class _PreparationDatePickerSheetState
             _statusText(),
             const SizedBox(height: 8),
             FilledButton(
-              onPressed: _canConfirm ? () => Navigator.pop(context, _result()) : null,
+              onPressed: _canConfirm
+                  ? () => Navigator.pop(context, _result())
+                  : null,
               child: const Align(
                 alignment: Alignment.center,
                 child: Text('确认'),
@@ -197,7 +202,9 @@ class _PreparationDatePickerSheetState
     final cs = Theme.of(context).colorScheme;
     final label =
         '${_focusedMonth.year}-${_focusedMonth.month.toString().padLeft(2, '0')}';
-    final canPrev = !_focusedMonth.isBefore(DateTime(widget.firstDate.year, widget.firstDate.month));
+    final canPrev = !_focusedMonth.isBefore(
+      DateTime(widget.firstDate.year, widget.firstDate.month),
+    );
     final next = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
     final canNext = !next.isAfter(widget.lastDate);
     return Row(
@@ -205,11 +212,19 @@ class _PreparationDatePickerSheetState
       children: [
         IconButton(
           onPressed: canPrev
-              ? () => setState(() => _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1))
+              ? () => setState(
+                  () => _focusedMonth = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month - 1,
+                  ),
+                )
               : null,
           icon: const Icon(Icons.chevron_left),
         ),
-        Text(label, style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
+        ),
         IconButton(
           onPressed: canNext
               ? () => setState(() => _focusedMonth = next)
@@ -224,13 +239,19 @@ class _PreparationDatePickerSheetState
     const labels = ['一', '二', '三', '四', '五', '六', '日'];
     return Row(
       children: labels
-          .map((l) => Expanded(
-                child: Center(
-                  child: Text(l,
-                      style: const TextStyle(
-                          color: AppColors.inkFaint, fontSize: 12)),
+          .map(
+            (l) => Expanded(
+              child: Center(
+                child: Text(
+                  l,
+                  style: const TextStyle(
+                    color: AppColors.inkFaint,
+                    fontSize: 12,
+                  ),
                 ),
-              ))
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -238,14 +259,19 @@ class _PreparationDatePickerSheetState
   Widget _grid() {
     final firstOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final lead = firstOfMonth.weekday - 1;
-    final daysInMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
+    final daysInMonth = DateTime(
+      _focusedMonth.year,
+      _focusedMonth.month + 1,
+      0,
+    ).day;
     final cells = <Widget>[];
     for (var i = 0; i < lead; i++) {
       cells.add(const SizedBox());
     }
     for (var d = 1; d <= daysInMonth; d++) {
       final day = DateTime(_focusedMonth.year, _focusedMonth.month, d);
-      final inRange = !day.isBefore(widget.firstDate) && !day.isAfter(widget.lastDate);
+      final inRange =
+          !day.isBefore(widget.firstDate) && !day.isAfter(widget.lastDate);
       cells.add(_dayCell(day, inRange));
     }
     return GridView.count(
@@ -274,10 +300,7 @@ class _PreparationDatePickerSheetState
       onTap: inRange ? () => _selectDay(day) : null,
       child: Container(
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: bg,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
         child: Text('${day.day}', style: TextStyle(color: fg)),
       ),
     );
@@ -297,15 +320,19 @@ class _PreparationDatePickerSheetState
   bool _inSelectedSpan(DateTime day) {
     if (widget.mode != PreparationDatePickerMode.range) return false;
     if (_rangeStart == null || _rangeEnd == null) return false;
-    return !day.isBefore(_rangeStart!) && !day.isAfter(_rangeEnd!) &&
-        day != _rangeStart && day != _rangeEnd;
+    return !day.isBefore(_rangeStart!) &&
+        !day.isAfter(_rangeEnd!) &&
+        day != _rangeStart &&
+        day != _rangeEnd;
   }
 
   Widget _statusText() {
     String text;
     switch (widget.mode) {
       case PreparationDatePickerMode.single:
-        text = _single == null ? '请选择日期' : '已选 ${CalendarDate.toIsoDay(_single!)}';
+        text = _single == null
+            ? '请选择日期'
+            : '已选 ${CalendarDate.toIsoDay(_single!)}';
         break;
       case PreparationDatePickerMode.range:
         if (_rangeStart == null) {
@@ -313,7 +340,8 @@ class _PreparationDatePickerSheetState
         } else if (_rangeEnd == null) {
           text = '开始 ${CalendarDate.toIsoDay(_rangeStart!)}，请选结束日';
         } else {
-          text = '比赛 ${CalendarDate.toIsoDay(_rangeStart!)} – ${CalendarDate.toIsoDay(_rangeEnd!)}';
+          text =
+              '比赛 ${CalendarDate.toIsoDay(_rangeStart!)} – ${CalendarDate.toIsoDay(_rangeEnd!)}';
         }
         break;
       case PreparationDatePickerMode.multiAnchor:
@@ -322,6 +350,9 @@ class _PreparationDatePickerSheetState
         text = '提交 DDL：$dl · 答辩：$df';
         break;
     }
-    return Text(text, style: const TextStyle(color: AppColors.inkSoft, fontSize: 13));
+    return Text(
+      text,
+      style: const TextStyle(color: AppColors.inkSoft, fontSize: 13),
+    );
   }
 }

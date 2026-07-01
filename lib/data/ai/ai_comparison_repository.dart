@@ -29,9 +29,7 @@ class AiComparisonRepository implements ComparisonRepository {
         .toList();
 
     if (ids.length < 2 || ids.length > 3) {
-      return const Failure(
-        ValidationException('请选择 2-3 位导师进行对比'),
-      );
+      return const Failure(ValidationException('请选择 2-3 位导师进行对比'));
     }
 
     final professors = <Professor>[];
@@ -45,9 +43,7 @@ class AiComparisonRepository implements ComparisonRepository {
     }
 
     if (professors.length < 2) {
-      return const Failure(
-        ValidationException('未能加载足够的导师信息，请返回重试'),
-      );
+      return const Failure(ValidationException('未能加载足够的导师信息，请返回重试'));
     }
 
     final orderedIds = professors.map((p) => p.id).toList();

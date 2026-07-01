@@ -16,7 +16,9 @@ void main() {
   });
 
   test('category_templates.json 可解析且每类别阶段任务结构合法', () async {
-    final m = await _load('assets/preparation_templates/category_templates.json');
+    final m = await _load(
+      'assets/preparation_templates/category_templates.json',
+    );
     expect(m, isNotEmpty);
     for (final entry in m.entries) {
       final phases = (entry.value as Map)['phases'] as List;
@@ -33,7 +35,9 @@ void main() {
   });
 
   test('competition_overrides.json 含 comp_icpc', () async {
-    final m = await _load('assets/preparation_templates/competition_overrides.json');
+    final m = await _load(
+      'assets/preparation_templates/competition_overrides.json',
+    );
     expect(m['comp_icpc'], isNotNull);
   });
 
@@ -43,16 +47,19 @@ void main() {
       'rules_review',
       'skill_training',
       'mock_event',
-      'final_check'
+      'final_check',
     };
-    final m = await _load('assets/preparation_templates/competition_overrides.json');
+    final m = await _load(
+      'assets/preparation_templates/competition_overrides.json',
+    );
     for (final competitionId in const ['comp_icpc', 'comp_lanqiao']) {
       final phases = (m[competitionId] as Map)['phases'] as List;
       for (final phase in phases) {
         expect(
           windowKeys,
           contains((phase as Map)['key']),
-          reason: '$competitionId phase key ${(phase)['key']} not in window skeleton',
+          reason:
+              '$competitionId phase key ${(phase)['key']} not in window skeleton',
         );
       }
     }
@@ -60,10 +67,14 @@ void main() {
 
   group('competition_timeline_defaults', () {
     test('ICPC 与蓝桥杯默认窗口型', () {
-      expect(CompetitionTimelineDefaults.defaultFor('comp_icpc'),
-          CompetitionTimelineType.eventWindow);
-      expect(CompetitionTimelineDefaults.defaultFor('comp_lanqiao'),
-          CompetitionTimelineType.eventWindow);
+      expect(
+        CompetitionTimelineDefaults.defaultFor('comp_icpc'),
+        CompetitionTimelineType.eventWindow,
+      );
+      expect(
+        CompetitionTimelineDefaults.defaultFor('comp_lanqiao'),
+        CompetitionTimelineType.eventWindow,
+      );
     });
 
     test('未知赛事返回 null', () {

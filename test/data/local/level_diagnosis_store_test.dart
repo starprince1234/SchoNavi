@@ -43,17 +43,16 @@ LevelDiagnosis _diag({
   String? suggestion,
   Map<String, String> answers = const {},
   DateTime? diagnosedAt,
-}) =>
-    LevelDiagnosis(
-      categoryKey: categoryKey,
-      diagnosedLevel: diagnosed,
-      effectiveLevel: effective,
-      source: source,
-      rationale: rationale,
-      suggestion: suggestion,
-      diagnosedAt: diagnosedAt ?? DateTime(2026, 6, 1),
-      answers: answers,
-    );
+}) => LevelDiagnosis(
+  categoryKey: categoryKey,
+  diagnosedLevel: diagnosed,
+  effectiveLevel: effective,
+  source: source,
+  rationale: rationale,
+  suggestion: suggestion,
+  diagnosedAt: diagnosedAt ?? DateTime(2026, 6, 1),
+  answers: answers,
+);
 
 void main() {
   test('save/get 按 categoryKey 存取并往返保持所有字段', () async {
@@ -95,9 +94,14 @@ void main() {
   test('save 多个 categoryKey 互不影响', () async {
     final store = LevelDiagnosisStore(_MemLocalStore());
     await store.save(_diag(categoryKey: '计算机类'));
-    await store.save(_diag(categoryKey: '数学类', effective: ExperienceLevel.beginner));
+    await store.save(
+      _diag(categoryKey: '数学类', effective: ExperienceLevel.beginner),
+    );
 
-    expect((await store.get('计算机类'))?.effectiveLevel, ExperienceLevel.intermediate);
+    expect(
+      (await store.get('计算机类'))?.effectiveLevel,
+      ExperienceLevel.intermediate,
+    );
     expect((await store.get('数学类'))?.effectiveLevel, ExperienceLevel.beginner);
   });
 
@@ -139,18 +143,14 @@ void main() {
   });
 
   test('损坏数据：get 返回 null', () async {
-    SharedPreferences.setMockInitialValues({
-      'level_diagnosis.v1': 'not-json{',
-    });
+    SharedPreferences.setMockInitialValues({'level_diagnosis.v1': 'not-json{'});
     final prefs = await SharedPreferences.getInstance();
     final store = LevelDiagnosisStore(SharedPreferencesLocalStore(prefs));
     expect(await store.get('计算机类'), isNull);
   });
 
   test('损坏数据：all 返回空 map 不抛出', () async {
-    SharedPreferences.setMockInitialValues({
-      'level_diagnosis.v1': 'not-json{',
-    });
+    SharedPreferences.setMockInitialValues({'level_diagnosis.v1': 'not-json{'});
     final prefs = await SharedPreferences.getInstance();
     final store = LevelDiagnosisStore(SharedPreferencesLocalStore(prefs));
     expect(await store.all(), isEmpty);

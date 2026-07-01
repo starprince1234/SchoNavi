@@ -86,7 +86,8 @@ class _PreparationPlanFormPageState
     if (_initializedFromConfig) return;
     _initializedFromConfig = true;
     _config = config;
-    _timelineType = config.defaultTimelineFor(widget.competition.id) ??
+    _timelineType =
+        config.defaultTimelineFor(widget.competition.id) ??
         CompetitionTimelineType.submission;
     _priorExperience = config.priorExperienceOptions.isEmpty
         ? ''
@@ -95,8 +96,7 @@ class _PreparationPlanFormPageState
         ? ''
         : config.domainFamiliarityOptions.first;
     final key = config.normalizeCategory(widget.competition.category);
-    final existing =
-        await ref.read(levelDiagnosisStoreProvider).get(key);
+    final existing = await ref.read(levelDiagnosisStoreProvider).get(key);
     if (!mounted) return;
     if (existing != null) {
       setState(() {
@@ -130,14 +130,15 @@ class _PreparationPlanFormPageState
     return cfg.dataSource == DataSource.llm && cfg.llm.isConfigured;
   }
 
-  String get _categoryKey => _config?.normalizeCategory(
-        widget.competition.category,
-      ) ?? widget.competition.category.trim();
+  String get _categoryKey =>
+      _config?.normalizeCategory(widget.competition.category) ??
+      widget.competition.category.trim();
 
   CompetitionTimelineType get _effectiveTimelineType =>
       _timelineType ?? CompetitionTimelineType.submission;
 
-  String get _dateRowLabel => _effectiveTimelineType == CompetitionTimelineType.eventWindow
+  String get _dateRowLabel =>
+      _effectiveTimelineType == CompetitionTimelineType.eventWindow
       ? '选择比赛起止日期'
       : '选择提交 DDL 与答辩';
 
@@ -234,8 +235,9 @@ class _PreparationPlanFormPageState
         ),
       ],
     );
-    final result =
-        await ref.read(preparationLevelDiagnoserProvider).diagnose(request);
+    final result = await ref
+        .read(preparationLevelDiagnoserProvider)
+        .diagnose(request);
     if (!mounted) return;
     setState(() {
       _diagLoading = false;
@@ -329,7 +331,7 @@ class _PreparationPlanFormPageState
   @override
   Widget build(BuildContext context) {
     final configAsync = ref.watch(preparationConfigProvider);
-    final config = configAsync.valueOrNull;
+    final config = configAsync.value;
     if (config == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('创建备赛计划')),
@@ -570,7 +572,10 @@ class _PreparationPlanFormPageState
             ],
           ),
           const SizedBox(height: 6),
-          Text(s.rationale, style: TextStyle(color: cs.onSurface, fontSize: 13)),
+          Text(
+            s.rationale,
+            style: TextStyle(color: cs.onSurface, fontSize: 13),
+          ),
           if (s.suggestion != null && s.suggestion!.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -645,7 +650,11 @@ class _PreparationPlanFormPageState
         children: [
           Row(
             children: [
-              const Icon(Icons.history_edu_outlined, size: 18, color: AppColors.indigo),
+              const Icon(
+                Icons.history_edu_outlined,
+                size: 18,
+                color: AppColors.indigo,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -657,7 +666,10 @@ class _PreparationPlanFormPageState
           ),
           if (d != null && d.rationale.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(d.rationale, style: TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+            Text(
+              d.rationale,
+              style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+            ),
           ],
           const SizedBox(height: 12),
           Wrap(
@@ -685,11 +697,17 @@ class _PreparationPlanFormPageState
 
   Widget _acceptedSummary(ColorScheme cs) {
     final s = _suggestion;
-    final levelLabel = s != null ? _levelLabel(s.level) : _levelLabel(_experienceLevel);
+    final levelLabel = s != null
+        ? _levelLabel(s.level)
+        : _levelLabel(_experienceLevel);
     return BentoTile(
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline, size: 18, color: AppColors.match),
+          const Icon(
+            Icons.check_circle_outline,
+            size: 18,
+            color: AppColors.match,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -697,32 +715,29 @@ class _PreparationPlanFormPageState
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          TextButton(
-            onPressed: _restartDiagnosis,
-            child: const Text('重新诊断'),
-          ),
+          TextButton(onPressed: _restartDiagnosis, child: const Text('重新诊断')),
         ],
       ),
     );
   }
 
   static String _levelLabel(ExperienceLevel l) => switch (l) {
-        ExperienceLevel.beginner => '新手',
-        ExperienceLevel.intermediate => '进阶',
-        ExperienceLevel.experienced => '老手',
-      };
+    ExperienceLevel.beginner => '新手',
+    ExperienceLevel.intermediate => '进阶',
+    ExperienceLevel.experienced => '老手',
+  };
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 6),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: AppColors.inkSoft,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(left: 4, bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.inkSoft,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
 
   Widget _timelineSelector(ColorScheme cs) {
     return SegmentedButton<CompetitionTimelineType>(
@@ -730,12 +745,12 @@ class _PreparationPlanFormPageState
       onSelectionChanged: _submitting
           ? null
           : (s) => setState(() {
-                _timelineType = s.first;
-                _targetDate = null;
-                _eventEndDate = null;
-                _defenseDate = null;
-                _dateError = null;
-              }),
+              _timelineType = s.first;
+              _targetDate = null;
+              _eventEndDate = null;
+              _defenseDate = null;
+              _dateError = null;
+            }),
       segments: const [
         ButtonSegment(
           value: CompetitionTimelineType.eventWindow,

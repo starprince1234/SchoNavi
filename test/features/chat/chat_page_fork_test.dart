@@ -54,16 +54,16 @@ class _MemStore implements LocalStore {
 }
 
 RecommendationResult _recResult(String sid) => RecommendationResult(
-      sessionId: sid,
-      queryUnderstanding: const QueryUnderstanding(
-        researchInterests: [],
-        preferredLocations: [],
-        preferredUniversities: [],
-        uncertainties: [],
-      ),
-      recommendations: const [],
-      followUpQuestions: const [],
-    );
+  sessionId: sid,
+  queryUnderstanding: const QueryUnderstanding(
+    researchInterests: [],
+    preferredLocations: [],
+    preferredUniversities: [],
+    uncertainties: [],
+  ),
+  recommendations: const [],
+  followUpQuestions: const [],
+);
 
 void main() {
   testWidgets('fork 模式渲染锚点条', (tester) async {
@@ -86,12 +86,14 @@ void main() {
       professorId: professorId,
     );
 
-    final container = ProviderContainer(overrides: [
-      chatRepositoryProvider.overrideWithValue(repo),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(dataSource: DataSource.http),
-      ),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        chatRepositoryProvider.overrideWithValue(repo),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(dataSource: DataSource.http),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
 
     final router = GoRouter(
@@ -112,9 +114,7 @@ void main() {
         GoRoute(
           path: '/professor/:id',
           builder: (_, state) => Scaffold(
-            body: Text(
-              'msid=${state.uri.queryParameters['msid'] ?? 'none'}',
-            ),
+            body: Text('msid=${state.uri.queryParameters['msid'] ?? 'none'}'),
           ),
         ),
       ],
@@ -124,9 +124,7 @@ void main() {
     expect(find.byType(ProfessorAnchorBar), findsOneWidget);
   });
 
-  testWidgets('锚点条点击携带 mainSessionId 作为 msid 跳转到教授详情', (
-    tester,
-  ) async {
+  testWidgets('锚点条点击携带 mainSessionId 作为 msid 跳转到教授详情', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final repo = MockChatRepository(
       MockDb(),
@@ -146,12 +144,14 @@ void main() {
       professorId: professorId,
     );
 
-    final container = ProviderContainer(overrides: [
-      chatRepositoryProvider.overrideWithValue(repo),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(dataSource: DataSource.http),
-      ),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        chatRepositoryProvider.overrideWithValue(repo),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(dataSource: DataSource.http),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
 
     final router = GoRouter(
@@ -172,9 +172,7 @@ void main() {
         GoRoute(
           path: '/professor/:id',
           builder: (_, state) => Scaffold(
-            body: Text(
-              'msid=${state.uri.queryParameters['msid'] ?? 'none'}',
-            ),
+            body: Text('msid=${state.uri.queryParameters['msid'] ?? 'none'}'),
           ),
         ),
       ],

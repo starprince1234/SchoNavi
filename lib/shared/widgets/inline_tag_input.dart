@@ -180,7 +180,8 @@ class InlineTagController extends TextEditingController {
     if (start >= end) return;
 
     final composing = value.composing;
-    final hasComposing = withComposing &&
+    final hasComposing =
+        withComposing &&
         value.isComposingRangeValid &&
         composing.isValid &&
         composing.start < end &&
@@ -193,7 +194,7 @@ class InlineTagController extends TextEditingController {
 
     final composingStyle =
         style?.merge(const TextStyle(decoration: TextDecoration.underline)) ??
-            const TextStyle(decoration: TextDecoration.underline);
+        const TextStyle(decoration: TextDecoration.underline);
     final composingStart = math.max(start, composing.start);
     final composingEnd = math.min(end, composing.end);
 
@@ -311,10 +312,7 @@ class InlineTagController extends TextEditingController {
 }
 
 class _NormalizedInlineValue {
-  const _NormalizedInlineValue({
-    required this.value,
-    required this.tags,
-  });
+  const _NormalizedInlineValue({required this.value, required this.tags});
 
   final TextEditingValue value;
   final List<String> tags;
@@ -359,10 +357,7 @@ class InlineTagInput extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
       style: textStyle,
-      strutStyle: const StrutStyle(
-        height: 1.6,
-        forceStrutHeight: true,
-      ),
+      strutStyle: const StrutStyle(height: 1.6, forceStrutHeight: true),
       maxLines: maxLines,
       minLines: minLines,
       maxLength: maxLength,

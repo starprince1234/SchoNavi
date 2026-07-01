@@ -17,17 +17,21 @@ Map<String, dynamic> planAssistantRequestToJson(PlanAssistantRequest req) {
     'request_id': req.requestId,
     if (req.history.isNotEmpty)
       'history': req.history
-          .map((h) => <String, dynamic>{
-                'role': h.role,
-                'content': h.content,
-                if (h.cardResults.isNotEmpty)
-                  'card_results': h.cardResults
-                      .map((c) => <String, dynamic>{
-                            'card_id': c.cardId,
-                            'status': c.status,
-                          })
-                      .toList(),
-              })
+          .map(
+            (h) => <String, dynamic>{
+              'role': h.role,
+              'content': h.content,
+              if (h.cardResults.isNotEmpty)
+                'card_results': h.cardResults
+                    .map(
+                      (c) => <String, dynamic>{
+                        'card_id': c.cardId,
+                        'status': c.status,
+                      },
+                    )
+                    .toList(),
+            },
+          )
           .toList(),
   };
 }
@@ -72,9 +76,6 @@ class AssistantReplyDto {
     );
   }
 
-  AssistantReply toEntity() => AssistantReply(
-        reply: reply,
-        changeSet: changeSet,
-        requestId: requestId,
-      );
+  AssistantReply toEntity() =>
+      AssistantReply(reply: reply, changeSet: changeSet, requestId: requestId);
 }

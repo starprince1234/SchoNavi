@@ -53,12 +53,12 @@ ResponseBody _sseBody(List<String> events, {int code = 200}) {
 
 String _delta(String content) {
   return 'data: ${jsonEncode({
-        'choices': [
-          {
-            'delta': {'content': content},
-          },
-        ],
-      })}\n\n';
+    'choices': [
+      {
+        'delta': {'content': content},
+      },
+    ],
+  })}\n\n';
 }
 
 void main() {

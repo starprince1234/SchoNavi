@@ -7,7 +7,8 @@ import '../../domain/repositories/history_repository.dart';
 
 /// 内存搜索历史仓储，模拟后端历史接口。
 class MockHistoryRepository implements HistoryRepository {
-  MockHistoryRepository({DateTime Function()? now}) : _now = now ?? DateTime.now;
+  MockHistoryRepository({DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final DateTime Function() _now;
   final List<SearchHistoryItem> _items = [];
@@ -104,13 +105,14 @@ class MockHistoryRepository implements HistoryRepository {
     return parts.isEmpty ? '未识别出明确方向，可重推优化条件' : parts.join(' / ');
   }
 
-  static String _buildCompetitionSummary(CompetitionRecommendationResult result) {
+  static String _buildCompetitionSummary(
+    CompetitionRecommendationResult result,
+  ) {
     final u = result.understanding;
     final parts = <String>[
       if (u.directions.isNotEmpty) '方向：${u.directions.join('、')}',
       if (u.categories.isNotEmpty) '类别：${u.categories.join('、')}',
-      if (u.timingPreferences.isNotEmpty)
-        '时间：${u.timingPreferences.join('、')}',
+      if (u.timingPreferences.isNotEmpty) '时间：${u.timingPreferences.join('、')}',
       if (u.teamPreferences.isNotEmpty) '组队：${u.teamPreferences.join('、')}',
     ];
     return parts.isEmpty ? '未识别出明确竞赛需求，可重推优化条件' : parts.join(' / ');

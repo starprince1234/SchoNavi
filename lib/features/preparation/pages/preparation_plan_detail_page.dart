@@ -54,7 +54,10 @@ class PreparationPlanDetailRescheduler {
         today: today,
         newTargetDate: newTargetDate,
       );
-      return (phases: [...rescheduledPre, ...defense], eventEndDate: plan.eventEndDate);
+      return (
+        phases: [...rescheduledPre, ...defense],
+        eventEndDate: plan.eventEndDate,
+      );
     }
     final newPhases = _reschedulePhases(
       phases: plan.phases,
@@ -438,11 +441,12 @@ class _PreparationPlanDetailPageState
     final picked = sel?.single;
     if (picked == null || !mounted) return;
 
-    final result = PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
-      plan: plan,
-      newTargetDate: picked,
-      today: today,
-    );
+    final result =
+        PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
+          plan: plan,
+          newTargetDate: picked,
+          today: today,
+        );
     final updatedPlan = plan.copyWith(
       targetDate: picked,
       eventEndDate: result.eventEndDate,

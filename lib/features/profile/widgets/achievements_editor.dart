@@ -76,7 +76,8 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
           controller: _raw,
           maxLines: 4,
           decoration: InputDecoration(
-            hintText: '粘贴/输入你的竞赛、论文、项目、专利等经历，如：'
+            hintText:
+                '粘贴/输入你的竞赛、论文、项目、专利等经历，如：'
                 'ACM 区域赛银牌；一篇 EI 一作论文…',
             filled: true,
             fillColor: AppColors.surface,
@@ -104,13 +105,13 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
         if (extraction.hasError)
           const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('整理失败，请重试或手动添加', style: TextStyle(color: AppColors.danger)),
+            child: Text(
+              '整理失败，请重试或手动添加',
+              style: TextStyle(color: AppColors.danger),
+            ),
           ),
         const SizedBox(height: 16),
-        _Header(
-          label: '竞赛成果',
-          onAdd: () => _showCompetitionDialog(),
-        ),
+        _Header(label: '竞赛成果', onAdd: () => _showCompetitionDialog()),
         for (var i = 0; i < widget.value.competitions.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -137,11 +138,17 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
     );
   }
 
-  String _competitionSubtitle(Competition c) =>
-      [c.level, c.award, c.year].where((e) => e != null && e.isNotEmpty).join(' · ');
+  String _competitionSubtitle(Competition c) => [
+    c.level,
+    c.award,
+    c.year,
+  ].where((e) => e != null && e.isNotEmpty).join(' · ');
 
-  String _researchSubtitle(ResearchItem r) =>
-      [r.role, r.venueOrStatus, r.year].where((e) => e != null && e.isNotEmpty).join(' · ');
+  String _researchSubtitle(ResearchItem r) => [
+    r.role,
+    r.venueOrStatus,
+    r.year,
+  ].where((e) => e != null && e.isNotEmpty).join(' · ');
 
   Future<void> _showCompetitionDialog() async {
     final name = TextEditingController();
@@ -153,13 +160,25 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: '名称')),
-            TextField(controller: award, decoration: const InputDecoration(labelText: '奖项（可选）')),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: '名称'),
+            ),
+            TextField(
+              controller: award,
+              decoration: const InputDecoration(labelText: '奖项（可选）'),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('添加')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('添加'),
+          ),
         ],
       ),
     );
@@ -189,8 +208,14 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
           decoration: const InputDecoration(labelText: '标题'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('添加')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('添加'),
+          ),
         ],
       ),
     );
@@ -214,7 +239,10 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+      ),
       const Spacer(),
       TextButton.icon(
         onPressed: onAdd,

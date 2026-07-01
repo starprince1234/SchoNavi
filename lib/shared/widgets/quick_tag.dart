@@ -44,10 +44,7 @@ class _QuickTagState extends State<QuickTag> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [AppColors.shadowCool],
         ),
-        child: Text(
-          widget.label,
-          style: textTheme.labelSmall,
-        ),
+        child: Text(widget.label, style: textTheme.labelSmall),
       ),
     );
 

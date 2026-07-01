@@ -24,7 +24,8 @@ import 'package:scho_navi/features/preparation/providers/preparation_providers.d
 /// **Fake plan-id 耦合说明：** FakeBackendAdapter 按 `(method, path)` 精确匹配，
 /// assistant 端点默认仅注册 plan id `pp_1`。本测试用 plan id `pp_1` 走默认注册，
 /// 避免手动注册（另一用例演示对自定义 plan id 显式注册）。
-PreparationPlan _plan({String id = 'pp_1', int revision = 1}) => PreparationPlan(
+PreparationPlan _plan({String id = 'pp_1', int revision = 1}) =>
+    PreparationPlan(
       id: id,
       competition: CompetitionSnapshot(
         id: 'comp_demo',
@@ -114,18 +115,17 @@ Widget _harness(
   ProviderContainer container, {
   String planId = 'pp_1',
   PreparationPlan? plan,
-}) =>
-    UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        home: Scaffold(
-          body: PreparationAssistantDrawer(
-            planId: planId,
-            plan: plan ?? _plan(id: planId),
-          ),
-        ),
+}) => UncontrolledProviderScope(
+  container: container,
+  child: MaterialApp(
+    home: Scaffold(
+      body: PreparationAssistantDrawer(
+        planId: planId,
+        plan: plan ?? _plan(id: planId),
       ),
-    );
+    ),
+  ),
+);
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));
@@ -149,8 +149,7 @@ void main() {
     expect(find.textContaining('这周期末考没空'), findsOneWidget);
   });
 
-  testWidgets('改动卡渲染 summary + rationale + 状态胶囊 + 启用接受按钮',
-      (t) async {
+  testWidgets('改动卡渲染 summary + rationale + 状态胶囊 + 启用接受按钮', (t) async {
     final container = await _bootstrap();
     await t.pumpWidget(_harness(container));
     await t.pumpAndSettle();
@@ -252,10 +251,7 @@ void main() {
     final saved = repo.findById('pp_1')!;
     expect(saved.revision, 2);
     final defense = saved.phases.firstWhere((p) => p.key == 'defense_prep');
-    expect(
-      defense.tasks.any((tk) => tk.title == '第二次模拟答辩'),
-      isTrue,
-    );
+    expect(defense.tasks.any((tk) => tk.title == '第二次模拟答辩'), isTrue);
   });
 
   /// 接受 deleteTask 卡 → 仓库写入新计划（删除目标任务）+ 卡标「已应用」
@@ -353,10 +349,7 @@ void main() {
         .findById('pp_1')!
         .phases
         .firstWhere((p) => p.key == 'defense_prep');
-    expect(
-      defense.tasks.any((tk) => tk.id == 'task_optional_drill'),
-      isFalse,
-    );
+    expect(defense.tasks.any((tk) => tk.id == 'task_optional_drill'), isFalse);
   });
 
   /// 生成卡片后手工改计划（revision 自 1→2），再点接受 → revision 不匹配 →
@@ -452,10 +445,10 @@ void main() {
     expect(find.text('接受'), findsNWidgets(2));
 
     // 手工改计划：save 触发 revision 1→2（expectedRevision 仍 1）。
-    await container.read(preparationPlanRepositoryProvider).save(
-          _plan(id: 'pp_1', revision: 1).copyWith(
-            personalizedSummary: '手动备注',
-          ),
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(
+          _plan(id: 'pp_1', revision: 1).copyWith(personalizedSummary: '手动备注'),
         );
 
     await t.tap(find.text('接受').first);
@@ -592,10 +585,7 @@ void main() {
         .phases
         .firstWhere((p) => p.key == 'defense_prep');
     final taskCountAfterFirst = defenseAfterFirst.tasks.length;
-    expect(
-      defenseAfterFirst.tasks.any((tk) => tk.title == '第二次模拟答辩'),
-      isTrue,
-    );
+    expect(defenseAfterFirst.tasks.any((tk) => tk.title == '第二次模拟答辩'), isTrue);
 
     // 接受按钮已被「已应用」替换；直接重新调用该 applied 卡的 onAccept 回调，
     // 模拟重复点击——应命中 `if (current == applied) return` 守卫，不二次落盘、
@@ -664,8 +654,9 @@ void main() {
       isNotNull,
     );
     // store 清空。
-    final persisted =
-        await container.read(assistantHistoryStoreProvider).list('pp_1');
+    final persisted = await container
+        .read(assistantHistoryStoreProvider)
+        .list('pp_1');
     expect(persisted, isEmpty);
   });
 
@@ -694,11 +685,13 @@ void main() {
     addTearDown(dio.close);
     addTearDown(() {
       if (!completer.isCompleted) {
-        completer.complete(const AssistantReply(
-          reply: '',
-          changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
-          requestId: '',
-        ));
+        completer.complete(
+          const AssistantReply(
+            reply: '',
+            changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
+            requestId: '',
+          ),
+        );
       }
     });
     await container
@@ -722,9 +715,7 @@ void main() {
     );
     expect(clearBtn.onPressed, isNull);
     expect(
-      container
-          .read(preparationAssistantControllerProvider('pp_1'))
-          .sending,
+      container.read(preparationAssistantControllerProvider('pp_1')).sending,
       isTrue,
     );
   });
@@ -752,11 +743,13 @@ void main() {
     addTearDown(dio.close);
     addTearDown(() {
       if (!completer.isCompleted) {
-        completer.complete(const AssistantReply(
-          reply: '',
-          changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
-          requestId: '',
-        ));
+        completer.complete(
+          const AssistantReply(
+            reply: '',
+            changeSet: PlanChangeSet(id: 'cs', basePlanRevision: 1, cards: []),
+            requestId: '',
+          ),
+        );
       }
     });
     await container

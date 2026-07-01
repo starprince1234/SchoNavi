@@ -48,10 +48,7 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
 
     final staggered = widget.delay + (widget.staggerDelay * widget.index);
 
@@ -62,10 +59,7 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
       ),
     );
 
-    _slide = Tween<Offset>(
-      begin: widget.slideOffset,
-      end: Offset.zero,
-    ).animate(
+    _slide = Tween<Offset>(begin: widget.slideOffset, end: Offset.zero).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0, 1, curve: Curves.easeOutCubic),
@@ -95,10 +89,7 @@ class _AnimatedEntranceState extends State<AnimatedEntrance>
       builder: (context, child) {
         return Opacity(
           opacity: _opacity.value,
-          child: Transform.translate(
-            offset: _slide.value,
-            child: child,
-          ),
+          child: Transform.translate(offset: _slide.value, child: child),
         );
       },
       child: widget.child,

@@ -78,4 +78,3 @@ class MatchAnalysisDto {
     dimensions: dimensions.map((item) => item.toEntity()).toList(),
   );
 }
-

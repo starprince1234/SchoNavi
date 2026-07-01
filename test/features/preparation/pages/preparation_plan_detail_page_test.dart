@@ -349,29 +349,25 @@ void main() {
 
     // 把目标日期提前到 2026-08-15，前置窗口收紧。
     final newTarget = DateTime(2026, 8, 15);
-    final result = PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
-      plan: plan,
-      newTargetDate: newTarget,
-      today: today,
-    );
+    final result =
+        PreparationPlanDetailRescheduler.rescheduleForTargetDateChange(
+          plan: plan,
+          newTargetDate: newTarget,
+          today: today,
+        );
 
     // 提取重排后的阶段（顺序应与原 plan 一致：proposal_writing 在前，defense_prep 在后）。
     final newProposal = result.phases.firstWhere(
       (p) => p.key == 'proposal_writing',
     );
-    final newDefense = result.phases.firstWhere(
-      (p) => p.key == 'defense_prep',
-    );
+    final newDefense = result.phases.firstWhere((p) => p.key == 'defense_prep');
 
     // 1) defense_prep 阶段边界完全不变。
     expect(newDefense.startDate, defenseStart);
     expect(newDefense.endDate, defenseEnd);
     // 2) defense_prep 未完成任务 dueDate 不变，仍落在 [targetDate+1, defenseDate]。
     expect(newDefense.tasks.single.dueDate, defenseTaskDue);
-    expect(
-      newDefense.tasks.single.dueDate.isAfter(originalTarget),
-      isTrue,
-    );
+    expect(newDefense.tasks.single.dueDate.isAfter(originalTarget), isTrue);
     expect(
       newDefense.tasks.single.dueDate.isBefore(defenseDate) ||
           newDefense.tasks.single.dueDate == defenseDate,
@@ -392,10 +388,7 @@ void main() {
       reason: '前置阶段 endDate 不应晚于新 targetDate',
     );
     // 前置阶段未完成任务 dueDate 也被重排到新 endDate（钳制到新窗口内）。
-    expect(
-      newProposal.tasks.single.dueDate,
-      isNot(DateTime(2026, 8, 5)),
-    );
+    expect(newProposal.tasks.single.dueDate, isNot(DateTime(2026, 8, 5)));
     expect(
       !newProposal.tasks.single.dueDate.isBefore(today) &&
           !newProposal.tasks.single.dueDate.isAfter(newTarget),

@@ -44,12 +44,14 @@ class HttpFavoriteRepository implements FavoriteRepository {
     switch (result) {
       case Success<FavoriteStatusDto>(:final data):
         final saved = data.item?.toEntity() ?? item;
-        _setSnapshot([
-          saved,
-          ..._snapshot.where(
-            (current) => current.professorId != item.professorId,
-          ),
-        ]..sort(_byNewest));
+        _setSnapshot(
+          [
+            saved,
+            ..._snapshot.where(
+              (current) => current.professorId != item.professorId,
+            ),
+          ]..sort(_byNewest),
+        );
       case Failure<FavoriteStatusDto>(:final error):
         throw error;
     }
@@ -85,7 +87,9 @@ class HttpFavoriteRepository implements FavoriteRepository {
     final result = await guardApi(
       () => _dio.get<dynamic>('/api/v1/favorites'),
       (data) => (data as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => FavoriteItemDto.fromJson(asJsonObject(item)).toEntity())
+          .map(
+            (item) => FavoriteItemDto.fromJson(asJsonObject(item)).toEntity(),
+          )
           .toList(growable: false),
     );
     if (result is Success<List<FavoriteItem>>) {

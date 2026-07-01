@@ -29,8 +29,9 @@ class LabeledTextField extends StatefulWidget {
 }
 
 class _LabeledTextFieldState extends State<LabeledTextField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialValue ?? '');
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue ?? '',
+  );
 
   @override
   void dispose() {

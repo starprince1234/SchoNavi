@@ -161,42 +161,39 @@ class HttpChatRepository implements ChatRepository {
             .map((raw) {
               final json = Map<String, dynamic>.from(raw);
               _requiredDateTime(json['created_at'], 'message.created_at');
-              return ChatMessageDto.fromJson(json).toEntity(
-                json['id']?.toString() ?? '',
-              );
+              return ChatMessageDto.fromJson(
+                json,
+              ).toEntity(json['id']?.toString() ?? '');
             })
             .toList(growable: false),
       );
 
   @override
-  Future<Result<List<ForkRef>>> listForks({required String mainSessionId}) =>
-      guardApi(
-        () => _dio.get<dynamic>('/api/v1/chat/sessions/$mainSessionId/forks'),
-        (data) {
-          final items =
-              asJsonObject(data)['items'] as List<dynamic>? ?? const [];
-          return items
-              .whereType<Map>()
-              .map((raw) {
-                final json = Map<String, dynamic>.from(raw);
-                final professorId = json['professor_id']?.toString() ?? '';
-                return ForkRef(
-                  forkId: json['id']?.toString() ?? '',
-                  mainSessionId:
-                      json['root_session_id']?.toString() ?? mainSessionId,
-                  professorId: professorId,
-                  professorName: professorId.isEmpty ? '该导师' : professorId,
-                  university: '',
-                  college: null,
-                  createdAt: _requiredDateTime(
-                    json['created_at'],
-                    'created_at',
-                  ),
-                );
-              })
-              .toList(growable: false);
-        },
-      );
+  Future<Result<List<ForkRef>>> listForks({
+    required String mainSessionId,
+  }) => guardApi(
+    () => _dio.get<dynamic>('/api/v1/chat/sessions/$mainSessionId/forks'),
+    (data) {
+      final items = asJsonObject(data)['items'] as List<dynamic>? ?? const [];
+      return items
+          .whereType<Map>()
+          .map((raw) {
+            final json = Map<String, dynamic>.from(raw);
+            final professorId = json['professor_id']?.toString() ?? '';
+            return ForkRef(
+              forkId: json['id']?.toString() ?? '',
+              mainSessionId:
+                  json['root_session_id']?.toString() ?? mainSessionId,
+              professorId: professorId,
+              professorName: professorId.isEmpty ? '该导师' : professorId,
+              university: '',
+              college: null,
+              createdAt: _requiredDateTime(json['created_at'], 'created_at'),
+            );
+          })
+          .toList(growable: false);
+    },
+  );
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) => guardApi(

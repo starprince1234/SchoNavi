@@ -75,36 +75,6 @@ class _FakeProfileRepo implements ProfileRepository {
 }
 
 void main() {
-  testWidgets('无 key 时展示 LLM 模式和配置缺失提示', (tester) async {
-    await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: '')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('settings-data-source')), findsOneWidget);
-    expect(find.textContaining('LLM 模式'), findsOneWidget);
-    expect(find.textContaining('未配置 LLM_API_KEY'), findsOneWidget);
-    expect(find.textContaining('离线 Mock'), findsNothing);
-  });
-
-  testWidgets('有 key 时展示当前模型', (tester) async {
-    await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: 'sk-test')));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('LLM 模式'), findsOneWidget);
-    expect(find.text('deepseek-chat'), findsOneWidget);
-  });
-
-  testWidgets('演示模式开关 -> showAiTrace', (tester) async {
-    await tester.pumpWidget(await _wrap(AppConfig.resolve(apiKey: 'sk-test')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('settings-demo-switch')));
-    await tester.pumpAndSettle();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(SettingsPage)),
-    );
-    expect(container.read(appConfigProvider).featureFlags.showAiTrace, isTrue);
-  });
-
   testWidgets('HTTP 模式展示远端资料文案', (tester) async {
     await tester.pumpWidget(
       await _wrap(
@@ -113,7 +83,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('后端 Origin'), findsOneWidget);
     expect(find.text('删除远端资料'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();

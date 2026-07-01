@@ -8,10 +8,7 @@ import 'app_colors.dart';
 /// 与 light/dark 切换时自动 lerp。
 @immutable
 class AppSurface extends ThemeExtension<AppSurface> {
-  const AppSurface({
-    required this.scaffoldGradient,
-    required this.glassBorder,
-  });
+  const AppSurface({required this.scaffoldGradient, required this.glassBorder});
 
   final Gradient scaffoldGradient;
   final Color glassBorder;
@@ -37,8 +34,11 @@ class AppSurface extends ThemeExtension<AppSurface> {
   AppSurface lerp(AppSurface? other, double t) {
     if (other == null) return this;
     return AppSurface(
-      scaffoldGradient:
-          Gradient.lerp(scaffoldGradient, other.scaffoldGradient, t)!,
+      scaffoldGradient: Gradient.lerp(
+        scaffoldGradient,
+        other.scaffoldGradient,
+        t,
+      )!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
     );
   }

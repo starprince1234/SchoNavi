@@ -40,10 +40,7 @@ class BentoGrid extends StatelessWidget {
 
           if (!animateEntrance) return sized;
 
-          return AnimatedEntrance(
-            index: index,
-            child: sized,
-          );
+          return AnimatedEntrance(index: index, child: sized);
         }).toList();
 
         return Padding(

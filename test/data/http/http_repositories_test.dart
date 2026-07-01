@@ -268,61 +268,61 @@ void main() {
     );
   });
 
-  test('HttpConversationRepository rejects malformed completed SSE payload',
-      () async {
-    final repo = HttpConversationRepository(
-      _dio((_) async {
-        return _sseBody([
-          'event: completed\n'
-              'data: {"session_id":"s_123","turn_id":"t_1","attempt_id":"a_1","revision":4}\n\n',
-        ]);
-      }),
-    );
+  test(
+    'HttpConversationRepository rejects malformed completed SSE payload',
+    () async {
+      final repo = HttpConversationRepository(
+        _dio((_) async {
+          return _sseBody([
+            'event: completed\n'
+                'data: {"session_id":"s_123","turn_id":"t_1","attempt_id":"a_1","revision":4}\n\n',
+          ]);
+        }),
+      );
 
-    await expectLater(
-      repo
-          .submitTurn(
-            sessionId: 's_123',
-            text: 'hello',
-            expectedRevision: 3,
-          )
-          .toList(),
-      throwsA(
-        isA<ValidationException>().having(
-          (error) => error.message,
-          'message',
-          contains('服务返回格式异常'),
+      await expectLater(
+        repo
+            .submitTurn(sessionId: 's_123', text: 'hello', expectedRevision: 3)
+            .toList(),
+        throwsA(
+          isA<ValidationException>().having(
+            (error) => error.message,
+            'message',
+            contains('服务返回格式异常'),
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
-  test('HttpChatRepository does not synthesize missing fork createdAt',
-      () async {
-    final repo = HttpChatRepository(
-      _dio(
-        (_) async => _jsonString(
-          jsonEncode({
-            'code': 0,
-            'message': 'ok',
-            'data': {
-              'items': [
-                {
-                  'id': 'fork-1',
-                  'root_session_id': 's_123',
-                  'professor_id': 'p_001',
-                },
-              ],
-            },
-          }),
+  test(
+    'HttpChatRepository does not synthesize missing fork createdAt',
+    () async {
+      final repo = HttpChatRepository(
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {
+                'items': [
+                  {
+                    'id': 'fork-1',
+                    'root_session_id': 's_123',
+                    'professor_id': 'p_001',
+                  },
+                ],
+              },
+            }),
+          ),
         ),
-      ),
-    );
+      );
 
-    final result = await repo.listForks(mainSessionId: 's_123');
+      final result = await repo.listForks(mainSessionId: 's_123');
 
-    expect((result as Failure).error, isA<ServerException>());
-  });
+      expect((result as Failure).error, isA<ServerException>());
+    },
+  );
 
   test('HttpHistoryRepository lists search history from envelope', () async {
     RequestOptions? captured;
@@ -383,68 +383,63 @@ void main() {
     });
   });
 
-  test('HttpProfileRepository does not update snapshot when save fails',
-      () async {
-    final repo = HttpProfileRepository(
-      _dio(
-        (_) async => _jsonString(
-          jsonEncode({
-            'code': 40001,
-            'message': '输入内容不合法',
-            'data': null,
-          }),
+  test(
+    'HttpProfileRepository does not update snapshot when save fails',
+    () async {
+      final repo = HttpProfileRepository(
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({'code': 40001, 'message': '输入内容不合法', 'data': null}),
+          ),
         ),
-      ),
-    );
+      );
 
-    await expectLater(
-      repo.save(const UserProfile(name: '张三')),
-      throwsA(isA<ValidationException>()),
-    );
+      await expectLater(
+        repo.save(const UserProfile(name: '张三')),
+        throwsA(isA<ValidationException>()),
+      );
 
-    expect(repo.load().isEmpty, isTrue);
-  });
+      expect(repo.load().isEmpty, isTrue);
+    },
+  );
 
-  test('HttpFavoriteRepository does not remove snapshot when delete fails',
-      () async {
-    var calls = 0;
-    final repo = HttpFavoriteRepository(
-      _dio((_) async {
-        calls++;
-        if (calls == 1) {
+  test(
+    'HttpFavoriteRepository does not remove snapshot when delete fails',
+    () async {
+      var calls = 0;
+      final repo = HttpFavoriteRepository(
+        _dio((_) async {
+          calls++;
+          if (calls == 1) {
+            return _jsonString(
+              jsonEncode({
+                'code': 0,
+                'message': 'ok',
+                'data': {'favorited': true, 'item': _favoriteJson('p_001')},
+              }),
+            );
+          }
           return _jsonString(
-            jsonEncode({
-              'code': 0,
-              'message': 'ok',
-              'data': {'favorited': true, 'item': _favoriteJson('p_001')},
-            }),
+            jsonEncode({'code': 50001, 'message': '服务异常，请稍后重试', 'data': null}),
           );
-        }
-        return _jsonString(
-          jsonEncode({
-            'code': 50001,
-            'message': '服务异常，请稍后重试',
-            'data': null,
-          }),
-        );
-      }),
-    );
+        }),
+      );
 
-    await repo.add(_favoriteItem('p_001'));
-    await expectLater(repo.remove('p_001'), throwsA(isA<ValidationException>()));
+      await repo.add(_favoriteItem('p_001'));
+      await expectLater(
+        repo.remove('p_001'),
+        throwsA(isA<ValidationException>()),
+      );
 
-    expect(repo.list().map((item) => item.professorId), contains('p_001'));
-  });
+      expect(repo.list().map((item) => item.professorId), contains('p_001'));
+    },
+  );
 
   test('HttpHistoryRepository does not add snapshot when post fails', () async {
     final repo = HttpHistoryRepository(
       _dio(
         (_) async => _jsonString(
-          jsonEncode({
-            'code': 50001,
-            'message': '服务异常，请稍后重试',
-            'data': null,
-          }),
+          jsonEncode({'code': 50001, 'message': '服务异常，请稍后重试', 'data': null}),
         ),
       ),
       now: () => DateTime.utc(2026, 6, 15, 10),

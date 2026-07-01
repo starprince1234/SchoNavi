@@ -33,14 +33,20 @@ class _ControllableAssistant implements PreparationPlanAssistant {
   }
 }
 
-PreparationPlan _plan({String id = 'pp_1', int revision = 1}) => PreparationPlan(
+PreparationPlan _plan({String id = 'pp_1', int revision = 1}) =>
+    PreparationPlan(
       id: id,
       competition: CompetitionSnapshot(
         id: 'comp_demo',
         name: 'Demo',
         category: '计算机类',
         rulesSummary: CompetitionRulesSummary(
-          signupTime: '', contestTime: '', teamSize: '', format: '', organizer: '', officialUrl: null,
+          signupTime: '',
+          contestTime: '',
+          teamSize: '',
+          format: '',
+          organizer: '',
+          officialUrl: null,
         ),
       ),
       targetDate: DateTime(2026, 5, 30),
@@ -56,45 +62,49 @@ PreparationPlan _plan({String id = 'pp_1', int revision = 1}) => PreparationPlan
 
 Future<ProviderContainer> _container({bool savePlan = false}) async {
   final prefs = await SharedPreferences.getInstance();
-  final container = ProviderContainer(overrides: [
-    sharedPreferencesProvider.overrideWithValue(prefs),
-    initialAppConfigProvider.overrideWithValue(
-      const AppConfig(
-        dataSource: DataSource.llm,
-        api: ApiConfig(baseUrl: 'https://fake.local'),
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      initialAppConfigProvider.overrideWithValue(
+        const AppConfig(
+          dataSource: DataSource.llm,
+          api: ApiConfig(baseUrl: 'https://fake.local'),
+        ),
       ),
-    ),
-  ]);
+    ],
+  );
   addTearDown(container.dispose);
   if (savePlan) {
-    await container.read(preparationPlanRepositoryProvider).save(_plan(revision: 0));
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
   }
   return container;
 }
 
 AssistantReply _replyWithAddCard() => AssistantReply(
-      reply: '加一次模拟答辩',
-      changeSet: PlanChangeSet(
-        id: 'cs_1',
-        basePlanRevision: 1,
-        cards: [
-          PlanChangeCard(
-            id: 'cc_add',
-            type: ChangeCardType.addTask,
-            targetPhaseKey: 'defense_prep',
-            summary: '答辩准备阶段新增一次模拟答辩',
-            rationale: '在正式答辩前预留复盘时间。',
-            status: ChangeCardStatus.pending,
-            newTask: NewTaskDraft(
-              title: '第二次模拟答辩',
-              estimatedHours: 3,
-              dueDate: DateTime(2026, 6, 5),
-            ),
-          ),
-        ],
+  reply: '加一次模拟答辩',
+  changeSet: PlanChangeSet(
+    id: 'cs_1',
+    basePlanRevision: 1,
+    cards: [
+      PlanChangeCard(
+        id: 'cc_add',
+        type: ChangeCardType.addTask,
+        targetPhaseKey: 'defense_prep',
+        summary: '答辩准备阶段新增一次模拟答辩',
+        rationale: '在正式答辩前预留复盘时间。',
+        status: ChangeCardStatus.pending,
+        newTask: NewTaskDraft(
+          title: '第二次模拟答辩',
+          estimatedHours: 3,
+          dueDate: DateTime(2026, 6, 5),
+        ),
       ),
-      requestId: 'req_x',
-    );
+    ],
+  ),
+  requestId: 'req_x',
+);
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -116,20 +126,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -141,11 +153,7 @@ void main() {
     completer.complete(
       const AssistantReply(
         reply: '已调整',
-        changeSet: PlanChangeSet(
-          id: 'cs_1',
-          basePlanRevision: 1,
-          cards: [],
-        ),
+        changeSet: PlanChangeSet(id: 'cs_1', basePlanRevision: 1, cards: []),
         requestId: 'req_x',
       ),
     );
@@ -169,16 +177,18 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
+    );
     addTearDown(container.dispose);
     final repo = container.read(preparationPlanRepositoryProvider);
     await repo.save(_plan(revision: 0)); // revision -> 1
@@ -195,11 +205,7 @@ void main() {
     completer.complete(
       const AssistantReply(
         reply: '答',
-        changeSet: PlanChangeSet(
-          id: 'cs_1',
-          basePlanRevision: 2,
-          cards: [],
-        ),
+        changeSet: PlanChangeSet(id: 'cs_1', basePlanRevision: 2, cards: []),
       ),
     );
     await Future<void>.delayed(Duration.zero);
@@ -213,20 +219,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -251,20 +259,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -278,11 +288,7 @@ void main() {
     completer.complete(
       const AssistantReply(
         reply: '答',
-        changeSet: PlanChangeSet(
-          id: 'cs_1',
-          basePlanRevision: 1,
-          cards: [],
-        ),
+        changeSet: PlanChangeSet(id: 'cs_1', basePlanRevision: 1, cards: []),
       ),
     );
     await Future<void>.delayed(Duration.zero);
@@ -294,20 +300,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -338,20 +346,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -364,11 +374,7 @@ void main() {
     completer.complete(
       const AssistantReply(
         reply: '答',
-        changeSet: PlanChangeSet(
-          id: 'cs_1',
-          basePlanRevision: 1,
-          cards: [],
-        ),
+        changeSet: PlanChangeSet(id: 'cs_1', basePlanRevision: 1, cards: []),
       ),
     );
     await Future<void>.delayed(Duration.zero);
@@ -380,20 +386,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,
@@ -409,11 +417,7 @@ void main() {
     completer.complete(
       const AssistantReply(
         reply: '已调整',
-        changeSet: PlanChangeSet(
-          id: 'cs_1',
-          basePlanRevision: 1,
-          cards: [],
-        ),
+        changeSet: PlanChangeSet(id: 'cs_1', basePlanRevision: 1, cards: []),
       ),
     );
     await Future<void>.delayed(Duration.zero);
@@ -430,20 +434,22 @@ void main() {
     final completer = Completer<AssistantReply>();
     final fake = _ControllableAssistant(completer);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      initialAppConfigProvider.overrideWithValue(
-        const AppConfig(
-          dataSource: DataSource.llm,
-          api: ApiConfig(baseUrl: 'https://fake.local'),
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        initialAppConfigProvider.overrideWithValue(
+          const AppConfig(
+            dataSource: DataSource.llm,
+            api: ApiConfig(baseUrl: 'https://fake.local'),
+          ),
         ),
-      ),
-      preparationPlanAssistantProvider.overrideWithValue(fake),
-    ]);
-    addTearDown(container.dispose);
-    await container.read(preparationPlanRepositoryProvider).save(
-      _plan(revision: 0),
+        preparationPlanAssistantProvider.overrideWithValue(fake),
+      ],
     );
+    addTearDown(container.dispose);
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(_plan(revision: 0));
 
     final ctrl = container.read(
       preparationAssistantControllerProvider('pp_1').notifier,

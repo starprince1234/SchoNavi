@@ -102,30 +102,30 @@ String _firstProfId() => MockDb().allProfessors.first.id;
 
 /// 预置主 session 的可见历史（带卡片），供 fork/resume 经 loadHistory 回填。
 /// 取代旧 seedRecommendationTurn 落盘路径（推荐摘要现已不进可见历史）。
-Future<void> _seedVisibleHistory(AiChatRepository repo, String sessionId) async {
-  await repo.persistMessages(
-    sessionId,
-    [
-      ChatMessage(
-        id: 'u1',
-        role: ChatRole.user,
-        content: '想做CV',
-        createdAt: DateTime(2026, 6, 27),
-        relatedRecommendations: const [],
-        status: ChatMessageStatus.done,
-        kind: ChatMessageKind.conversation,
-      ),
-      ChatMessage(
-        id: 'a1',
-        role: ChatRole.assistant,
-        content: '为你挑了合适的导师',
-        createdAt: DateTime(2026, 6, 27),
-        relatedRecommendations: const [],
-        status: ChatMessageStatus.done,
-        kind: ChatMessageKind.recommendation,
-      ),
-    ],
-  );
+Future<void> _seedVisibleHistory(
+  AiChatRepository repo,
+  String sessionId,
+) async {
+  await repo.persistMessages(sessionId, [
+    ChatMessage(
+      id: 'u1',
+      role: ChatRole.user,
+      content: '想做CV',
+      createdAt: DateTime(2026, 6, 27),
+      relatedRecommendations: const [],
+      status: ChatMessageStatus.done,
+      kind: ChatMessageKind.conversation,
+    ),
+    ChatMessage(
+      id: 'a1',
+      role: ChatRole.assistant,
+      content: '为你挑了合适的导师',
+      createdAt: DateTime(2026, 6, 27),
+      relatedRecommendations: const [],
+      status: ChatMessageStatus.done,
+      kind: ChatMessageKind.recommendation,
+    ),
+  ]);
 }
 
 void main() {
@@ -200,11 +200,7 @@ void main() {
     container.listen(_chatProvider, (_, _) {});
 
     final notifier = container.read(_chatProvider.notifier);
-    await notifier.resume(
-      sessionId: forkId,
-      isFork: true,
-      mainSessionId: 's1',
-    );
+    await notifier.resume(sessionId: forkId, isFork: true, mainSessionId: 's1');
     await Future<void>.delayed(Duration.zero);
     final state = container.read(_chatProvider);
 
@@ -341,7 +337,9 @@ class _ControllableChatRepository extends ChatRepository {
   Future<void> get listForksReached => _listForksReached.future;
 
   void completeListForks(Result<List<ForkRef>> result) {
-    (_listForksCompleter ??= Completer<Result<List<ForkRef>>>()).complete(result);
+    (_listForksCompleter ??= Completer<Result<List<ForkRef>>>()).complete(
+      result,
+    );
   }
 
   @override
@@ -351,9 +349,8 @@ class _ControllableChatRepository extends ChatRepository {
   }) => _forkSessionCompleter.future;
 
   @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) => _loadHistoryCompleter.future;
+  Future<Result<List<ChatMessage>>> loadHistory({required String sessionId}) =>
+      _loadHistoryCompleter.future;
 
   @override
   Future<Result<List<ForkRef>>> listForks({

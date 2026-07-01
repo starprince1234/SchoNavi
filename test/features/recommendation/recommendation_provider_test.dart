@@ -84,15 +84,14 @@ const _rec = Recommendation(
   limitations: [],
 );
 
-ProviderContainer _container(Result<RecommendationResult> result) => ProviderContainer(
-  overrides: [
-    profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
-    historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
-    recommendationRepositoryProvider.overrideWithValue(
-      _FakeRepo(result),
-    ),
-  ],
-);
+ProviderContainer _container(Result<RecommendationResult> result) =>
+    ProviderContainer(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
+        historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
+        recommendationRepositoryProvider.overrideWithValue(_FakeRepo(result)),
+      ],
+    );
 
 void main() {
   test('provider resolves to data on Success', () async {

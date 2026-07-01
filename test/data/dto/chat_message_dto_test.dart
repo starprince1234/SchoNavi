@@ -5,18 +5,18 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 
 Recommendation _rec() => Recommendation(
-      professorId: 'p1',
-      name: '李卫国',
-      university: '清华大学',
-      college: '计算机系',
-      title: '教授',
-      researchFields: const ['CV'],
-      matchLevel: MatchLevel.high,
-      reason: '方向匹配',
-      limitations: const [],
-      homepageUrl: 'http://x',
-      matchScore: 0.9,
-    );
+  professorId: 'p1',
+  name: '李卫国',
+  university: '清华大学',
+  college: '计算机系',
+  title: '教授',
+  researchFields: const ['CV'],
+  matchLevel: MatchLevel.high,
+  reason: '方向匹配',
+  limitations: const [],
+  homepageUrl: 'http://x',
+  matchScore: 0.9,
+);
 
 void main() {
   group('ChatMessageDto', () {
@@ -49,9 +49,9 @@ void main() {
         status: ChatMessageStatus.done,
         kind: ChatMessageKind.recommendation,
       );
-      final back = ChatMessageDto.fromEntity(m)
-          .toJson()
-          .let((j) => ChatMessageDto.fromJson(j).toEntity('m2'));
+      final back = ChatMessageDto.fromEntity(
+        m,
+      ).toJson().let((j) => ChatMessageDto.fromJson(j).toEntity('m2'));
       expect(back.kind, ChatMessageKind.recommendation);
       expect(back.relatedRecommendations.length, 1);
       expect(back.relatedRecommendations.first.professorId, 'p1');
@@ -68,9 +68,9 @@ void main() {
         status: ChatMessageStatus.done,
         kind: ChatMessageKind.forkReroute,
       );
-      final back = ChatMessageDto.fromEntity(m)
-          .toJson()
-          .let((j) => ChatMessageDto.fromJson(j).toEntity('m3'));
+      final back = ChatMessageDto.fromEntity(
+        m,
+      ).toJson().let((j) => ChatMessageDto.fromJson(j).toEntity('m3'));
       expect(back.kind, ChatMessageKind.forkReroute);
     });
   });

@@ -92,8 +92,7 @@ class PlanChangeCardView extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              if (status == ChangeCardStatus.pending &&
-                  errorMessage != null)
+              if (status == ChangeCardStatus.pending && errorMessage != null)
                 Text(
                   errorMessage!,
                   style: TextStyle(fontSize: 12, color: AppColors.danger),
@@ -168,23 +167,23 @@ class PlanChangeCardView extends StatelessWidget {
   }
 
   IconData _typeIcon(ChangeCardType t) => switch (t) {
-        ChangeCardType.moveTask => Icons.drag_handle_rounded,
-        ChangeCardType.addTask => Icons.add_task_rounded,
-        ChangeCardType.deleteTask => Icons.delete_outline,
-        ChangeCardType.reschedulePhase => Icons.event_repeat_outlined,
-        ChangeCardType.appendAdvice => Icons.lightbulb_outline,
-      };
+    ChangeCardType.moveTask => Icons.drag_handle_rounded,
+    ChangeCardType.addTask => Icons.add_task_rounded,
+    ChangeCardType.deleteTask => Icons.delete_outline,
+    ChangeCardType.reschedulePhase => Icons.event_repeat_outlined,
+    ChangeCardType.appendAdvice => Icons.lightbulb_outline,
+  };
 
   ({String label, Color color}) _statusStyle(
     ChangeCardStatus s,
     ColorScheme scheme,
   ) => switch (s) {
-        ChangeCardStatus.pending => (label: '待确认', color: AppColors.indigo),
-        ChangeCardStatus.rejected => (label: '已驳回', color: AppColors.danger),
-        ChangeCardStatus.applied => (label: '已应用', color: AppColors.match),
-        ChangeCardStatus.declined => (label: '已忽略', color: AppColors.inkFaint),
-        ChangeCardStatus.stale => (label: '已过期', color: AppColors.inkFaint),
-      };
+    ChangeCardStatus.pending => (label: '待确认', color: AppColors.indigo),
+    ChangeCardStatus.rejected => (label: '已驳回', color: AppColors.danger),
+    ChangeCardStatus.applied => (label: '已应用', color: AppColors.match),
+    ChangeCardStatus.declined => (label: '已忽略', color: AppColors.inkFaint),
+    ChangeCardStatus.stale => (label: '已过期', color: AppColors.inkFaint),
+  };
 }
 
 class _StatusChip extends StatelessWidget {

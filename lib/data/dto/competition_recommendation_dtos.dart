@@ -18,9 +18,7 @@ class CompetitionQueryUnderstandingDto {
   final List<String> teamPreferences;
   final List<String> uncertainties;
 
-  factory CompetitionQueryUnderstandingDto.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory CompetitionQueryUnderstandingDto.fromJson(Map<String, dynamic> json) {
     return CompetitionQueryUnderstandingDto(
       directions: stringList(json['directions']),
       categories: stringList(json['categories']),
@@ -183,9 +181,8 @@ class CompetitionRecommendationResultDto {
       recommendations:
           (json['recommendations'] as List<dynamic>? ?? const <dynamic>[])
               .map(
-                (item) => RecommendedCompetitionDto.fromJson(
-                  asJsonObject(item),
-                ),
+                (item) =>
+                    RecommendedCompetitionDto.fromJson(asJsonObject(item)),
               )
               .toList(growable: false),
       followUpQuestions: stringList(json['follow_up_questions']),
@@ -206,4 +203,3 @@ class CompetitionRecommendationResultDto {
     followUpQuestions: followUpQuestions,
   );
 }
-

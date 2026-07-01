@@ -27,8 +27,7 @@ class MockMatchAnalysisRepository implements MatchAnalysisRepository {
         '你已明确研究兴趣，可进一步对照 ${professor.name}${professor.title} 的 $fields 梳理关联。'
       else
         '已选定具体导师，可围绕 $fields 快速建立准备清单。',
-      if (profile.major != null)
-        '你的 ${profile.major} 背景可作为理解相关研究问题的基础。',
+      if (profile.major != null) '你的 ${profile.major} 背景可作为理解相关研究问题的基础。',
     ];
 
     final gaps = <String>[
@@ -61,11 +60,7 @@ class MockMatchAnalysisRepository implements MatchAnalysisRepository {
             ? '你的 ${profile.major} 背景可支撑相关方法。'
             : '方法匹配度需结合你的具体技能判断。',
       ),
-      const MatchDimension(
-        label: '地域',
-        score: 70,
-        comment: '地域偏好需结合你的意向城市确认。',
-      ),
+      const MatchDimension(label: '地域', score: 70, comment: '地域偏好需结合你的意向城市确认。'),
       MatchDimension(
         label: '学历目标',
         score: profile.degreeStage != null ? 72 : 58,

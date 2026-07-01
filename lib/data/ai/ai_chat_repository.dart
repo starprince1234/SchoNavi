@@ -103,9 +103,7 @@ class AiChatRepository extends ChatRepository with ChatForkMixin {
 
         try {
           sub = llm
-              .stream(
-                messages: _buildMessages(sessionId, professorId, history),
-              )
+              .stream(messages: _buildMessages(sessionId, professorId, history))
               .listen(
                 (delta) {
                   buffer.write(delta);

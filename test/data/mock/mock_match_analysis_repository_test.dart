@@ -52,10 +52,13 @@ void main() {
     );
     final dims = (result as Success<MatchAnalysis>).data.dimensions;
 
-    expect(
-      dims.map((d) => d.label).toList(),
-      ['方向契合', '方法匹配', '地域', '学历目标', '产出活跃'],
-    );
+    expect(dims.map((d) => d.label).toList(), [
+      '方向契合',
+      '方法匹配',
+      '地域',
+      '学历目标',
+      '产出活跃',
+    ]);
     for (final d in dims) {
       expect(d.score, inInclusiveRange(0, 100));
       expect(d.comment, isNotEmpty);

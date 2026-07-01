@@ -20,4 +20,3 @@ class EmailDraftDto {
 
   EmailDraft toEntity() => EmailDraft(subject: subject, body: body);
 }
-

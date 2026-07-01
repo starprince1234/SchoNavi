@@ -22,9 +22,8 @@ class HttpPreparationLevelDiagnoser implements PreparationLevelDiagnoser {
         '/api/v1/preparation-plans/diagnose',
         data: levelDiagnosisRequestToJson(request),
       ),
-      (data) => LevelDiagnosisSuggestionDto.fromJson(
-        asJsonObject(data),
-      ).toEntity(),
+      (data) =>
+          LevelDiagnosisSuggestionDto.fromJson(asJsonObject(data)).toEntity(),
     );
   }
 }

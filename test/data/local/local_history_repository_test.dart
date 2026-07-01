@@ -89,10 +89,7 @@ void main() {
     expect(item.sessionId, 'c_1');
     expect(item.recommendationCount, 1);
     expect(item.researchInterests, ['数学建模', '理学类']);
-    expect(
-      item.summary,
-      '方向：数学建模 / 类别：理学类 / 时间：秋季/下半年 / 组队：团队赛',
-    );
+    expect(item.summary, '方向：数学建模 / 类别：理学类 / 时间：秋季/下半年 / 组队：团队赛');
   });
 
   test('same sessionId is deduped and updated', () async {

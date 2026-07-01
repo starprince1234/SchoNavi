@@ -1,7 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../../core/result/result.dart';
-import '../../domain/entities/preparation_plan.dart' show CompetitionTimelineType;
+import '../../domain/entities/preparation_plan.dart'
+    show CompetitionTimelineType;
 import '../../domain/entities/preparation_template.dart';
 import '../../domain/repositories/preparation_template_provider.dart';
 import '../dto/api_envelope.dart';

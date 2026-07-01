@@ -6,11 +6,7 @@ class MockPreparationConfigRepository implements PreparationConfigRepository {
   const MockPreparationConfigRepository();
 
   static const config = PreparationConfig(
-    categoryAliases: {
-      '电子信息类': '电子与信息类',
-      '创新创业类': '综合与创业类',
-      '综合创业类': '综合与创业类',
-    },
+    categoryAliases: {'电子信息类': '电子与信息类', '创新创业类': '综合与创业类', '综合创业类': '综合与创业类'},
     timelineDefaults: {
       'comp_icpc': CompetitionTimelineType.eventWindow,
       'comp_lanqiao': CompetitionTimelineType.eventWindow,

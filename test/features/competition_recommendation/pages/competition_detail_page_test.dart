@@ -15,67 +15,68 @@ const _catalog = StaticCompetitionCatalogRepository();
 GoRouter _routerWithDetailAndForm() {
   const catalog = _catalog;
   return GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) =>
-              const CompetitionDetailPage(competitionId: 'comp_icpc'),
-        ),
-        GoRoute(
-          path: '/preparation-plans/new',
-          builder: (_, state) {
-            final cid = state.uri.queryParameters['competitionId'] ?? '';
-            final base = catalog.findById(cid);
-            return PreparationPlanFormPage(
-              competition: CompetitionSnapshot(
-                id: base?.id ?? cid,
-                name: base?.name ?? '',
-                category: base?.category ?? '',
-                rulesSummary: CompetitionRulesSummary(
-                  signupTime: base?.signupTime ?? '',
-                  contestTime: base?.contestTime ?? '',
-                  teamSize: base?.teamSize ?? '',
-                  format: base?.format ?? '',
-                  organizer: base?.organizer ?? '',
-                  officialUrl: base?.officialUrl,
-                ),
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) =>
+            const CompetitionDetailPage(competitionId: 'comp_icpc'),
+      ),
+      GoRoute(
+        path: '/preparation-plans/new',
+        builder: (_, state) {
+          final cid = state.uri.queryParameters['competitionId'] ?? '';
+          final base = catalog.findById(cid);
+          return PreparationPlanFormPage(
+            competition: CompetitionSnapshot(
+              id: base?.id ?? cid,
+              name: base?.name ?? '',
+              category: base?.category ?? '',
+              rulesSummary: CompetitionRulesSummary(
+                signupTime: base?.signupTime ?? '',
+                contestTime: base?.contestTime ?? '',
+                teamSize: base?.teamSize ?? '',
+                format: base?.format ?? '',
+                organizer: base?.organizer ?? '',
+                officialUrl: base?.officialUrl,
               ),
-            );
-          },
-        ),
-        GoRoute(
-          path: '/preparation-plans/:id',
-          builder: (_, state) =>
-              Scaffold(body: Text('detail:${state.pathParameters['id']}')),
-        ),
-      ],
-    );
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/preparation-plans/:id',
+        builder: (_, state) =>
+            Scaffold(body: Text('detail:${state.pathParameters['id']}')),
+      ),
+    ],
+  );
 }
 
 PreparationPlan _activePlan() => PreparationPlan(
-      id: 'p1',
-      competition: CompetitionSnapshot(
-        id: 'comp_icpc',
-        name: 'ACM-ICPC',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-            signupTime: '',
-            contestTime: '',
-            teamSize: '',
-            format: '',
-            organizer: '',
-            officialUrl: null),
-      ),
-      targetDate: DateTime(2026, 9, 1),
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.beginner,
-      status: PreparationPlanStatus.active,
-      phases: const [],
-      tightSchedule: false,
-      overload: false,
-      createdAt: DateTime(2026, 6, 28),
-      updatedAt: DateTime(2026, 6, 28),
-    );
+  id: 'p1',
+  competition: CompetitionSnapshot(
+    id: 'comp_icpc',
+    name: 'ACM-ICPC',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 9, 1),
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases: const [],
+  tightSchedule: false,
+  overload: false,
+  createdAt: DateTime(2026, 6, 28),
+  updatedAt: DateTime(2026, 6, 28),
+);
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));
@@ -165,9 +166,7 @@ void main() {
   testWidgets('有进行中计划显示"继续备赛"', (t) async {
     final container = await bootstrap();
     // 预存一个 active plan for comp_icpc
-    await container
-        .read(preparationPlanRepositoryProvider)
-        .save(_activePlan());
+    await container.read(preparationPlanRepositoryProvider).save(_activePlan());
     await t.pumpWidget(
       UncontrolledProviderScope(
         container: container,

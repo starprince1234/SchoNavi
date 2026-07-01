@@ -15,7 +15,8 @@ class _StubBundle extends CachingAssetBundle {
   }
 
   @override
-  Future<ByteData> load(String key) async => throw Exception('binary load not supported in stub');
+  Future<ByteData> load(String key) async =>
+      throw Exception('binary load not supported in stub');
 }
 
 void main() {
@@ -33,7 +34,10 @@ void main() {
       competitionId: 'comp_x',
     );
     final writing = t.phases.firstWhere((p) => p.key == 'proposal_writing');
-    expect(writing.requiredTasks.any((t) => t.templateKey == 'cs_impl'), isTrue);
+    expect(
+      writing.requiredTasks.any((t) => t.templateKey == 'cs_impl'),
+      isTrue,
+    );
     // Dart 必做仍在
     expect(writing.requiredTasks.any((t) => t.templateKey == 'draft'), isTrue);
   });
@@ -64,7 +68,10 @@ void main() {
       competitionId: 'comp_icpc',
     );
     final writing = t.phases.firstWhere((p) => p.key == 'proposal_writing');
-    expect(writing.requiredTasks.any((t) => t.templateKey == 'icpc_train'), isTrue);
+    expect(
+      writing.requiredTasks.any((t) => t.templateKey == 'icpc_train'),
+      isTrue,
+    );
   });
 
   test('窗口型只加载窗口骨架阶段', () async {
@@ -76,7 +83,16 @@ void main() {
       competitionId: 'comp_icpc',
     );
     final keys = t.phases.map((p) => p.key).toSet();
-    expect(keys, containsAll(['team_formation', 'rules_review', 'skill_training', 'mock_event', 'final_check']));
+    expect(
+      keys,
+      containsAll([
+        'team_formation',
+        'rules_review',
+        'skill_training',
+        'mock_event',
+        'final_check',
+      ]),
+    );
     expect(keys, isNot(contains('proposal_writing')));
     expect(keys, isNot(contains('defense_prep')));
   });

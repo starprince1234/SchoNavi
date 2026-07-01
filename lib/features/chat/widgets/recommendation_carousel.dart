@@ -40,7 +40,9 @@ class RecommendationCarousel extends ConsumerWidget {
           onFavoritePressed: () => ref
               .read(favoriteRepositoryProvider)
               .toggle(FavoriteItem.fromRecommendation(r)),
-          onOpenUrlPressed: onOpenHomepage == null ? null : () => onOpenHomepage!(r),
+          onOpenUrlPressed: onOpenHomepage == null
+              ? null
+              : () => onOpenHomepage!(r),
         );
       },
     );

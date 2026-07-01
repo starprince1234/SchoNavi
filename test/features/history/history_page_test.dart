@@ -20,7 +20,10 @@ import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/features/history/pages/history_page.dart';
 
-Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) async {
+Future<Widget> _wrap({
+  bool withHistory = false,
+  bool withCompetition = false,
+}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   final conversationRepo = _FakeConversationRepo(
@@ -31,7 +34,8 @@ Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) a
       GoRoute(path: '/', builder: (_, _) => const HistoryPage()),
       GoRoute(
         path: '/chat',
-        builder: (_, state) => Text('会话：${state.uri.queryParameters['sid'] ?? ''}'),
+        builder: (_, state) =>
+            Text('会话：${state.uri.queryParameters['sid'] ?? ''}'),
       ),
       GoRoute(
         path: '/recommendation',
@@ -40,7 +44,8 @@ Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) a
       ),
       GoRoute(
         path: '/competition-recommendation',
-        builder: (_, state) => Text('竞赛重推：${state.uri.queryParameters['q'] ?? ''}'),
+        builder: (_, state) =>
+            Text('竞赛重推：${state.uri.queryParameters['q'] ?? ''}'),
       ),
     ],
   );
@@ -55,16 +60,17 @@ Future<Widget> _wrap({bool withHistory = false, bool withCompetition = false}) a
   );
   addTearDown(container.dispose);
   if (withHistory) {
-    await container.read(historyRepositoryProvider).addFromResult(
-      prompt: '医学影像 上海',
-      result: _result(),
-    );
+    await container
+        .read(historyRepositoryProvider)
+        .addFromResult(prompt: '医学影像 上海', result: _result());
   }
   if (withCompetition) {
-    await container.read(historyRepositoryProvider).addFromCompetitionResult(
-      prompt: '数学建模 团队赛',
-      result: _competitionResult(),
-    );
+    await container
+        .read(historyRepositoryProvider)
+        .addFromCompetitionResult(
+          prompt: '数学建模 团队赛',
+          result: _competitionResult(),
+        );
   }
 
   return UncontrolledProviderScope(
@@ -293,7 +299,9 @@ void main() {
     expect(find.text('医学影像 上海'), findsNothing);
   });
 
-  testWidgets('clear history asks confirmation and clears list', (tester) async {
+  testWidgets('clear history asks confirmation and clears list', (
+    tester,
+  ) async {
     await tester.pumpWidget(await _wrap(withHistory: true));
     await tester.pumpAndSettle();
 

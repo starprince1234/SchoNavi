@@ -72,10 +72,11 @@ String _validJson() => jsonEncode({
   'suggestion': '若你更看重医学影像，可优先关注张三。',
 });
 
-AiComparisonRepository _repo(Result<String> llmResult) => AiComparisonRepository(
-  llm: _FakeLlm(llmResult),
-  professorRepository: _FakeProfessorRepository(),
-);
+AiComparisonRepository _repo(Result<String> llmResult) =>
+    AiComparisonRepository(
+      llm: _FakeLlm(llmResult),
+      professorRepository: _FakeProfessorRepository(),
+    );
 
 void main() {
   setUp(() {
@@ -84,9 +85,9 @@ void main() {
   });
 
   test('解析 rows/summary/suggestion，列顺序取传入导师，且用 JSON 模式', () async {
-    final result = await _repo(Success(_validJson())).compare(
-      professorIds: [_p1.id, _p3.id],
-    );
+    final result = await _repo(
+      Success(_validJson()),
+    ).compare(professorIds: [_p1.id, _p3.id]);
     final report = (result as Success<ComparisonReport>).data;
 
     expect(report.professorIds, [_p1.id, _p3.id]);
@@ -109,18 +110,16 @@ void main() {
       'summary': 's',
       'suggestion': 'g',
     });
-    final result = await _repo(Success(data)).compare(
-      professorIds: [_p1.id, _p3.id],
-    );
+    final result = await _repo(
+      Success(data),
+    ).compare(professorIds: [_p1.id, _p3.id]);
     final report = (result as Success<ComparisonReport>).data;
 
     expect(report.rows.single.cells.keys.toSet(), {_p1.id, _p3.id});
   });
 
   test('user prompt 含两位导师方向（接地输入）', () async {
-    await _repo(Success(_validJson())).compare(
-      professorIds: [_p1.id, _p3.id],
-    );
+    await _repo(Success(_validJson())).compare(professorIds: [_p1.id, _p3.id]);
 
     final userMessage = _FakeLlm.lastMessages!.last.content;
     expect(userMessage, contains('医学影像'));
@@ -130,9 +129,9 @@ void main() {
   });
 
   test('坏 JSON -> Failure(ServerException)', () async {
-    final result = await _repo(const Success('not json')).compare(
-      professorIds: [_p1.id, _p3.id],
-    );
+    final result = await _repo(
+      const Success('not json'),
+    ).compare(professorIds: [_p1.id, _p3.id]);
 
     expect((result as Failure).error, isA<ServerException>());
   });
@@ -154,8 +153,9 @@ void main() {
   });
 
   test('少于 2 位返回 ValidationException，不调用 LLM', () async {
-    final result = await _repo(const Failure(ServerException()))
-        .compare(professorIds: [_p1.id]);
+    final result = await _repo(
+      const Failure(ServerException()),
+    ).compare(professorIds: [_p1.id]);
 
     expect((result as Failure).error, isA<ValidationException>());
   });

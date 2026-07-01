@@ -40,10 +40,7 @@ class AiOutreachEmailRepository implements OutreachEmailRepository {
       }
       final subject = (decoded['subject'] as String?)?.trim();
       final body = (decoded['body'] as String?)?.trim();
-      if (subject == null ||
-          subject.isEmpty ||
-          body == null ||
-          body.isEmpty) {
+      if (subject == null || subject.isEmpty || body == null || body.isEmpty) {
         return const Failure(ServerException());
       }
       return Success(EmailDraft(subject: subject, body: body));

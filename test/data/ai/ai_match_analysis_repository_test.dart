@@ -136,11 +136,8 @@ void main() {
     final repo = AiMatchAnalysisRepository(_FakeLlm(Success(json)));
 
     final analysis =
-        (await repo.analyze(
-              professor: _professor,
-              profile: const UserProfile(),
-            )
-            as Success<MatchAnalysis>)
+        (await repo.analyze(professor: _professor, profile: const UserProfile())
+                as Success<MatchAnalysis>)
             .data;
 
     final byLabel = {for (final d in analysis.dimensions) d.label: d};
@@ -153,11 +150,8 @@ void main() {
   test('无 dimensions 字段仍成功（退化为空）', () async {
     final repo = AiMatchAnalysisRepository(_FakeLlm(Success(_validJson())));
     final analysis =
-        (await repo.analyze(
-              professor: _professor,
-              profile: const UserProfile(),
-            )
-            as Success<MatchAnalysis>)
+        (await repo.analyze(professor: _professor, profile: const UserProfile())
+                as Success<MatchAnalysis>)
             .data;
     expect(analysis.dimensions, isEmpty);
     expect(analysis.summary, isNotEmpty);

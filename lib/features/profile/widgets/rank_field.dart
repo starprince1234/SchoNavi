@@ -83,7 +83,10 @@ class _PercentInputState extends State<_PercentInput> {
         const SizedBox(width: 8),
         const Padding(
           padding: EdgeInsets.only(top: 30),
-          child: Text('%', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          child: Text(
+            '%',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );
@@ -154,7 +157,10 @@ class _OrdinalInputState extends State<_OrdinalInput> {
         const SizedBox(width: 8),
         const Padding(
           padding: EdgeInsets.only(top: 30),
-          child: Text('人', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          child: Text(
+            '人',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );
@@ -202,8 +208,12 @@ class _OrdinalInputState extends State<_OrdinalInput> {
       _posError = null;
       _totalError = null;
     });
-    widget.onChanged(widget.value.withRank(
-      mode: RankMode.ordinal, rankPosition: pos, rankTotal: total,
-    ));
+    widget.onChanged(
+      widget.value.withRank(
+        mode: RankMode.ordinal,
+        rankPosition: pos,
+        rankTotal: total,
+      ),
+    );
   }
 }

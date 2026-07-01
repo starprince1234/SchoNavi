@@ -81,14 +81,17 @@ void main() {
   });
 
   test('坏 JSON 返回 ServerException', () async {
-    final repo = AiProfileExtractionRepository(_FakeLlm(const Success('not json')));
+    final repo = AiProfileExtractionRepository(
+      _FakeLlm(const Success('not json')),
+    );
     final res = await repo.extract(rawText: 'x');
     expect((res as Failure).error, isA<ServerException>());
   });
 
   test('LLM 失败透传', () async {
-    final repo =
-        AiProfileExtractionRepository(_FakeLlm(const Failure(NetworkException())));
+    final repo = AiProfileExtractionRepository(
+      _FakeLlm(const Failure(NetworkException())),
+    );
     final res = await repo.extract(rawText: 'x');
     expect((res as Failure).error, isA<NetworkException>());
   });

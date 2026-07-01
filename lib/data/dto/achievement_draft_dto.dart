@@ -33,4 +33,3 @@ class AchievementDraftDto {
     research: research.map((item) => item.toEntity()).toList(),
   );
 }
-

@@ -30,4 +30,3 @@ class HttpOutreachEmailRepository implements OutreachEmailRepository {
     );
   }
 }
-

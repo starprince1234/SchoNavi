@@ -17,8 +17,11 @@ void main() {
     final recorder = _RecordingCanvas();
     final painter = SplashLogoPainter(progress: 1);
     painter.paint(recorder, const Size.square(64));
-    expect(recorder.drawPathCount, greaterThanOrEqualTo(1),
-        reason: 'progress=1 时帆叶应绘制');
+    expect(
+      recorder.drawPathCount,
+      greaterThanOrEqualTo(1),
+      reason: 'progress=1 时帆叶应绘制',
+    );
     expect(recorder.drawLineCount, 1, reason: 'progress=1 时航向线应绘制一次');
   });
 
@@ -52,10 +55,7 @@ class _RecordingCanvas implements Canvas {
   void drawPath(Path path, Paint paint) {
     drawPathCount++;
     final metrics = path.computeMetrics();
-    lastLeafPathLength = metrics.fold<double>(
-      0.0,
-      (acc, m) => acc + m.length,
-    );
+    lastLeafPathLength = metrics.fold<double>(0.0, (acc, m) => acc + m.length);
   }
 
   @override

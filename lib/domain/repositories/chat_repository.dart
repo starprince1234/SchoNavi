@@ -58,15 +58,11 @@ abstract class ChatRepository {
 
   /// 拉取某个会话（主或 fork）的全部消息历史，供页面恢复。
   /// 生产对接：GET /chat/{id}/history
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  });
+  Future<Result<List<ChatMessage>>> loadHistory({required String sessionId});
 
   /// 列出某主 session 下的所有 fork（按 createdAt 倒序），供历史页展开。
   /// 生产对接：GET /chat/sessions/{id}/forks
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  });
+  Future<Result<List<ForkRef>>> listForks({required String mainSessionId});
 
   /// 删除某个 fork（子项左滑删除）。主 session 不受影响。
   /// 生产对接：DELETE /chat/forks/{forkId}

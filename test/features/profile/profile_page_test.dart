@@ -24,7 +24,9 @@ void main() {
   testWidgets('展示分区卡与完成度', (tester) async {
     final router = GoRouter(
       initialLocation: '/profile',
-      routes: [GoRoute(path: '/profile', builder: (_, _) => const ProfilePage())],
+      routes: [
+        GoRoute(path: '/profile', builder: (_, _) => const ProfilePage()),
+      ],
     );
     await tester.pumpWidget(
       ProviderScope(

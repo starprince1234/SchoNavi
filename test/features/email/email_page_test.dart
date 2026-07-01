@@ -146,7 +146,10 @@ void main() {
           path: '/',
           builder: (_, _) => const EmailPage(professorId: 'p_001'),
         ),
-        GoRoute(path: '/profile', builder: (_, _) => const Text('profile-marker')),
+        GoRoute(
+          path: '/profile',
+          builder: (_, _) => const Text('profile-marker'),
+        ),
       ],
     );
     await tester.pumpWidget(

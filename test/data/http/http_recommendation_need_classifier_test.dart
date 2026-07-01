@@ -72,30 +72,32 @@ const _rec = Recommendation(
 
 void main() {
   group('HttpRecommendationNeedClassifier', () {
-    test('posts to /chat/route with follow_up and last_recommendations recap',
-        () async {
-      RequestOptions? captured;
-      final classifier = HttpRecommendationNeedClassifier(
-        _dio((options) async {
-          captured = options;
-          return chatRouteHandler(options);
-        }),
-      );
+    test(
+      'posts to /chat/route with follow_up and last_recommendations recap',
+      () async {
+        RequestOptions? captured;
+        final classifier = HttpRecommendationNeedClassifier(
+          _dio((options) async {
+            captured = options;
+            return chatRouteHandler(options);
+          }),
+        );
 
-      final need = await classifier.needRecommendations(
-        '换一批',
-        lastResult: _resultWith([_rec]),
-      );
+        final need = await classifier.needRecommendations(
+          '换一批',
+          lastResult: _resultWith([_rec]),
+        );
 
-      expect(captured!.path, '/api/v1/chat/route');
-      expect(captured!.method, 'POST');
-      expect((captured!.data as Map)['follow_up'], '换一批');
-      final recap = (captured!.data as Map)['last_recommendations'] as List;
-      expect(recap, hasLength(1));
-      expect((recap.single as Map)['professor_id'], 'p_001');
-      expect((recap.single as Map)['research_fields'], ['计算机视觉', '医学影像']);
-      expect(need, isTrue);
-    });
+        expect(captured!.path, '/api/v1/chat/route');
+        expect(captured!.method, 'POST');
+        expect((captured!.data as Map)['follow_up'], '换一批');
+        final recap = (captured!.data as Map)['last_recommendations'] as List;
+        expect(recap, hasLength(1));
+        expect((recap.single as Map)['professor_id'], 'p_001');
+        expect((recap.single as Map)['research_fields'], ['计算机视觉', '医学影像']);
+        expect(need, isTrue);
+      },
+    );
 
     test('omits last_recommendations when lastResult is null', () async {
       RequestOptions? captured;
@@ -108,7 +110,10 @@ void main() {
 
       await classifier.needRecommendations('为什么推荐他', lastResult: null);
 
-      expect((captured!.data as Map).containsKey('last_recommendations'), isFalse);
+      expect(
+        (captured!.data as Map).containsKey('last_recommendations'),
+        isFalse,
+      );
     });
 
     test('caps recap to 5 recommendations', () async {
@@ -134,7 +139,10 @@ void main() {
         }),
       );
 
-      await classifier.needRecommendations('再推荐', lastResult: _resultWith(recs));
+      await classifier.needRecommendations(
+        '再推荐',
+        lastResult: _resultWith(recs),
+      );
 
       expect(
         (captured!.data as Map)['last_recommendations'] as List,
@@ -144,30 +152,27 @@ void main() {
 
     test('decodes need:false from envelope', () async {
       final classifier = HttpRecommendationNeedClassifier(
-        _dio((_) async => _jsonString(
-              jsonEncode({
-                'code': 0,
-                'message': 'ok',
-                'data': {'need': false},
-              }),
-            )),
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {'need': false},
+            }),
+          ),
+        ),
       );
 
-      expect(
-        await classifier.needRecommendations('他的研究方向是什么？'),
-        isFalse,
-      );
+      expect(await classifier.needRecommendations('他的研究方向是什么？'), isFalse);
     });
 
     test('non-zero envelope degrades to false', () async {
       final classifier = HttpRecommendationNeedClassifier(
-        _dio((_) async => _jsonString(
-              jsonEncode({
-                'code': 40001,
-                'message': '输入内容不合法',
-                'data': null,
-              }),
-            )),
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({'code': 40001, 'message': '输入内容不合法', 'data': null}),
+          ),
+        ),
       );
 
       expect(await classifier.needRecommendations('x'), isFalse);
@@ -175,13 +180,15 @@ void main() {
 
     test('malformed success data degrades to false', () async {
       final classifier = HttpRecommendationNeedClassifier(
-        _dio((_) async => _jsonString(
-              jsonEncode({
-                'code': 0,
-                'message': 'ok',
-                'data': {'bad': true},
-              }),
-            )),
+        _dio(
+          (_) async => _jsonString(
+            jsonEncode({
+              'code': 0,
+              'message': 'ok',
+              'data': {'bad': true},
+            }),
+          ),
+        ),
       );
 
       expect(await classifier.needRecommendations('x'), isFalse);
@@ -216,15 +223,19 @@ void main() {
   });
 
   // 静态断言：Failure 携带的 AppException 类型在降级路径上仍可观测（纵深防御）。
-  test('guardApi Failure path is reachable (ServerException on malformed data)',
-      () async {
-    final classifier = HttpRecommendationNeedClassifier(
-      _dio((_) async => _jsonString(
+  test(
+    'guardApi Failure path is reachable (ServerException on malformed data)',
+    () async {
+      final classifier = HttpRecommendationNeedClassifier(
+        _dio(
+          (_) async => _jsonString(
             jsonEncode({'code': 0, 'message': 'ok', 'data': null}),
-          )),
-    );
+          ),
+        ),
+      );
 
-    // data 缺失 → decodeEnvelope 抛 ServerException → Failure → 降级 false。
-    expect(await classifier.needRecommendations('x'), isFalse);
-  });
+      // data 缺失 → decodeEnvelope 抛 ServerException → Failure → 降级 false。
+      expect(await classifier.needRecommendations('x'), isFalse);
+    },
+  );
 }

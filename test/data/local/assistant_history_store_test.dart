@@ -296,7 +296,10 @@ void main() {
           changeSet: PlanChangeSet(
             id: 'cs1',
             basePlanRevision: 1,
-            cards: [_card(id: 'c1'), _card(id: 'c2')],
+            cards: [
+              _card(id: 'c1'),
+              _card(id: 'c2'),
+            ],
           ),
           cardStatuses: {
             'c1': ChangeCardStatus.pending,

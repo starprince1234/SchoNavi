@@ -11,16 +11,15 @@ PreparationTask _task(
   DateTime? completedAt,
   int estimatedHours = 4,
   String? note,
-}) =>
-    PreparationTask(
-      id: id,
-      title: '任务-$id',
-      kind: kind,
-      estimatedHours: estimatedHours,
-      dueDate: dueDate ?? DateTime(2026, 5, 15),
-      completedAt: completedAt,
-      note: note,
-    );
+}) => PreparationTask(
+  id: id,
+  title: '任务-$id',
+  kind: kind,
+  estimatedHours: estimatedHours,
+  dueDate: dueDate ?? DateTime(2026, 5, 15),
+  completedAt: completedAt,
+  note: note,
+);
 
 PreparationPhase _phase(
   String key, {
@@ -28,15 +27,14 @@ PreparationPhase _phase(
   DateTime? endDate,
   List<PreparationTask> tasks = const [],
   String? advice,
-}) =>
-    PreparationPhase(
-      key: key,
-      title: '阶段-$key',
-      startDate: startDate ?? DateTime(2026, 5, 10),
-      endDate: endDate ?? DateTime(2026, 5, 22),
-      tasks: tasks,
-      personalizedAdvice: advice,
-    );
+}) => PreparationPhase(
+  key: key,
+  title: '阶段-$key',
+  startDate: startDate ?? DateTime(2026, 5, 10),
+  endDate: endDate ?? DateTime(2026, 5, 22),
+  tasks: tasks,
+  personalizedAdvice: advice,
+);
 
 /// 提交型计划：calendarToday=2026-05-01、targetDate=2026-05-30。
 /// 单阶段 proposal_writing [2026-05-10, 2026-05-22]。
@@ -47,42 +45,42 @@ PreparationPlan _plan({
   CompetitionTimelineType timelineType = CompetitionTimelineType.submission,
   DateTime? defenseDate,
   DateTime? targetDate,
-}) =>
-    PreparationPlan(
-      id: 'pp_1',
-      competition: CompetitionSnapshot(
-        id: 'comp_1',
-        name: 'C',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: '',
-          contestTime: '',
-          teamSize: '',
-          format: '',
-          organizer: '',
-        ),
-      ),
-      targetDate: targetDate ?? DateTime(2026, 5, 30),
-      timelineType: timelineType,
-      defenseDate: defenseDate,
-      revision: revision,
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.beginner,
-      status: PreparationPlanStatus.active,
-      phases: phases ??
-          [
-            _phase(
-              'proposal_writing',
-              tasks: [
-                _task('t_core', kind: PreparationTaskKind.required),
-                _task('t_opt', kind: PreparationTaskKind.optional),
-              ],
-            ),
+}) => PreparationPlan(
+  id: 'pp_1',
+  competition: CompetitionSnapshot(
+    id: 'comp_1',
+    name: 'C',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+    ),
+  ),
+  targetDate: targetDate ?? DateTime(2026, 5, 30),
+  timelineType: timelineType,
+  defenseDate: defenseDate,
+  revision: revision,
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases:
+      phases ??
+      [
+        _phase(
+          'proposal_writing',
+          tasks: [
+            _task('t_core', kind: PreparationTaskKind.required),
+            _task('t_opt', kind: PreparationTaskKind.optional),
           ],
-      personalizedSummary: personalizedSummary,
-      createdAt: DateTime(2026, 5, 1),
-      updatedAt: DateTime(2026, 5, 1),
-    );
+        ),
+      ],
+  personalizedSummary: personalizedSummary,
+  createdAt: DateTime(2026, 5, 1),
+  updatedAt: DateTime(2026, 5, 1),
+);
 
 PlanChangeCard _card({
   String id = 'cc_1',
@@ -95,19 +93,18 @@ PlanChangeCard _card({
   String? adviceText,
   String summary = 's',
   String rationale = 'r',
-}) =>
-    PlanChangeCard(
-      id: id,
-      type: type,
-      targetTaskId: targetTaskId,
-      targetPhaseKey: targetPhaseKey,
-      newDate: newDate,
-      newTask: newTask,
-      phaseSchedule: phaseSchedule,
-      adviceText: adviceText,
-      summary: summary,
-      rationale: rationale,
-    );
+}) => PlanChangeCard(
+  id: id,
+  type: type,
+  targetTaskId: targetTaskId,
+  targetPhaseKey: targetPhaseKey,
+  newDate: newDate,
+  newTask: newTask,
+  phaseSchedule: phaseSchedule,
+  adviceText: adviceText,
+  summary: summary,
+  rationale: rationale,
+);
 
 void main() {
   group('moveTask', () {
@@ -127,12 +124,14 @@ void main() {
       expect(res.applied, true);
       expect(res.stale, false);
       expect(res.error, isNull);
-      final moved = res.newPlan!.phases.first.tasks
-          .firstWhere((t) => t.id == 't_opt');
+      final moved = res.newPlan!.phases.first.tasks.firstWhere(
+        (t) => t.id == 't_opt',
+      );
       expect(moved.dueDate, DateTime(2026, 5, 20));
       // 另一个任务不变
-      final core = res.newPlan!.phases.first.tasks
-          .firstWhere((t) => t.id == 't_core');
+      final core = res.newPlan!.phases.first.tasks.firstWhere(
+        (t) => t.id == 't_core',
+      );
       expect(core.dueDate, DateTime(2026, 5, 15));
     });
 
@@ -155,8 +154,9 @@ void main() {
       );
       // validator 用计划区间（非阶段边界）判定合法，故 applied=true；applier clamp 到阶段。
       expect(res.applied, true);
-      final moved = res.newPlan!.phases.first.tasks
-          .firstWhere((t) => t.id == 't_opt');
+      final moved = res.newPlan!.phases.first.tasks.firstWhere(
+        (t) => t.id == 't_opt',
+      );
       expect(moved.dueDate, DateTime(2026, 5, 22));
     });
   });
@@ -182,8 +182,9 @@ void main() {
         calendarToday: DateTime(2026, 5, 1),
       );
       expect(res.applied, true);
-      final phase = res.newPlan!.phases
-          .firstWhere((p) => p.key == 'proposal_writing');
+      final phase = res.newPlan!.phases.firstWhere(
+        (p) => p.key == 'proposal_writing',
+      );
       expect(phase.tasks.length, 3);
       final added = phase.tasks.lastWhere((t) => t.id.startsWith('u_'));
       expect(added.id, 'u_3_cc_add');
@@ -198,15 +199,15 @@ void main() {
     test('同 plan revision + 同 card id 生成相同 ID（幂等可检测）', () {
       final plan = _plan(revision: 2);
       PlanChangeCard mk() => _card(
-            id: 'cc_dup',
-            type: ChangeCardType.addTask,
-            targetPhaseKey: 'proposal_writing',
-            newTask: NewTaskDraft(
-              title: 'x',
-              estimatedHours: 2,
-              dueDate: DateTime(2026, 5, 18),
-            ),
-          );
+        id: 'cc_dup',
+        type: ChangeCardType.addTask,
+        targetPhaseKey: 'proposal_writing',
+        newTask: NewTaskDraft(
+          title: 'x',
+          estimatedHours: 2,
+          dueDate: DateTime(2026, 5, 18),
+        ),
+      );
       final r1 = PlanChangeApplier.applyCard(
         plan: plan,
         card: mk(),
@@ -279,10 +280,7 @@ void main() {
 
     test('targetPhaseKey 为 null 时追加到 personalizedSummary，不覆盖', () {
       final plan = _plan(personalizedSummary: '原总览');
-      final card = _card(
-        type: ChangeCardType.appendAdvice,
-        adviceText: '新总览',
-      );
+      final card = _card(type: ChangeCardType.appendAdvice, adviceText: '新总览');
       final res = PlanChangeApplier.applyCard(
         plan: plan,
         card: card,
@@ -295,10 +293,7 @@ void main() {
 
     test('原 advice 为空时仅写入新文本（无前导换行）', () {
       final plan = _plan();
-      final card = _card(
-        type: ChangeCardType.appendAdvice,
-        adviceText: '全新建议',
-      );
+      final card = _card(type: ChangeCardType.appendAdvice, adviceText: '全新建议');
       final res = PlanChangeApplier.applyCard(
         plan: plan,
         card: card,
@@ -359,8 +354,9 @@ void main() {
         calendarToday: DateTime(2026, 5, 1),
       );
       expect(res.applied, true);
-      final tf = res.newPlan!.phases
-          .firstWhere((p) => p.key == 'team_formation');
+      final tf = res.newPlan!.phases.firstWhere(
+        (p) => p.key == 'team_formation',
+      );
       expect(tf.startDate, DateTime(2026, 5, 1));
       expect(tf.endDate, DateTime(2026, 5, 3));
       final done = tf.tasks.firstWhere((t) => t.id == 't_done');
@@ -368,8 +364,9 @@ void main() {
       final open = tf.tasks.firstWhere((t) => t.id == 't_open');
       expect(open.dueDate, DateTime(2026, 5, 3)); // clamp 到新 endDate
       // 未列出的阶段保持原边界。
-      final pw = res.newPlan!.phases
-          .firstWhere((p) => p.key == 'proposal_writing');
+      final pw = res.newPlan!.phases.firstWhere(
+        (p) => p.key == 'proposal_writing',
+      );
       expect(pw.startDate, DateTime(2026, 5, 6));
       expect(pw.endDate, DateTime(2026, 5, 22));
     });

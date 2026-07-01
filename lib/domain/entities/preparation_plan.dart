@@ -4,20 +4,15 @@ import '../../core/calendar_date.dart';
 enum PreparationPlanStatus { active, archived }
 
 /// 每周投入时间
-enum WeeklyCommitment {
-  hours3to5,
-  hours6to10,
-  hours11to15,
-  hours16plus,
-}
+enum WeeklyCommitment { hours3to5, hours6to10, hours11to15, hours16plus }
 
 extension WeeklyCommitmentHours on WeeklyCommitment {
   int get hoursPerWeek => switch (this) {
-        WeeklyCommitment.hours3to5 => 5,
-        WeeklyCommitment.hours6to10 => 10,
-        WeeklyCommitment.hours11to15 => 15,
-        WeeklyCommitment.hours16plus => 16,
-      };
+    WeeklyCommitment.hours3to5 => 5,
+    WeeklyCommitment.hours6to10 => 10,
+    WeeklyCommitment.hours11to15 => 15,
+    WeeklyCommitment.hours16plus => 16,
+  };
 }
 
 /// 竞赛经验等级
@@ -54,24 +49,23 @@ class CompetitionRulesSummary {
     String? format,
     String? organizer,
     String? officialUrl,
-  }) =>
-      CompetitionRulesSummary(
-        signupTime: signupTime ?? this.signupTime,
-        contestTime: contestTime ?? this.contestTime,
-        teamSize: teamSize ?? this.teamSize,
-        format: format ?? this.format,
-        organizer: organizer ?? this.organizer,
-        officialUrl: officialUrl ?? this.officialUrl,
-      );
+  }) => CompetitionRulesSummary(
+    signupTime: signupTime ?? this.signupTime,
+    contestTime: contestTime ?? this.contestTime,
+    teamSize: teamSize ?? this.teamSize,
+    format: format ?? this.format,
+    organizer: organizer ?? this.organizer,
+    officialUrl: officialUrl ?? this.officialUrl,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'signup_time': signupTime,
-        'contest_time': contestTime,
-        'team_size': teamSize,
-        'format': format,
-        'organizer': organizer,
-        if (officialUrl != null) 'official_url': officialUrl,
-      };
+    'signup_time': signupTime,
+    'contest_time': contestTime,
+    'team_size': teamSize,
+    'format': format,
+    'organizer': organizer,
+    if (officialUrl != null) 'official_url': officialUrl,
+  };
 
   factory CompetitionRulesSummary.fromJson(Map<String, dynamic> json) =>
       CompetitionRulesSummary(
@@ -103,20 +97,19 @@ class CompetitionSnapshot {
     String? name,
     String? category,
     CompetitionRulesSummary? rulesSummary,
-  }) =>
-      CompetitionSnapshot(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        category: category ?? this.category,
-        rulesSummary: rulesSummary ?? this.rulesSummary,
-      );
+  }) => CompetitionSnapshot(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    category: category ?? this.category,
+    rulesSummary: rulesSummary ?? this.rulesSummary,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'name': name,
-        'category': category,
-        'rules_summary': rulesSummary.toJson(),
-      };
+    'id': id,
+    'name': name,
+    'category': category,
+    'rules_summary': rulesSummary.toJson(),
+  };
 
   factory CompetitionSnapshot.fromJson(Map<String, dynamic> json) =>
       CompetitionSnapshot(
@@ -162,29 +155,27 @@ class PreparationTask {
     DateTime? dueDate,
     String? note,
     DateTime? completedAt,
-  }) =>
-      PreparationTask(
-        id: id ?? this.id,
-        templateKey: templateKey ?? this.templateKey,
-        title: title ?? this.title,
-        kind: kind ?? this.kind,
-        estimatedHours: estimatedHours ?? this.estimatedHours,
-        dueDate: dueDate ?? this.dueDate,
-        note: note ?? this.note,
-        completedAt: completedAt ?? this.completedAt,
-      );
+  }) => PreparationTask(
+    id: id ?? this.id,
+    templateKey: templateKey ?? this.templateKey,
+    title: title ?? this.title,
+    kind: kind ?? this.kind,
+    estimatedHours: estimatedHours ?? this.estimatedHours,
+    dueDate: dueDate ?? this.dueDate,
+    note: note ?? this.note,
+    completedAt: completedAt ?? this.completedAt,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        if (templateKey != null) 'template_key': templateKey,
-        'title': title,
-        'kind': kind.name,
-        'estimated_hours': estimatedHours,
-        'due_date': dueDate.toIso8601String(),
-        if (note != null) 'note': note,
-        if (completedAt != null)
-          'completed_at': completedAt!.toIso8601String(),
-      };
+    'id': id,
+    if (templateKey != null) 'template_key': templateKey,
+    'title': title,
+    'kind': kind.name,
+    'estimated_hours': estimatedHours,
+    'due_date': dueDate.toIso8601String(),
+    if (note != null) 'note': note,
+    if (completedAt != null) 'completed_at': completedAt!.toIso8601String(),
+  };
 
   factory PreparationTask.fromJson(Map<String, dynamic> json) =>
       PreparationTask(
@@ -226,25 +217,23 @@ class PreparationPhase {
     DateTime? endDate,
     List<PreparationTask>? tasks,
     String? personalizedAdvice,
-  }) =>
-      PreparationPhase(
-        key: key ?? this.key,
-        title: title ?? this.title,
-        startDate: startDate ?? this.startDate,
-        endDate: endDate ?? this.endDate,
-        tasks: tasks ?? this.tasks,
-        personalizedAdvice: personalizedAdvice ?? this.personalizedAdvice,
-      );
+  }) => PreparationPhase(
+    key: key ?? this.key,
+    title: title ?? this.title,
+    startDate: startDate ?? this.startDate,
+    endDate: endDate ?? this.endDate,
+    tasks: tasks ?? this.tasks,
+    personalizedAdvice: personalizedAdvice ?? this.personalizedAdvice,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'key': key,
-        'title': title,
-        'start_date': startDate.toIso8601String(),
-        'end_date': endDate.toIso8601String(),
-        'tasks': tasks.map((t) => t.toJson()).toList(),
-        if (personalizedAdvice != null)
-          'personalized_advice': personalizedAdvice,
-      };
+    'key': key,
+    'title': title,
+    'start_date': startDate.toIso8601String(),
+    'end_date': endDate.toIso8601String(),
+    'tasks': tasks.map((t) => t.toJson()).toList(),
+    if (personalizedAdvice != null) 'personalized_advice': personalizedAdvice,
+  };
 
   factory PreparationPhase.fromJson(Map<String, dynamic> json) =>
       PreparationPhase(
@@ -314,49 +303,49 @@ class PreparationPlan {
     DateTime? updatedAt,
     bool? tightSchedule,
     bool? overload,
-  }) =>
-      PreparationPlan(
-        id: id ?? this.id,
-        competition: competition ?? this.competition,
-        targetDate: targetDate ?? this.targetDate,
-        timelineType: timelineType ?? this.timelineType,
-        eventEndDate: eventEndDate ?? this.eventEndDate,
-        defenseDate: defenseDate ?? this.defenseDate,
-        revision: revision ?? this.revision,
-        weeklyCommitment: weeklyCommitment ?? this.weeklyCommitment,
-        experienceLevel: experienceLevel ?? this.experienceLevel,
-        status: status ?? this.status,
-        phases: phases ?? this.phases,
-        personalizedSummary: personalizedSummary ?? this.personalizedSummary,
-        createdAt: createdAt ?? this.createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        tightSchedule: tightSchedule ?? this.tightSchedule,
-        overload: overload ?? this.overload,
-      );
+  }) => PreparationPlan(
+    id: id ?? this.id,
+    competition: competition ?? this.competition,
+    targetDate: targetDate ?? this.targetDate,
+    timelineType: timelineType ?? this.timelineType,
+    eventEndDate: eventEndDate ?? this.eventEndDate,
+    defenseDate: defenseDate ?? this.defenseDate,
+    revision: revision ?? this.revision,
+    weeklyCommitment: weeklyCommitment ?? this.weeklyCommitment,
+    experienceLevel: experienceLevel ?? this.experienceLevel,
+    status: status ?? this.status,
+    phases: phases ?? this.phases,
+    personalizedSummary: personalizedSummary ?? this.personalizedSummary,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    tightSchedule: tightSchedule ?? this.tightSchedule,
+    overload: overload ?? this.overload,
+  );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'competition': competition.toJson(),
-        'target_date': targetDate.toIso8601String(),
-        'timeline_type': timelineType.name,
-        if (eventEndDate != null)
-          'event_end_date': CalendarDate.toIsoDay(eventEndDate!),
-        if (defenseDate != null)
-          'defense_date': CalendarDate.toIsoDay(defenseDate!),
-        'revision': revision,
-        'weekly_commitment': weeklyCommitment.name,
-        'experience_level': experienceLevel.name,
-        'status': status.name,
-        'phases': phases.map((p) => p.toJson()).toList(),
-        if (personalizedSummary != null)
-          'personalized_summary': personalizedSummary,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt.toIso8601String(),
-        'tight_schedule': tightSchedule,
-        'overload': overload,
-      };
+    'id': id,
+    'competition': competition.toJson(),
+    'target_date': targetDate.toIso8601String(),
+    'timeline_type': timelineType.name,
+    if (eventEndDate != null)
+      'event_end_date': CalendarDate.toIsoDay(eventEndDate!),
+    if (defenseDate != null)
+      'defense_date': CalendarDate.toIsoDay(defenseDate!),
+    'revision': revision,
+    'weekly_commitment': weeklyCommitment.name,
+    'experience_level': experienceLevel.name,
+    'status': status.name,
+    'phases': phases.map((p) => p.toJson()).toList(),
+    if (personalizedSummary != null)
+      'personalized_summary': personalizedSummary,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt.toIso8601String(),
+    'tight_schedule': tightSchedule,
+    'overload': overload,
+  };
 
-  factory PreparationPlan.fromJson(Map<String, dynamic> json) => PreparationPlan(
+  factory PreparationPlan.fromJson(Map<String, dynamic> json) =>
+      PreparationPlan(
         id: json['id'] as String,
         competition: CompetitionSnapshot.fromJson(
           json['competition'] as Map<String, dynamic>,

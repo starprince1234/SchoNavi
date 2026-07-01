@@ -37,9 +37,9 @@ class QuickActionsResponseDto {
     return QuickActionsResponseDto(
       quickActions: list is List
           ? list
-              .map((e) => e?.toString() ?? '')
-              .where((s) => s.isNotEmpty)
-              .toList(growable: false)
+                .map((e) => e?.toString() ?? '')
+                .where((s) => s.isNotEmpty)
+                .toList(growable: false)
           : const <String>[],
     );
   }

@@ -70,4 +70,3 @@ class SearchHistoryItemDto {
     recommendationCount: recommendationCount,
   );
 }
-

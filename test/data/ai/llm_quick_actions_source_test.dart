@@ -85,7 +85,10 @@ void main() {
       final src = LlmQuickActionsSource(
         const _FakeLlm(Success('{"quick_actions":["换一批","偏应用"]}')),
       );
-      final result = await src.fetch(followUp: '换一批', lastResult: _resultWith());
+      final result = await src.fetch(
+        followUp: '换一批',
+        lastResult: _resultWith(),
+      );
 
       expect(result, isA<Success<List<String>>>());
       expect((result as Success<List<String>>).data, ['换一批', '偏应用']);
@@ -118,10 +121,7 @@ void main() {
       final result = await src.fetch(followUp: 'x', lastResult: _resultWith());
 
       expect(result, isA<Failure<List<String>>>());
-      expect(
-        (result as Failure<List<String>>).error,
-        isA<NetworkException>(),
-      );
+      expect((result as Failure<List<String>>).error, isA<NetworkException>());
     });
 
     test('无上一轮结果时仍可生成', () async {
@@ -142,7 +142,10 @@ void main() {
       );
       final src = LlmQuickActionsSource(llm);
 
-      await src.fetch(followUp: '第一位的研究方向', lastResult: _resultWith(recs: [_rec]));
+      await src.fetch(
+        followUp: '第一位的研究方向',
+        lastResult: _resultWith(recs: [_rec]),
+      );
 
       expect(calls, hasLength(1));
       final userContent = calls.single

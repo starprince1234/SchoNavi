@@ -81,33 +81,33 @@ class GlassSurface extends StatelessWidget {
                 child: const SizedBox.expand(),
               ),
             ),
-          // 顶部高光：一条 1px 渐隐白线，模拟环境光折射边。
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 1,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    AppColors.glassHighlight.withValues(alpha: 0),
-                    AppColors.glassHighlight,
-                    AppColors.glassHighlight.withValues(alpha: 0),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(radius),
+            // 顶部高光：一条 1px 渐隐白线，模拟环境光折射边。
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      AppColors.glassHighlight.withValues(alpha: 0),
+                      AppColors.glassHighlight,
+                      AppColors.glassHighlight.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(radius),
+                  ),
                 ),
               ),
             ),
-          ),
-          content,
-        ],
-      ),
+            content,
+          ],
+        ),
       ),
     );
   }

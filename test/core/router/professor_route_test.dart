@@ -27,11 +27,9 @@ const _professor = Professor(
 );
 
 Widget _app(ProviderContainer container) => UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp.router(
-        routerConfig: container.read(routerProvider),
-      ),
-    );
+  container: container,
+  child: MaterialApp.router(routerConfig: container.read(routerProvider)),
+);
 
 Future<ProviderContainer> _container() async {
   SharedPreferences.setMockInitialValues(<String, Object>{
@@ -47,9 +45,7 @@ Future<ProviderContainer> _container() async {
 }
 
 void main() {
-  testWidgets('/professor/:id?msid= 把 msid 传给 ProfessorPage', (
-    tester,
-  ) async {
+  testWidgets('/professor/:id?msid= 把 msid 传给 ProfessorPage', (tester) async {
     final container = await _container();
     addTearDown(container.dispose);
 
@@ -65,9 +61,7 @@ void main() {
     expect(page.mainSessionId, 'main_sid_123');
   });
 
-  testWidgets('/professor/:id 没有 msid 时 mainSessionId 为 null', (
-    tester,
-  ) async {
+  testWidgets('/professor/:id 没有 msid 时 mainSessionId 为 null', (tester) async {
     final container = await _container();
     addTearDown(container.dispose);
 

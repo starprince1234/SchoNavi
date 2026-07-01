@@ -73,7 +73,8 @@ class _FakeHistoryRepo implements HistoryRepository {
   Future<void> clear() async {}
 }
 
-CompetitionRecommendationResult _result(int n) => CompetitionRecommendationResult(
+CompetitionRecommendationResult _result(int n) =>
+    CompetitionRecommendationResult(
       sessionId: 's1',
       understanding: const CompetitionQueryUnderstanding(
         directions: [],
@@ -131,14 +132,20 @@ void main() {
     final container = _container(Success(_result(0)));
     addTearDown(container.dispose);
     await container.read(competitionHomeProvider.notifier).submit('x');
-    expect(container.read(competitionHomeProvider), isA<CompetitionHomeEmpty>());
+    expect(
+      container.read(competitionHomeProvider),
+      isA<CompetitionHomeEmpty>(),
+    );
   });
 
   test('失败进入 error', () async {
     final container = _container(const Failure(UnknownException()));
     addTearDown(container.dispose);
     await container.read(competitionHomeProvider.notifier).submit('x');
-    expect(container.read(competitionHomeProvider), isA<CompetitionHomeError>());
+    expect(
+      container.read(competitionHomeProvider),
+      isA<CompetitionHomeError>(),
+    );
   });
 
   test('reset 回到 idle', () async {
@@ -162,7 +169,10 @@ void main() {
     addTearDown(container.dispose);
     await container.read(competitionHomeProvider.notifier).submit('a');
     await container.read(competitionHomeProvider.notifier).submit('b');
-    expect(container.read(competitionHomeProvider), isA<CompetitionHomeResult>());
+    expect(
+      container.read(competitionHomeProvider),
+      isA<CompetitionHomeResult>(),
+    );
     expect(slow.calls, 2);
   });
 }

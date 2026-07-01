@@ -11,8 +11,9 @@ class AchievementsExtractionController
 
   Future<void> extract(String rawText) async {
     state = const AsyncLoading();
-    final result =
-        await ref.read(profileExtractionRepositoryProvider).extract(rawText: rawText);
+    final result = await ref
+        .read(profileExtractionRepositoryProvider)
+        .extract(rawText: rawText);
     state = switch (result) {
       Success(:final data) => AsyncData(data),
       Failure(:final error) => AsyncError(error, StackTrace.current),
@@ -22,7 +23,8 @@ class AchievementsExtractionController
   void reset() => state = const AsyncData(null);
 }
 
-final achievementsExtractionProvider = NotifierProvider<
-    AchievementsExtractionController, AsyncValue<AchievementDraft?>>(
-  AchievementsExtractionController.new,
-);
+final achievementsExtractionProvider =
+    NotifierProvider<
+      AchievementsExtractionController,
+      AsyncValue<AchievementDraft?>
+    >(AchievementsExtractionController.new);

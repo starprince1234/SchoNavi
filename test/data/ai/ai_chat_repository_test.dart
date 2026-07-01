@@ -80,7 +80,11 @@ class _QueueLlm implements LlmClient {
 
 void main() {
   test('answer/sessionId pass through and no embedded cards', () async {
-    final repo = AiChatRepository(llm: _RecordingLlm('你好'), db: MockDb(), historyStore: _historyStore());
+    final repo = AiChatRepository(
+      llm: _RecordingLlm('你好'),
+      db: MockDb(),
+      historyStore: _historyStore(),
+    );
 
     final res = await repo.sendMessage(sessionId: 's1', message: '在吗');
 
@@ -92,7 +96,11 @@ void main() {
 
   test('second call includes previous history', () async {
     final llm = _RecordingLlm('A');
-    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+    final repo = AiChatRepository(
+      llm: llm,
+      db: MockDb(),
+      historyStore: _historyStore(),
+    );
 
     await repo.sendMessage(sessionId: 's1', message: '问题一');
     llm.reply = 'B';
@@ -104,7 +112,11 @@ void main() {
 
   test('professorId injects professor context into system prompt', () async {
     final llm = _RecordingLlm('ok');
-    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+    final repo = AiChatRepository(
+      llm: llm,
+      db: MockDb(),
+      historyStore: _historyStore(),
+    );
 
     await repo.sendMessage(
       sessionId: 's1',
@@ -119,7 +131,11 @@ void main() {
 
   test('regenerate does not duplicate repeated last user message', () async {
     final llm = _RecordingLlm('A1');
-    final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+    final repo = AiChatRepository(
+      llm: llm,
+      db: MockDb(),
+      historyStore: _historyStore(),
+    );
 
     await repo.sendMessage(sessionId: 's1', message: '同一个问题');
     llm.reply = 'A2';
@@ -132,7 +148,11 @@ void main() {
   });
 
   test('LLM failure passes through', () async {
-    final repo = AiChatRepository(llm: _FailLlm(), db: MockDb(), historyStore: _historyStore());
+    final repo = AiChatRepository(
+      llm: _FailLlm(),
+      db: MockDb(),
+      historyStore: _historyStore(),
+    );
 
     final res = await repo.sendMessage(sessionId: 's1', message: 'x');
 
@@ -161,7 +181,11 @@ void main() {
         Stream.fromIterable(const ['你', '好']),
         Stream.fromIterable(const ['再见']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+      final repo = AiChatRepository(
+        llm: llm,
+        db: MockDb(),
+        historyStore: _historyStore(),
+      );
 
       await repo.streamReply(sessionId: 's1', message: '问题一').toList();
       await repo.streamReply(sessionId: 's1', message: '问题二').toList();
@@ -174,7 +198,11 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['ok']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+      final repo = AiChatRepository(
+        llm: llm,
+        db: MockDb(),
+        historyStore: _historyStore(),
+      );
 
       await repo
           .streamReply(sessionId: 's1', message: '为什么', professorId: 'p_001')
@@ -192,7 +220,11 @@ void main() {
           Stream<String>.error(const ServerException()),
           Stream.fromIterable(const ['好的']),
         ]);
-        final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+        final repo = AiChatRepository(
+          llm: llm,
+          db: MockDb(),
+          historyStore: _historyStore(),
+        );
 
         await expectLater(
           repo.streamReply(sessionId: 's1', message: '问题一'),
@@ -211,7 +243,11 @@ void main() {
         controller.stream,
         Stream.fromIterable(const ['继续']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+      final repo = AiChatRepository(
+        llm: llm,
+        db: MockDb(),
+        historyStore: _historyStore(),
+      );
 
       final got = <String>[];
       final sub = repo
@@ -259,7 +295,11 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['好的']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+      final repo = AiChatRepository(
+        llm: llm,
+        db: MockDb(),
+        historyStore: _historyStore(),
+      );
 
       await repo.seedRecommendationTurn(
         sessionId: 's1',
@@ -282,10 +322,7 @@ void main() {
             .where((message) => message.role != 'system')
             .map((message) => '${message.role}:${message.content}')
             .toList(),
-        containsAllInOrder([
-          'user:想做计算机视觉',
-          'user:第一位的研究方向',
-        ]),
+        containsAllInOrder(['user:想做计算机视觉', 'user:第一位的研究方向']),
       );
       // 对话历史中不应残留推荐摘要（不泄漏成可见 assistant 消息）。
       final nonSystem = messages
@@ -299,7 +336,11 @@ void main() {
       final llm = _QueueLlm([
         Stream.fromIterable(const ['好的']),
       ]);
-      final repo = AiChatRepository(llm: llm, db: MockDb(), historyStore: _historyStore());
+      final repo = AiChatRepository(
+        llm: llm,
+        db: MockDb(),
+        historyStore: _historyStore(),
+      );
 
       await repo.streamReply(sessionId: 's1', message: '在吗').toList();
 

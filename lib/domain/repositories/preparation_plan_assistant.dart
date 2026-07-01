@@ -18,10 +18,7 @@ class AssistantHistoryEntry {
 
 /// 上轮卡处理结果（spec §3.4 `history[].card_results`）。
 class AssistantCardResult {
-  const AssistantCardResult({
-    required this.cardId,
-    required this.status,
-  });
+  const AssistantCardResult({required this.cardId, required this.status});
 
   final String cardId;
   final String status;
@@ -39,9 +36,9 @@ class PlanAssistantRequest {
     required this.requestId,
     this.history = const <AssistantHistoryEntry>[],
   }) : assert(
-          planId == planSnapshot.id,
-          'planId ($planId) 必须与 planSnapshot.id (${planSnapshot.id}) 一致',
-        );
+         planId == planSnapshot.id,
+         'planId ($planId) 必须与 planSnapshot.id (${planSnapshot.id}) 一致',
+       );
 
   /// 计划 id，用于 HTTP 路径 `/:id/assistant`；应与 planSnapshot.id 一致。
   final String planId;

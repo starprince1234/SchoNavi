@@ -110,93 +110,95 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                   ),
                 ),
-            Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                onPageChanged: _onPageChanged,
-                itemCount: _pages.length,
-                itemBuilder: (context, i) {
-                  final p = _pages[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Center(
-                      child: AnimatedEntrance(
-                        key: ValueKey(i),
-                        slideOffset: const Offset(0, 24),
-                        child: BentoTile(
-                          frosted: true,
-                          padding: const EdgeInsets.all(32),
-                          width: min(
-                            320,
-                            MediaQuery.sizeOf(context).width - 64,
+                Expanded(
+                  child: PageView.builder(
+                    controller: _controller,
+                    onPageChanged: _onPageChanged,
+                    itemCount: _pages.length,
+                    itemBuilder: (context, i) {
+                      final p = _pages[i];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Center(
+                          child: AnimatedEntrance(
+                            key: ValueKey(i),
+                            slideOffset: const Offset(0, 24),
+                            child: BentoTile(
+                              frosted: true,
+                              padding: const EdgeInsets.all(32),
+                              width: min(
+                                320,
+                                MediaQuery.sizeOf(context).width - 64,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    p.icon,
+                                    size: 48,
+                                    color: AppColors.indigo,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    p.title,
+                                    style: textTheme.headlineSmall,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    p.body,
+                                    style: textTheme.bodyMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                p.icon,
-                                size: 48,
-                                color: AppColors.indigo,
-                              ),
-                              const SizedBox(height: 24),
-                              Text(
-                                p.title,
-                                style: textTheme.headlineSmall,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                p.body,
-                                style: textTheme.bodyMedium,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < _pages.length; i++)
+                      AnimatedScale(
+                        scale: i == _index ? _dotScale : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: i == _index ? 22 : 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: i == _index
+                                ? scheme.secondary
+                                : scheme.outline,
+                            borderRadius: BorderRadius.circular(4),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _pages.length; i++)
-                  AnimatedScale(
-                    scale: i == _index ? _dotScale : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: i == _index ? 22 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: i == _index ? scheme.secondary : scheme.outline,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {
+                        Haptics.medium();
+                        _next();
+                      },
+                      child: Text(_isLast ? '开始使用' : '下一步'),
                     ),
                   ),
+                ),
               ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Haptics.medium();
-                    _next();
-                  },
-                  child: Text(_isLast ? '开始使用' : '下一步'),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-          ],
-        ),
     );
   }
 }

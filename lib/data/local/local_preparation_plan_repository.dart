@@ -7,7 +7,7 @@ import '../../domain/repositories/preparation_plan_repository.dart';
 
 class LocalPreparationPlanRepository implements PreparationPlanRepository {
   LocalPreparationPlanRepository(this._store, {DateTime Function()? now})
-      : _now = now ?? DateTime.now;
+    : _now = now ?? DateTime.now;
 
   static const String storageKey = 'competition_preparation_plans.v2';
   static const String _legacyKey = 'competition_preparation_plans.v1';
@@ -48,25 +48,25 @@ class LocalPreparationPlanRepository implements PreparationPlanRepository {
 
   @override
   Future<PreparationPlan> save(PreparationPlan plan) => _enqueue(() async {
-        final existing = list().where((p) => p.id == plan.id).toList();
-        final isNew = existing.isEmpty;
-        if (isNew && plan.revision != 0) {
-          throw const ConflictException();
-        }
-        if (!isNew && existing.first.revision != plan.revision) {
-          throw const ConflictException();
-        }
-        final updated = plan.copyWith(
-          updatedAt: _now(),
-          revision: plan.revision + 1,
-        );
-        final plans = [
-          updated,
-          ...list().where((current) => current.id != plan.id),
-        ];
-        await _writeAll(plans);
-        return updated;
-      });
+    final existing = list().where((p) => p.id == plan.id).toList();
+    final isNew = existing.isEmpty;
+    if (isNew && plan.revision != 0) {
+      throw const ConflictException();
+    }
+    if (!isNew && existing.first.revision != plan.revision) {
+      throw const ConflictException();
+    }
+    final updated = plan.copyWith(
+      updatedAt: _now(),
+      revision: plan.revision + 1,
+    );
+    final plans = [
+      updated,
+      ...list().where((current) => current.id != plan.id),
+    ];
+    await _writeAll(plans);
+    return updated;
+  });
 
   @override
   Future<void> archive(String id) async {
@@ -93,7 +93,8 @@ class LocalPreparationPlanRepository implements PreparationPlanRepository {
 
   List<PreparationPlan> _readAll() {
     // 懒迁移：v2 缺失时直接解码 v1（不写 v2），首次 save/delete 时才落盘 v2。
-    final raw = _store.getJsonList(storageKey) ?? _store.getJsonList(_legacyKey);
+    final raw =
+        _store.getJsonList(storageKey) ?? _store.getJsonList(_legacyKey);
     if (raw == null) return const [];
     final plans = <PreparationPlan>[];
     for (final entry in raw) {

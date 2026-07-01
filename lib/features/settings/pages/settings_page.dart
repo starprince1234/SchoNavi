@@ -15,7 +15,6 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(appConfigProvider);
-    final configured = cfg.llm.isConfigured;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -35,45 +34,6 @@ class SettingsPage extends ConsumerWidget {
             onTap: () {
               Haptics.light();
               context.push('/profile');
-            },
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('数据源'),
-          ),
-          ListTile(
-            key: const Key('settings-data-source'),
-            leading: const Icon(Icons.hub_outlined),
-            title: const Text('当前模式'),
-            subtitle: Text(
-              switch (cfg.dataSource) {
-                DataSource.llm => configured
-                    ? 'LLM 模式：推荐、解析与排序由大模型完成'
-                    : 'LLM 模式：未配置 LLM_API_KEY，请在构建时传入后重试',
-                DataSource.http => cfg.api.isConfigured
-                    ? '真实后端模式（后端 Origin）：${cfg.api.baseUrl}'
-                    : '真实后端模式：未配置 API_BASE_URL',
-              },
-            ),
-          ),
-          ListTile(
-            title: const Text('当前模型'),
-            subtitle: Text(configured ? cfg.llm.model : '—'),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('演示'),
-          ),
-          SwitchListTile(
-            key: const Key('settings-demo-switch'),
-            title: const Text('演示模式'),
-            subtitle: const Text('在推荐结果页展示本次 AI 调用的 prompt 与原始返回'),
-            value: cfg.featureFlags.showAiTrace,
-            onChanged: (on) {
-              Haptics.light();
-              ref.read(appConfigProvider.notifier).setShowAiTrace(on);
             },
           ),
           const Divider(),

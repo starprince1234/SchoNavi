@@ -44,20 +44,22 @@ final levelDiagnosisStoreProvider = Provider<LevelDiagnosisStore>(
 
 final preparationConfigRepositoryProvider =
     Provider<PreparationConfigRepository>((ref) {
-  return switch (ref.watch(appConfigProvider).dataSource) {
-    DataSource.llm => const MockPreparationConfigRepository(),
-    DataSource.http => HttpPreparationConfigRepository(
-      ref.watch(apiDioProvider),
-    ),
-  };
-});
+      return switch (ref.watch(appConfigProvider).dataSource) {
+        DataSource.llm => const MockPreparationConfigRepository(),
+        DataSource.http => HttpPreparationConfigRepository(
+          ref.watch(apiDioProvider),
+        ),
+      };
+    });
 
 final preparationConfigProvider = FutureProvider<PreparationConfig>((ref) {
   return ref.watch(preparationConfigRepositoryProvider).fetch();
 });
 
 /// 备赛模板提供者：HTTP 模式走远端模板，LLM/离线模式保留本地 AssetBundle。
-final preparationTemplateProvider = Provider<PreparationTemplateProvider>((ref) {
+final preparationTemplateProvider = Provider<PreparationTemplateProvider>((
+  ref,
+) {
   return switch (ref.watch(appConfigProvider).dataSource) {
     DataSource.llm => LocalPreparationTemplateProvider(bundle: rootBundle),
     DataSource.http => HttpPreparationTemplateProvider(
@@ -72,8 +74,7 @@ final preparationPersonalizerProvider = Provider<PreparationPersonalizer>((
 ) {
   return switch (ref.watch(appConfigProvider).dataSource) {
     DataSource.llm => AiPreparationPersonalizer(ref.watch(llmClientProvider)),
-    DataSource.http =>
-      HttpPreparationPersonalizer(ref.watch(apiDioProvider)),
+    DataSource.http => HttpPreparationPersonalizer(ref.watch(apiDioProvider)),
   };
 });
 
@@ -82,10 +83,8 @@ final preparationLevelDiagnoserProvider = Provider<PreparationLevelDiagnoser>((
   ref,
 ) {
   return switch (ref.watch(appConfigProvider).dataSource) {
-    DataSource.llm =>
-      AiPreparationLevelDiagnoser(ref.watch(llmClientProvider)),
-    DataSource.http =>
-      HttpPreparationLevelDiagnoser(ref.watch(apiDioProvider)),
+    DataSource.llm => AiPreparationLevelDiagnoser(ref.watch(llmClientProvider)),
+    DataSource.http => HttpPreparationLevelDiagnoser(ref.watch(apiDioProvider)),
   };
 });
 
@@ -95,10 +94,8 @@ final preparationPlanAssistantProvider = Provider<PreparationPlanAssistant>((
   ref,
 ) {
   return switch (ref.watch(appConfigProvider).dataSource) {
-    DataSource.llm =>
-      AiPreparationPlanAssistant(ref.watch(llmClientProvider)),
-    DataSource.http =>
-      HttpPreparationPlanAssistant(ref.watch(apiDioProvider)),
+    DataSource.llm => AiPreparationPlanAssistant(ref.watch(llmClientProvider)),
+    DataSource.http => HttpPreparationPlanAssistant(ref.watch(apiDioProvider)),
   };
 });
 
@@ -117,10 +114,9 @@ final preparationPlanGeneratorProvider = Provider<PreparationPlanGenerator>(
 );
 
 /// 备赛计划列表流：仓库 [watch()] 的封装。
-final preparationPlanListProvider =
-    StreamProvider<List<PreparationPlan>>(
-      (ref) => ref.watch(preparationPlanRepositoryProvider).watch(),
-    );
+final preparationPlanListProvider = StreamProvider<List<PreparationPlan>>(
+  (ref) => ref.watch(preparationPlanRepositoryProvider).watch(),
+);
 
 /// 指定竞赛的当前 active 计划（同步查询，内存中遍历 list）。
 final activePlanForCompetitionProvider =
@@ -131,7 +127,8 @@ final activePlanForCompetitionProvider =
 
 /// 备赛助手会话 controller：非 autoDispose，关闭抽屉不销毁在途请求。
 final preparationAssistantControllerProvider =
-    NotifierProvider.family<PreparationAssistantController,
-        PreparationAssistantControllerState, String>(
-  PreparationAssistantController.new,
-);
+    NotifierProvider.family<
+      PreparationAssistantController,
+      PreparationAssistantControllerState,
+      String
+    >(PreparationAssistantController.new);

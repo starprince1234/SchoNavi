@@ -32,10 +32,9 @@ class ProfessorAnchorBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final subtitle =
-        anchor.college == null || anchor.college!.isEmpty
-            ? anchor.university
-            : '${anchor.university} · ${anchor.college}';
+    final subtitle = anchor.college == null || anchor.college!.isEmpty
+        ? anchor.university
+        : '${anchor.university} · ${anchor.college}';
     return Material(
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: InkWell(
@@ -51,7 +50,10 @@ class ProfessorAnchorBar extends StatelessWidget {
                 child: Text(
                   anchor.avatarLabel,
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -80,7 +82,9 @@ class ProfessorAnchorBar extends StatelessWidget {
                 ),
                 child: Text(
                   '追问中',
-                  style: textTheme.labelSmall?.copyWith(color: AppColors.indigo),
+                  style: textTheme.labelSmall?.copyWith(
+                    color: AppColors.indigo,
+                  ),
                 ),
               ),
               if (trailing != null) ...[const SizedBox(width: 8), trailing!],

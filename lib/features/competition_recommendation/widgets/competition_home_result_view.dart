@@ -68,9 +68,9 @@ class CompetitionHomeResultView extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 '正在为你匹配竞赛…',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSoft,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
               ),
               const SizedBox(width: 12),
               SizedBox(
@@ -85,7 +85,10 @@ class CompetitionHomeResultView extends StatelessWidget {
     );
   }
 
-  Widget _buildResult(BuildContext context, CompetitionRecommendationResult data) {
+  Widget _buildResult(
+    BuildContext context,
+    CompetitionRecommendationResult data,
+  ) {
     final recs = data.recommendations;
     return SingleChildScrollView(
       child: Column(
@@ -125,7 +128,10 @@ class CompetitionHomeResultView extends StatelessWidget {
     );
   }
 
-  Widget _buildSummary(BuildContext context, CompetitionRecommendationResult data) {
+  Widget _buildSummary(
+    BuildContext context,
+    CompetitionRecommendationResult data,
+  ) {
     final u = data.understanding;
     final directions = u.directions.isEmpty ? null : u.directions.join('、');
     final categories = u.categories.isEmpty ? null : u.categories.join('、');
@@ -155,15 +161,12 @@ class CompetitionHomeResultView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             '暂无匹配竞赛，试试调整条件',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.inkSoft,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
           ),
           const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: onAdjust,
-            child: const Text('调整条件'),
-          ),
+          OutlinedButton(onPressed: onAdjust, child: const Text('调整条件')),
         ],
       ),
     );
@@ -179,8 +182,8 @@ class CompetitionHomeResultView extends StatelessWidget {
           Text(
             message,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+              color: Theme.of(context).colorScheme.error,
+            ),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -217,10 +220,7 @@ class _UserMessageBubble extends StatelessWidget {
             color: AppColors.indigoSoft,
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Text(
-            content,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          child: Text(content, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ),
     );

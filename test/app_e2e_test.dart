@@ -61,20 +61,17 @@ class _FakeChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>
@@ -167,7 +164,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // 对话式：原地进入对话态（不跳路由），首页内出现用户消息 + 横滑推荐卡片。
-    expect(find.text('我想找医学影像和计算机视觉方向的导师，最好在上海', skipOffstage: false), findsOneWidget);
+    expect(
+      find.text('我想找医学影像和计算机视觉方向的导师，最好在上海', skipOffstage: false),
+      findsOneWidget,
+    );
     expect(find.text('张三'), findsOneWidget);
 
     await tester.tap(find.byTooltip('收藏导师').first);

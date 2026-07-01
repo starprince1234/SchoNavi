@@ -45,22 +45,25 @@ class CompetitionHomeNotifier extends Notifier<CompetitionHomeState> {
     state = CompetitionHomeLoading(prompt);
     final profile = ref.read(profileProvider);
     final repo = ref.read(competitionRecommendationRepositoryProvider);
-    final result = await repo.getRecommendations(prompt: prompt, profile: profile);
+    final result = await repo.getRecommendations(
+      prompt: prompt,
+      profile: profile,
+    );
 
     if (mySeq != _requestSeq) return;
 
     state = switch (result) {
-      Success(:final data) => data.recommendations.isEmpty
-          ? const CompetitionHomeEmpty()
-          : () {
-              unawaited(
-                ref.read(historyRepositoryProvider).addFromCompetitionResult(
-                  prompt: prompt,
-                  result: data,
-                ),
-              );
-              return CompetitionHomeResult(data);
-            }(),
+      Success(:final data) =>
+        data.recommendations.isEmpty
+            ? const CompetitionHomeEmpty()
+            : () {
+                unawaited(
+                  ref
+                      .read(historyRepositoryProvider)
+                      .addFromCompetitionResult(prompt: prompt, result: data),
+                );
+                return CompetitionHomeResult(data);
+              }(),
       Failure(:final error) => CompetitionHomeError(error.toString()),
     };
   }
@@ -73,5 +76,5 @@ class CompetitionHomeNotifier extends Notifier<CompetitionHomeState> {
 
 final competitionHomeProvider =
     NotifierProvider<CompetitionHomeNotifier, CompetitionHomeState>(
-  CompetitionHomeNotifier.new,
-);
+      CompetitionHomeNotifier.new,
+    );

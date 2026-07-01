@@ -76,8 +76,9 @@ class _PreparationAssistantDrawerState
 
   @override
   Widget build(BuildContext context) {
-    final state =
-        ref.watch(preparationAssistantControllerProvider(widget.planId));
+    final state = ref.watch(
+      preparationAssistantControllerProvider(widget.planId),
+    );
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: scheme.surface,
@@ -87,7 +88,8 @@ class _PreparationAssistantDrawerState
           children: [
             _Header(
               title:
-                  state.currentPlan?.competition.name ?? widget.plan.competition.name,
+                  state.currentPlan?.competition.name ??
+                  widget.plan.competition.name,
               sending: state.sending,
               onClear: () => _confirmClear(context),
             ),
@@ -103,55 +105,79 @@ class _PreparationAssistantDrawerState
     final messages = <Widget>[];
     for (final turn in state.turns) {
       final pair = AssistantTurnMessageMapper.toMessages(turn, widget.planId);
-      messages.add(Padding(
-        key: ValueKey('${turn.id}_user'),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: ChatMessageBubble(message: pair[0], onTapRecommendation: (_) {}),
-      ));
-      messages.add(Padding(
-        key: ValueKey('${turn.id}_assistant'),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: ChatMessageBubble(message: pair[1], onTapRecommendation: (_) {}),
-      ));
+      messages.add(
+        Padding(
+          key: ValueKey('${turn.id}_user'),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ChatMessageBubble(
+            message: pair[0],
+            onTapRecommendation: (_) {},
+          ),
+        ),
+      );
+      messages.add(
+        Padding(
+          key: ValueKey('${turn.id}_assistant'),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ChatMessageBubble(
+            message: pair[1],
+            onTapRecommendation: (_) {},
+          ),
+        ),
+      );
       if (!turn.error && turn.changeSet != null) {
-        messages.add(_ChangeCardRow(
-          key: ValueKey('${turn.id}_cards'),
-          turn: turn,
-          cards: turn.changeSet!.cards,
-          statuses: state.cardStatuses[turn.id] ?? const {},
-          applying: state.applying,
-          errors: state.cardErrors,
-          onAccept: (card) => ref
-              .read(preparationAssistantControllerProvider(widget.planId).notifier)
-              .acceptCard(turn, card),
-          onDecline: (card) => ref
-              .read(preparationAssistantControllerProvider(widget.planId).notifier)
-              .declineCard(turn, card),
-        ));
+        messages.add(
+          _ChangeCardRow(
+            key: ValueKey('${turn.id}_cards'),
+            turn: turn,
+            cards: turn.changeSet!.cards,
+            statuses: state.cardStatuses[turn.id] ?? const {},
+            applying: state.applying,
+            errors: state.cardErrors,
+            onAccept: (card) => ref
+                .read(
+                  preparationAssistantControllerProvider(
+                    widget.planId,
+                  ).notifier,
+                )
+                .acceptCard(turn, card),
+            onDecline: (card) => ref
+                .read(
+                  preparationAssistantControllerProvider(
+                    widget.planId,
+                  ).notifier,
+                )
+                .declineCard(turn, card),
+          ),
+        );
       }
     }
     if (state.pendingUserMessage != null) {
-      messages.add(Padding(
-        key: ValueKey('${widget.planId}_pending_user'),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: ChatMessageBubble(
-          message: ChatMessage(
-            id: '${widget.planId}_pending_user',
-            role: ChatRole.user,
-            content: state.pendingUserMessage!,
-            createdAt: DateTime.now(),
-            relatedRecommendations: const [],
-            status: ChatMessageStatus.done,
+      messages.add(
+        Padding(
+          key: ValueKey('${widget.planId}_pending_user'),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: ChatMessageBubble(
+            message: ChatMessage(
+              id: '${widget.planId}_pending_user',
+              role: ChatRole.user,
+              content: state.pendingUserMessage!,
+              createdAt: DateTime.now(),
+              relatedRecommendations: const [],
+              status: ChatMessageStatus.done,
+            ),
+            onTapRecommendation: (_) {},
           ),
-          onTapRecommendation: (_) {},
         ),
-      ));
+      );
     }
     if (state.sending) {
-      messages.add(const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      ));
+      messages.add(
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
     }
     if (messages.isEmpty) {
       messages.add(_buildEmptyHint());
@@ -208,7 +234,9 @@ class _PreparationAssistantDrawerState
           ),
           const SizedBox(width: 8),
           Material(
-            color: _canSubmit ? AppColors.indigo : scheme.surfaceContainerHighest,
+            color: _canSubmit
+                ? AppColors.indigo
+                : scheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
@@ -284,12 +312,16 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('竞航小助手',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                Text(title,
-                    style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                const Text(
+                  '竞航小助手',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),

@@ -14,32 +14,32 @@ import 'package:scho_navi/features/preparation/pages/preparation_plan_form_page.
 import 'package:scho_navi/features/preparation/providers/preparation_providers.dart';
 
 CompetitionSnapshot _comp() => CompetitionSnapshot(
-      id: 'comp_icpc',
-      name: 'ACM-ICPC',
-      category: '计算机类',
-      rulesSummary: CompetitionRulesSummary(
-        signupTime: '',
-        contestTime: '',
-        teamSize: '',
-        format: '',
-        organizer: '',
-        officialUrl: null,
-      ),
-    );
+  id: 'comp_icpc',
+  name: 'ACM-ICPC',
+  category: '计算机类',
+  rulesSummary: CompetitionRulesSummary(
+    signupTime: '',
+    contestTime: '',
+    teamSize: '',
+    format: '',
+    organizer: '',
+    officialUrl: null,
+  ),
+);
 
 CompetitionSnapshot _genericComp() => CompetitionSnapshot(
-      id: 'comp_unknown',
-      name: '某竞赛',
-      category: '综合类',
-      rulesSummary: CompetitionRulesSummary(
-        signupTime: '',
-        contestTime: '',
-        teamSize: '',
-        format: '',
-        organizer: '',
-        officialUrl: null,
-      ),
-    );
+  id: 'comp_unknown',
+  name: '某竞赛',
+  category: '综合类',
+  rulesSummary: CompetitionRulesSummary(
+    signupTime: '',
+    contestTime: '',
+    teamSize: '',
+    format: '',
+    organizer: '',
+    officialUrl: null,
+  ),
+);
 
 /// 永远返回 Success(intermediate) 的假诊断器。
 class _FakeDiagnoser implements PreparationLevelDiagnoser {
@@ -84,11 +84,13 @@ void main() {
   }) async {
     SharedPreferences.setMockInitialValues(initialStore);
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      if (diagnoser != null)
-        preparationLevelDiagnoserProvider.overrideWithValue(diagnoser),
-    ]);
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        if (diagnoser != null)
+          preparationLevelDiagnoserProvider.overrideWithValue(diagnoser),
+      ],
+    );
     addTearDown(container.dispose);
     return container;
   }
@@ -104,7 +106,9 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(home: PreparationPlanFormPage(competition: competition)),
+        child: MaterialApp(
+          home: PreparationPlanFormPage(competition: competition),
+        ),
       ),
     );
     await tester.pump();
@@ -231,10 +235,7 @@ void main() {
       rationale: '老选手',
       suggestion: null,
       diagnosedAt: DateTime.utc(2026, 6, 1),
-      answers: const {
-        'prior_experience': '校级以上奖',
-        'domain_familiarity': '熟悉',
-      },
+      answers: const {'prior_experience': '校级以上奖', 'domain_familiarity': '熟悉'},
     );
     final container = await bootstrap(
       diagnoser: const _FakeDiagnoser(),
@@ -268,10 +269,7 @@ void main() {
       rationale: '老选手',
       suggestion: null,
       diagnosedAt: DateTime.utc(2026, 6, 1),
-      answers: const {
-        'prior_experience': '校级以上奖',
-        'domain_familiarity': '熟悉',
-      },
+      answers: const {'prior_experience': '校级以上奖', 'domain_familiarity': '熟悉'},
     );
     final container = await bootstrap(
       diagnoser: const _FakeDiagnoser(),

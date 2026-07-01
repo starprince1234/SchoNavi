@@ -46,7 +46,8 @@ class AcademicScoreDto {
   Map<String, dynamic> toJson() => <String, dynamic>{
     if (gpa != null) 'gpa': gpa,
     if (scale != null) 'scale': scale,
-    if (rankMode != null && rankMode != RankMode.none) 'rank_mode': rankMode!.name,
+    if (rankMode != null && rankMode != RankMode.none)
+      'rank_mode': rankMode!.name,
     if (percent != null) 'percent': percent,
     if (rankPosition != null) 'rank_position': rankPosition,
     if (rankTotal != null) 'rank_total': rankTotal,
@@ -103,12 +104,8 @@ class CompetitionDto {
     if (year != null) 'year': year,
   };
 
-  Competition toEntity() => Competition(
-    name: name,
-    level: level,
-    award: award,
-    year: year,
-  );
+  Competition toEntity() =>
+      Competition(name: name, level: level, award: award, year: year);
 }
 
 class ResearchItemDto {
@@ -209,11 +206,16 @@ class UserProfileDto {
       competitions:
           (json['competitions'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map>()
-              .map((item) => CompetitionDto.fromJson(Map<String, dynamic>.from(item)))
+              .map(
+                (item) =>
+                    CompetitionDto.fromJson(Map<String, dynamic>.from(item)),
+              )
               .toList(growable: false),
       research: (json['research'] as List<dynamic>? ?? const <dynamic>[])
           .whereType<Map>()
-          .map((item) => ResearchItemDto.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => ResearchItemDto.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList(growable: false),
     );
   }
@@ -281,4 +283,3 @@ Gender? _genderFrom(String? raw) {
   }
   return null;
 }
-

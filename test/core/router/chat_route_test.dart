@@ -8,7 +8,9 @@ import 'package:scho_navi/features/chat/pages/chat_page.dart';
 
 void main() {
   testWidgets('app router 把 /chat 解析为 ChatPage', (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'seenOnboarding': true,
+    });
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
@@ -35,7 +37,9 @@ void main() {
   });
 
   testWidgets('/chat?fork&msid=&pid= 解析并落地 ChatPage', (tester) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'seenOnboarding': true,
+    });
     final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],

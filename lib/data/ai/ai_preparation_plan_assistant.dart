@@ -61,7 +61,9 @@ class AiPreparationPlanAssistant implements PreparationPlanAssistant {
   ) {
     try {
       final decoded = jsonDecode(_extractJson(content));
-      if (decoded is! Map<String, dynamic>) return const Failure(ServerException());
+      if (decoded is! Map<String, dynamic>) {
+        return const Failure(ServerException());
+      }
       final snapshot = PlanSnapshot.fromPlan(
         request.planSnapshot,
         calendarToday: request.calendarToday,

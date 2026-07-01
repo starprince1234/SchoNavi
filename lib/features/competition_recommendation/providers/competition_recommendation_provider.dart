@@ -22,10 +22,9 @@ final competitionRecommendationProvider =
         Success(:final data) => () {
           if (data.recommendations.isNotEmpty) {
             unawaited(
-              ref.read(historyRepositoryProvider).addFromCompetitionResult(
-                prompt: prompt,
-                result: data,
-              ),
+              ref
+                  .read(historyRepositoryProvider)
+                  .addFromCompetitionResult(prompt: prompt, result: data),
             );
           }
           return data;

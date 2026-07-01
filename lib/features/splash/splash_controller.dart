@@ -9,9 +9,9 @@ class SplashState {
   final bool isCompleted;
 
   SplashState copyWith({double? progress, bool? isCompleted}) => SplashState(
-        progress: progress ?? this.progress,
-        isCompleted: isCompleted ?? this.isCompleted,
-      );
+    progress: progress ?? this.progress,
+    isCompleted: isCompleted ?? this.isCompleted,
+  );
 }
 
 /// Splash 动画状态容器与命令入口。

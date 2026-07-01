@@ -11,8 +11,9 @@ const _dims = [
   MatchDimension(label: '产出活跃', score: 82, comment: 'e'),
 ];
 
-Widget _wrap(Widget child) =>
-    MaterialApp(home: Scaffold(body: Center(child: child)));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: Center(child: child)),
+);
 
 void main() {
   testWidgets('渲染全部轴标签', (tester) async {

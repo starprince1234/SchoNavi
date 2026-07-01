@@ -6,7 +6,10 @@ void main() {
   group('AcademicScoreDto 往返', () {
     test('percent 模式 entity -> dto -> entity 无损', () {
       const score = AcademicScore(
-        gpa: 3.8, scale: 4.0, rankMode: RankMode.percent, percent: 5,
+        gpa: 3.8,
+        scale: 4.0,
+        rankMode: RankMode.percent,
+        percent: 5,
       );
       final dto = AcademicScoreDto.fromEntity(score);
       expect(dto.gpa, 3.8);

@@ -21,8 +21,8 @@ class HttpCompetitionCatalogRepository extends CompetitionCatalogRepository {
     if (cached != null) return cached;
     final result = await guardApi(
       () => _dio.get<dynamic>('/api/v1/competitions/$id'),
-      (data) => RecommendedCompetitionDto.fromJson(asJsonObject(data))
-          .toEntity(),
+      (data) =>
+          RecommendedCompetitionDto.fromJson(asJsonObject(data)).toEntity(),
     );
     return switch (result) {
       Success(:final data) => _cache[id] = data,
@@ -35,18 +35,20 @@ class HttpCompetitionCatalogRepository extends CompetitionCatalogRepository {
     final result = await guardApi(
       () => _dio.get<dynamic>('/api/v1/competitions'),
       (data) => (data as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => RecommendedCompetitionDto.fromJson(
-                asJsonObject(item),
-              ).toEntity())
+          .map(
+            (item) => RecommendedCompetitionDto.fromJson(
+              asJsonObject(item),
+            ).toEntity(),
+          )
           .toList(growable: false),
     );
     return switch (result) {
       Success(:final data) => () {
-          _cache
-            ..clear()
-            ..addEntries(data.map((item) => MapEntry(item.id, item)));
-          return data;
-        }(),
+        _cache
+          ..clear()
+          ..addEntries(data.map((item) => MapEntry(item.id, item)));
+        return data;
+      }(),
       Failure(:final error) => throw error,
     };
   }

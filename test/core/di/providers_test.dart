@@ -116,9 +116,15 @@ void main() {
       container.read(competitionRecommendationRepositoryProvider),
       isA<HttpCompetitionRecommendationRepository>(),
     );
-    expect(container.read(professorRepositoryProvider), isA<HttpProfessorRepository>());
+    expect(
+      container.read(professorRepositoryProvider),
+      isA<HttpProfessorRepository>(),
+    );
     expect(container.read(chatRepositoryProvider), isA<HttpChatRepository>());
-    expect(container.read(comparisonRepositoryProvider), isA<HttpComparisonRepository>());
+    expect(
+      container.read(comparisonRepositoryProvider),
+      isA<HttpComparisonRepository>(),
+    );
     expect(
       container.read(matchAnalysisRepositoryProvider),
       isA<HttpMatchAnalysisRepository>(),
@@ -127,21 +133,39 @@ void main() {
       container.read(outreachEmailRepositoryProvider),
       isA<HttpOutreachEmailRepository>(),
     );
-    expect(container.read(profileRepositoryProvider), isA<HttpProfileRepository>());
+    expect(
+      container.read(profileRepositoryProvider),
+      isA<HttpProfileRepository>(),
+    );
     expect(
       container.read(profileExtractionRepositoryProvider),
       isA<HttpProfileExtractionRepository>(),
     );
-    expect(container.read(favoriteRepositoryProvider), isA<HttpFavoriteRepository>());
-    expect(container.read(historyRepositoryProvider), isA<HttpHistoryRepository>());
+    expect(
+      container.read(favoriteRepositoryProvider),
+      isA<HttpFavoriteRepository>(),
+    );
+    expect(
+      container.read(historyRepositoryProvider),
+      isA<HttpHistoryRepository>(),
+    );
 
-    expect(container.read(recommendationRepositoryProvider), isA<RecommendationRepository>());
+    expect(
+      container.read(recommendationRepositoryProvider),
+      isA<RecommendationRepository>(),
+    );
     expect(
       container.read(competitionRecommendationRepositoryProvider),
       isA<CompetitionRecommendationRepository>(),
     );
-    expect(container.read(professorRepositoryProvider), isA<ProfessorRepository>());
-    expect(container.read(comparisonRepositoryProvider), isA<ComparisonRepository>());
+    expect(
+      container.read(professorRepositoryProvider),
+      isA<ProfessorRepository>(),
+    );
+    expect(
+      container.read(comparisonRepositoryProvider),
+      isA<ComparisonRepository>(),
+    );
     expect(
       container.read(matchAnalysisRepositoryProvider),
       isA<MatchAnalysisRepository>(),
@@ -150,7 +174,10 @@ void main() {
       container.read(outreachEmailRepositoryProvider),
       isA<OutreachEmailRepository>(),
     );
-    expect(container.read(favoriteRepositoryProvider), isA<FavoriteRepository>());
+    expect(
+      container.read(favoriteRepositoryProvider),
+      isA<FavoriteRepository>(),
+    );
     expect(container.read(historyRepositoryProvider), isA<HistoryRepository>());
     expect(container.read(profileRepositoryProvider), isA<ProfileRepository>());
   });

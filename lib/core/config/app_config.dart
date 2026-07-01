@@ -98,7 +98,9 @@ class AppConfig {
 
 /// 启动注入的初值（main 用 dart-define 解析后 override；测试可 override）。
 /// 未 override 时为默认 mock 配置。
-final initialAppConfigProvider = Provider<AppConfig>((ref) => const AppConfig());
+final initialAppConfigProvider = Provider<AppConfig>(
+  (ref) => const AppConfig(),
+);
 
 /// 运行时可变的应用配置：允许评委现场在 mock/ai 间切换、开关演示模式。
 class AppConfigController extends Notifier<AppConfig> {

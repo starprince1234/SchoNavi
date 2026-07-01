@@ -20,7 +20,6 @@ void main() {
         child: const MaterialApp(home: FeedbackPage()),
       ),
     );
-    final submit = find.text('提交');
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).enabled,
       isFalse,

@@ -12,7 +12,9 @@ class _FakeExtract implements ProfileExtractionRepository {
   @override
   Future<Result<AchievementDraft>> extract({required String rawText}) async =>
       const Success(
-        AchievementDraft(competitions: [Competition(name: '挑战杯', award: '一等奖')]),
+        AchievementDraft(
+          competitions: [Competition(name: '挑战杯', award: '一等奖')],
+        ),
       );
 }
 
@@ -39,10 +41,7 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.byKey(const Key('achievements-raw')),
-      '挑战杯一等奖',
-    );
+    await tester.enterText(find.byKey(const Key('achievements-raw')), '挑战杯一等奖');
     await tester.tap(find.text('AI 整理成条目'));
     await tester.pump();
     await tester.pumpAndSettle();

@@ -74,20 +74,17 @@ class _StreamChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>
@@ -454,7 +451,10 @@ void main() {
     await notifier.bootstrapRecommendations('第二次');
     await notifier.send('重复追问');
     expect(rec.calls, 1);
-    expect(container.read(_chatTestProvider).messages, hasLength(2)); // user + 占位
+    expect(
+      container.read(_chatTestProvider).messages,
+      hasLength(2),
+    ); // user + 占位
 
     rec.completer.complete(Success(_recResult(sessionId: 's_unique')));
     await pending;

@@ -58,20 +58,17 @@ class _StreamChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>

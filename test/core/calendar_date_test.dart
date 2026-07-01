@@ -17,10 +17,14 @@ void main() {
   });
 
   test('parseIsoDay 拒绝 date-time 混用', () {
-    expect(() => CalendarDate.parseIsoDay('2026-05-03T10:00:00Z'),
-        throwsA(isA<FormatException>()));
-    expect(() => CalendarDate.parseIsoDay('not-a-date'),
-        throwsA(isA<FormatException>()));
+    expect(
+      () => CalendarDate.parseIsoDay('2026-05-03T10:00:00Z'),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => CalendarDate.parseIsoDay('not-a-date'),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   test('clampDay 闭区间夹取', () {
@@ -28,7 +32,10 @@ void main() {
     final hi = DateTime(2026, 5, 10);
     expect(CalendarDate.clampDay(DateTime(2026, 4, 30), lo, hi), lo);
     expect(CalendarDate.clampDay(DateTime(2026, 5, 20), lo, hi), hi);
-    expect(CalendarDate.clampDay(DateTime(2026, 5, 5), lo, hi), DateTime(2026, 5, 5));
+    expect(
+      CalendarDate.clampDay(DateTime(2026, 5, 5), lo, hi),
+      DateTime(2026, 5, 5),
+    );
   });
 
   test('toIsoDay/parseIsoDay 往返一致', () {

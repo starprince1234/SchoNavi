@@ -110,7 +110,9 @@ void main() {
     expect(find.text('暂无主页信息'), findsOneWidget);
   });
 
-  testWidgets('failed homepage launch shows stale link message', (tester) async {
+  testWidgets('failed homepage launch shows stale link message', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       await _wrap(
         initialItems: [_item(homepageUrl: 'https://example.edu.cn/zhangsan')],

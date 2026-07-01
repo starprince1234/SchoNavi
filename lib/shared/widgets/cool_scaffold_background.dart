@@ -13,13 +13,14 @@ class CoolScaffoldBackground extends StatelessWidget {
   final Widget? child;
 
   /// 用渐变背景包裹 [content]，常用于直接赋给 `Scaffold.body`。
-  static Widget wrap(Widget content) =>
-      CoolScaffoldBackground(child: content);
+  static Widget wrap(Widget content) => CoolScaffoldBackground(child: content);
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(gradient: AppSurface.of(context).scaffoldGradient),
+      decoration: BoxDecoration(
+        gradient: AppSurface.of(context).scaffoldGradient,
+      ),
       child: child,
     );
   }

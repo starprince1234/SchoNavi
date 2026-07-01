@@ -65,7 +65,9 @@ class ProfilePage extends ConsumerWidget {
             index: 2,
             child: ProfileSectionTile(
               title: '成绩 & 方向',
-              summary: profile.score?.gpa != null ? 'GPA ${profile.score!.gpa}' : '待填写',
+              summary: profile.score?.gpa != null
+                  ? 'GPA ${profile.score!.gpa}'
+                  : '待填写',
               done: profile.score?.gpa != null,
               onTap: () => _editScore(context, ref, profile),
             ),
@@ -131,19 +133,40 @@ class ProfilePage extends ConsumerWidget {
   }
 
   Future<void> _editBasic(BuildContext context, WidgetRef ref, UserProfile p) =>
-      _editSheet(context, ref, p, (draft, onChanged) => BasicInfoForm(value: draft, onChanged: onChanged));
+      _editSheet(
+        context,
+        ref,
+        p,
+        (draft, onChanged) => BasicInfoForm(value: draft, onChanged: onChanged),
+      );
 
   Future<void> _editScore(BuildContext context, WidgetRef ref, UserProfile p) =>
-      _editSheet(context, ref, p, (draft, onChanged) => ScoreAndInterestsForm(value: draft, onChanged: onChanged));
+      _editSheet(
+        context,
+        ref,
+        p,
+        (draft, onChanged) =>
+            ScoreAndInterestsForm(value: draft, onChanged: onChanged),
+      );
 
-  Future<void> _editAchievements(BuildContext context, WidgetRef ref, UserProfile p) =>
-      _editSheet(context, ref, p, (draft, onChanged) => AchievementsEditor(value: draft, onChanged: onChanged));
+  Future<void> _editAchievements(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile p,
+  ) => _editSheet(
+    context,
+    ref,
+    p,
+    (draft, onChanged) =>
+        AchievementsEditor(value: draft, onChanged: onChanged),
+  );
 
   Future<void> _editSheet(
     BuildContext context,
     WidgetRef ref,
     UserProfile initial,
-    Widget Function(UserProfile draft, ValueChanged<UserProfile> onChanged) builder,
+    Widget Function(UserProfile draft, ValueChanged<UserProfile> onChanged)
+    builder,
   ) async {
     var draft = initial;
     await showAppBottomSheet(

@@ -45,9 +45,10 @@ class _KVRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 64,
-            child: Text(label,
-                style: textTheme.labelSmall
-                    ?.copyWith(color: AppColors.inkSoft)),
+            child: Text(
+              label,
+              style: textTheme.labelSmall?.copyWith(color: AppColors.inkSoft),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(

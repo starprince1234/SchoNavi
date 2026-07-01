@@ -181,7 +181,11 @@ const List<RecommendedCompetition> competitionCatalog = [
     organizer: '华为技术有限公司',
     officialUrl: null,
     reason: '',
-    preparationTips: ['学习 Huawei Talent 赛道课程', '补齐 HCIA/HCIP 基础', '强化实验配置和方案设计'],
+    preparationTips: [
+      '学习 Huawei Talent 赛道课程',
+      '补齐 HCIA/HCIP 基础',
+      '强化实验配置和方案设计',
+    ],
     limitations: _commonLimitations,
     matchScore: 0,
   ),

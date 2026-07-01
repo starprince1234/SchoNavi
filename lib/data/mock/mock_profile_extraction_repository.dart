@@ -73,6 +73,8 @@ class MockProfileExtractionRepository implements ProfileExtractionRepository {
       );
     }
 
-    return Success(AchievementDraft(competitions: competitions, research: research));
+    return Success(
+      AchievementDraft(competitions: competitions, research: research),
+    );
   }
 }

@@ -11,9 +11,5 @@ class HomeConfig {
   final List<String> quickTags;
   final List<HomePrompt> prompts;
 
-  static const empty = HomeConfig(
-    taglines: [],
-    quickTags: [],
-    prompts: [],
-  );
+  static const empty = HomeConfig(taglines: [], quickTags: [], prompts: []);
 }

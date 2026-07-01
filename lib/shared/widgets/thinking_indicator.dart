@@ -81,7 +81,8 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator>
                     animation: _controller,
                     builder: (context, _) {
                       // controller.value ∈ [0,1] → progress ∈ [0, 2π]
-                      final progress = _controller.value * 2 * 3.141592653589793;
+                      final progress =
+                          _controller.value * 2 * 3.141592653589793;
                       return CustomPaint(
                         size: const Size.square(20),
                         painter: _SweepPainter(progress: progress),

@@ -52,20 +52,10 @@ class _ShimmerSkeletonState extends State<ShimmerSkeleton>
         return ShaderMask(
           shaderCallback: (bounds) {
             final gradient = LinearGradient(
-              colors: [
-                baseColor,
-                shimmerColor,
-                baseColor,
-              ],
+              colors: [baseColor, shimmerColor, baseColor],
               stops: const [0.35, 0.5, 0.65],
-              begin: Alignment(
-                -1 + (_controller.value * 3),
-                0,
-              ),
-              end: Alignment(
-                0 + (_controller.value * 3),
-                0,
-              ),
+              begin: Alignment(-1 + (_controller.value * 3), 0),
+              end: Alignment(0 + (_controller.value * 3), 0),
             );
             return gradient.createShader(bounds);
           },

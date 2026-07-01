@@ -22,9 +22,7 @@ class MockComparisonRepository implements ComparisonRepository {
         .toList();
 
     if (ids.length < 2 || ids.length > 3) {
-      return const Failure(
-        ValidationException('请选择 2-3 位导师进行对比'),
-      );
+      return const Failure(ValidationException('请选择 2-3 位导师进行对比'));
     }
 
     final professors = <Professor>[];
@@ -38,9 +36,7 @@ class MockComparisonRepository implements ComparisonRepository {
     }
 
     if (professors.length < 2) {
-      return const Failure(
-        ValidationException('未能加载足够的导师信息，请返回重试'),
-      );
+      return const Failure(ValidationException('未能加载足够的导师信息，请返回重试'));
     }
 
     await Future<void>.delayed(const Duration(milliseconds: 300));
@@ -54,19 +50,15 @@ class MockComparisonRepository implements ComparisonRepository {
       ComparisonRow(
         dimension: '研究方向',
         cells: cell(
-          (p) => p.researchFields.isEmpty
-              ? '公开资料未明确'
-              : p.researchFields.join('、'),
+          (p) =>
+              p.researchFields.isEmpty ? '公开资料未明确' : p.researchFields.join('、'),
         ),
       ),
       ComparisonRow(
         dimension: '学校与地区',
         cells: cell((p) => '${p.university} / ${p.college}'),
       ),
-      ComparisonRow(
-        dimension: '职称与梯队',
-        cells: cell((p) => p.title),
-      ),
+      ComparisonRow(dimension: '职称与梯队', cells: cell((p) => p.title)),
       ComparisonRow(
         dimension: '招生与培养',
         cells: cell((_) => '建议以学校官网与导师主页最新说明为准'),

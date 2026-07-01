@@ -28,12 +28,13 @@ const _p2 = Professor(
   researchFields: ['方向'],
 );
 
-ComparisonReport _report(List<String> ids, {required List<Professor> professors}) => ComparisonReport(
+ComparisonReport _report(
+  List<String> ids, {
+  required List<Professor> professors,
+}) => ComparisonReport(
   professorIds: ids,
   professors: professors,
-  rows: const [
-    ComparisonRow(dimension: '研究方向', cells: {}),
-  ],
+  rows: const [ComparisonRow(dimension: '研究方向', cells: {})],
   summary: 's',
   suggestion: 'g',
 );
@@ -54,15 +55,15 @@ class _FakeComparisonRepository implements ComparisonRepository {
 }
 
 ProviderContainer _container(ComparisonRepository repo) => ProviderContainer(
-  overrides: [
-    comparisonRepositoryProvider.overrideWithValue(repo),
-  ],
+  overrides: [comparisonRepositoryProvider.overrideWithValue(repo)],
 );
 
 void main() {
   test('2 位有效导师 -> ready 且携带 report 与 professors', () async {
     final repo = _FakeComparisonRepository(
-      Future.value(Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2]))),
+      Future.value(
+        Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2])),
+      ),
     );
     final container = _container(repo);
     addTearDown(container.dispose);
@@ -95,14 +96,17 @@ void main() {
     final container = _container(_FakeComparisonRepository(completer.future));
     addTearDown(container.dispose);
 
-    final future = container
-        .read(compareProvider.notifier)
-        .load(['p_001', 'p_002']);
+    final future = container.read(compareProvider.notifier).load([
+      'p_001',
+      'p_002',
+    ]);
     await Future<void>.delayed(Duration.zero);
 
     expect(container.read(compareProvider).status, CompareStatus.loading);
 
-    completer.complete(Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2])));
+    completer.complete(
+      Success(_report(['p_001', 'p_002'], professors: const [_p1, _p2])),
+    );
     await future;
     expect(container.read(compareProvider).status, CompareStatus.ready);
   });

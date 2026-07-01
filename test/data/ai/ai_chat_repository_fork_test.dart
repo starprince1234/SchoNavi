@@ -76,8 +76,13 @@ void main() {
       await r.streamReply(sessionId: 's1', message: '追问').last;
 
       // 第二次调用的 LLM 消息应含第一轮的 user + assistant。
-      final contents = llm.calls.last.map((m) => '${m.role}:${m.content}').toList();
-      expect(contents, containsAllInOrder(['user:为什么推荐他', 'assistant:回答', 'user:追问']));
+      final contents = llm.calls.last
+          .map((m) => '${m.role}:${m.content}')
+          .toList();
+      expect(
+        contents,
+        containsAllInOrder(['user:为什么推荐他', 'assistant:回答', 'user:追问']),
+      );
       // repo 不再写 store（可见历史由 chat_provider 经 persistMessages 落盘）。
       expect(await store.load('s1'), isNull);
     });
@@ -141,7 +146,11 @@ void main() {
     });
 
     test('persistMessages 落盘可见消息，loadHistory 原样读回（带卡片、kind）', () async {
-      final r = AiChatRepository(llm: _StubLlm('回答'), db: db, historyStore: store);
+      final r = AiChatRepository(
+        llm: _StubLlm('回答'),
+        db: db,
+        historyStore: store,
+      );
       final now = DateTime(2026, 6, 27);
       final messages = <ChatMessage>[
         ChatMessage(

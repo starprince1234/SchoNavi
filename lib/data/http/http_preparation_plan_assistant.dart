@@ -16,9 +16,7 @@ class HttpPreparationPlanAssistant implements PreparationPlanAssistant {
   final Dio _dio;
 
   @override
-  Future<Result<AssistantReply>> suggestChanges(
-    PlanAssistantRequest request,
-  ) {
+  Future<Result<AssistantReply>> suggestChanges(PlanAssistantRequest request) {
     final snapshot = PlanSnapshot.fromPlan(
       request.planSnapshot,
       calendarToday: request.calendarToday,
@@ -28,10 +26,8 @@ class HttpPreparationPlanAssistant implements PreparationPlanAssistant {
         '/api/v1/preparation-plans/${request.planId}/assistant',
         data: planAssistantRequestToJson(request),
       ),
-      (data) => AssistantReplyDto.fromJson(
-        asJsonObject(data),
-        snapshot,
-      ).toEntity(),
+      (data) =>
+          AssistantReplyDto.fromJson(asJsonObject(data), snapshot).toEntity(),
     );
   }
 }

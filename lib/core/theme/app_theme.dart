@@ -23,22 +23,25 @@ class AppTheme {
       tertiary: AppColors.match,
       onTertiary: Colors.white,
       // primaryContainer：用户气泡（浅 indigo）。onPrimaryContainer 保持深墨。
-      primaryContainer: isDark ? AppColors.indigoSoftDark : AppColors.indigoSoft,
+      primaryContainer: isDark
+          ? AppColors.indigoSoftDark
+          : AppColors.indigoSoft,
       onPrimaryContainer: isDark ? AppColors.inkDark : AppColors.indigoPressed,
       // secondaryContainer：助手气泡（极浅冷灰），区分用户气泡。
-      secondaryContainer:
-          isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2FF),
+      secondaryContainer: isDark
+          ? const Color(0xFF1E293B)
+          : const Color(0xFFEEF2FF),
       onSecondaryContainer: isDark ? AppColors.inkDark : AppColors.ink,
       surface: AppColors.surfaceOf(isDark),
       onSurface: AppColors.inkOf(isDark),
-      surfaceContainerLowest:
-          isDark ? const Color(0xFF0B1120) : AppColors.surface,
-      surfaceContainerLow:
-          isDark ? const Color(0xFF111827) : AppColors.paper,
-      surfaceContainer:
-          isDark ? AppColors.panelDark : AppColors.panel,
-      surfaceContainerHighest:
-          isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+      surfaceContainerLowest: isDark
+          ? const Color(0xFF0B1120)
+          : AppColors.surface,
+      surfaceContainerLow: isDark ? const Color(0xFF111827) : AppColors.paper,
+      surfaceContainer: isDark ? AppColors.panelDark : AppColors.panel,
+      surfaceContainerHighest: isDark
+          ? const Color(0xFF334155)
+          : const Color(0xFFE2E8F0),
       outline: AppColors.lineOf(isDark),
       onSurfaceVariant: AppColors.inkSoftOf(isDark),
       error: AppColors.danger,
@@ -144,8 +147,9 @@ class AppTheme {
       textTheme: textTheme,
       extensions: [
         AppSurface(
-          scaffoldGradient:
-              isDark ? AppColors.backgroundGradientDark : AppColors.backgroundGradient,
+          scaffoldGradient: isDark
+              ? AppColors.backgroundGradientDark
+              : AppColors.backgroundGradient,
           glassBorder: AppColors.glassBorderOf(isDark),
         ),
       ],
@@ -272,9 +276,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.indigo,
@@ -289,4 +291,3 @@ class AppTheme {
     );
   }
 }
-

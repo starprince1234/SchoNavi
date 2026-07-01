@@ -43,10 +43,7 @@ class MatchNotifier extends Notifier<MatchState> {
     required UserProfile profile,
   }) async {
     final professorId = state.professorId ?? professor.id;
-    state = MatchState(
-      professorId: professorId,
-      status: MatchStatus.analyzing,
-    );
+    state = MatchState(professorId: professorId, status: MatchStatus.analyzing);
 
     final result = await ref
         .read(matchAnalysisRepositoryProvider)

@@ -8,7 +8,9 @@ import 'package:scho_navi/domain/entities/user_profile.dart';
 import 'package:scho_navi/features/profile/providers/profile_provider.dart';
 
 Future<Widget> _wrap() async {
-  SharedPreferences.setMockInitialValues(<String, Object>{'seenOnboarding': true});
+  SharedPreferences.setMockInitialValues(<String, Object>{
+    'seenOnboarding': true,
+  });
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
     overrides: [
@@ -16,9 +18,7 @@ Future<Widget> _wrap() async {
       // Provide a non-empty profile to prevent ProfilePage from redirecting
       // to /profile/privacy during navigation tests.
       profileProvider.overrideWith(
-        () => _StubProfileController(
-          const UserProfile(name: 'Test User'),
-        ),
+        () => _StubProfileController(const UserProfile(name: 'Test User')),
       ),
     ],
     child: const SchoNaviApp(),
@@ -33,9 +33,7 @@ class _StubProfileController extends ProfileController {
 }
 
 void main() {
-  testWidgets('home page shows search intro and menu button', (
-    tester,
-  ) async {
+  testWidgets('home page shows search intro and menu button', (tester) async {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 
@@ -59,9 +57,7 @@ void main() {
     expect(find.byTooltip('我的收藏'), findsOneWidget);
   });
 
-  testWidgets('drawer history entry navigates to history page', (
-    tester,
-  ) async {
+  testWidgets('drawer history entry navigates to history page', (tester) async {
     await tester.pumpWidget(await _wrap());
     await tester.pumpAndSettle();
 

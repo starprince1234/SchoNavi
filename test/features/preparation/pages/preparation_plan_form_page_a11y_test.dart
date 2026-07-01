@@ -13,18 +13,18 @@ import 'package:scho_navi/features/preparation/pages/preparation_plan_form_page.
 /// 本测试 *不* 在外部再套一层 SingleChildScrollView——那只是掩盖问题，
 /// 不暴露真正的溢出。我们直接 pump 页面本体并断言 `takeException()` 为 null。
 CompetitionSnapshot _comp() => CompetitionSnapshot(
-      id: 'comp_icpc',
-      name: 'ACM-ICPC 亚洲区域赛',
-      category: '计算机类',
-      rulesSummary: CompetitionRulesSummary(
-        signupTime: '',
-        contestTime: '',
-        teamSize: '',
-        format: '',
-        organizer: '',
-        officialUrl: null,
-      ),
-    );
+  id: 'comp_icpc',
+  name: 'ACM-ICPC 亚洲区域赛',
+  category: '计算机类',
+  rulesSummary: CompetitionRulesSummary(
+    signupTime: '',
+    contestTime: '',
+    teamSize: '',
+    format: '',
+    organizer: '',
+    officialUrl: null,
+  ),
+);
 
 void main() {
   setUp(() async {
@@ -33,9 +33,9 @@ void main() {
 
   Future<ProviderContainer> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
-    final container = ProviderContainer(overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-    ]);
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    );
     addTearDown(container.dispose);
     return container;
   }

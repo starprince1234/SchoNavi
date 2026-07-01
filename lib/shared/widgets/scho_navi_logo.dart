@@ -33,10 +33,11 @@ class SchoNaviLogo extends StatelessWidget {
 
     if (!withWordmark) return mark;
 
-    final style = (wordmarkStyle ??
-            Theme.of(context).textTheme.headlineMedium ??
-            const TextStyle(fontSize: 28, fontWeight: FontWeight.w800))
-        .copyWith(fontWeight: FontWeight.w800);
+    final style =
+        (wordmarkStyle ??
+                Theme.of(context).textTheme.headlineMedium ??
+                const TextStyle(fontSize: 28, fontWeight: FontWeight.w800))
+            .copyWith(fontWeight: FontWeight.w800);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -47,7 +48,10 @@ class SchoNaviLogo extends StatelessWidget {
           shaderCallback: (bounds) =>
               AppColors.brandGradient.createShader(bounds),
           blendMode: BlendMode.srcIn,
-          child: Text('SchoNavi', style: style.copyWith(color: AppColors.indigo)),
+          child: Text(
+            'SchoNavi',
+            style: style.copyWith(color: AppColors.indigo),
+          ),
         ),
       ],
     );

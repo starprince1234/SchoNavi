@@ -125,7 +125,10 @@ class PlanChangeApplier {
 
   // --- deleteTask ---------------------------------------------------------
 
-  static ApplyResult _applyDeleteTask(PreparationPlan plan, PlanChangeCard card) {
+  static ApplyResult _applyDeleteTask(
+    PreparationPlan plan,
+    PlanChangeCard card,
+  ) {
     final newPhases = plan.phases.map((phase) {
       return phase.copyWith(
         tasks: phase.tasks
@@ -147,32 +150,30 @@ class PlanChangeApplier {
   ) {
     final draftByKey = {
       for (final d in card.phaseSchedule!)
-          d.phaseKey: PhaseScheduleDraft(
-            phaseKey: d.phaseKey,
-            startDate: CalendarDate.normalize(d.startDate),
-            endDate: CalendarDate.normalize(d.endDate),
-          ),
+        d.phaseKey: PhaseScheduleDraft(
+          phaseKey: d.phaseKey,
+          startDate: CalendarDate.normalize(d.startDate),
+          endDate: CalendarDate.normalize(d.endDate),
+        ),
     };
     final newPhases = plan.phases.map((phase) {
       final d = draftByKey[phase.key];
       if (d == null) return phase;
       final start = d.startDate;
       final end = d.endDate;
-      final tasks = phase.tasks.map((t) {
-        if (t.completed) return t; // 保留已完成任务的 dueDate。
-        return t.copyWith(
-          dueDate: CalendarDate.clampDay(
-            CalendarDate.normalize(t.dueDate),
-            start,
-            end,
-          ),
-        );
-      }).toList(growable: false);
-      return phase.copyWith(
-        startDate: start,
-        endDate: end,
-        tasks: tasks,
-      );
+      final tasks = phase.tasks
+          .map((t) {
+            if (t.completed) return t; // 保留已完成任务的 dueDate。
+            return t.copyWith(
+              dueDate: CalendarDate.clampDay(
+                CalendarDate.normalize(t.dueDate),
+                start,
+                end,
+              ),
+            );
+          })
+          .toList(growable: false);
+      return phase.copyWith(startDate: start, endDate: end, tasks: tasks);
     }).toList();
     return ApplyResult(
       newPlan: plan.copyWith(phases: newPhases),

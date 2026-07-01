@@ -44,7 +44,10 @@ class _SwipeCardCarouselState<T> extends State<SwipeCardCarousel<T>> {
   @override
   void didUpdateWidget(covariant SwipeCardCarousel<T> old) {
     super.didUpdateWidget(old);
-    if (widget.items.isEmpty) { _page = 0; return; }
+    if (widget.items.isEmpty) {
+      _page = 0;
+      return;
+    }
     final maxPage = widget.items.length - 1;
     if (_page <= maxPage) return;
     _page = maxPage;
@@ -79,43 +82,59 @@ class _SwipeCardCarouselState<T> extends State<SwipeCardCarousel<T>> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Stack(children: [
-          SizedBox(
-            height: h,
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: widget.items.length,
-              onPageChanged: (i) { Haptics.selection(); if (mounted) setState(() => _page = i); },
-              physics: const BouncingScrollPhysics(),
-              itemBuilder: (context, index) {
-                final d = _dampFor(index);
-                return Semantics(
-                  label: '第 ${index + 1} 张，共 ${widget.items.length} 张，'
-                      '${widget.semanticsLabel(widget.items[index])}',
-                  container: true,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: AnimatedScale(
-                      scale: d.scale,
-                      duration: const Duration(milliseconds: 60),
-                      child: AnimatedOpacity(
+        Stack(
+          children: [
+            SizedBox(
+              height: h,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: widget.items.length,
+                onPageChanged: (i) {
+                  Haptics.selection();
+                  if (mounted) setState(() => _page = i);
+                },
+                physics: const BouncingScrollPhysics(),
+                itemBuilder: (context, index) {
+                  final d = _dampFor(index);
+                  return Semantics(
+                    label:
+                        '第 ${index + 1} 张，共 ${widget.items.length} 张，'
+                        '${widget.semanticsLabel(widget.items[index])}',
+                    container: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: AnimatedScale(
+                        scale: d.scale,
                         duration: const Duration(milliseconds: 60),
-                        opacity: d.opacity,
-                        child: widget.itemBuilder(context, widget.items[index], index),
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 60),
+                          opacity: d.opacity,
+                          child: widget.itemBuilder(
+                            context,
+                            widget.items[index],
+                            index,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-          if (widget.items.length > 1)
-            Positioned.fill(child: IgnorePointer(child: Row(children: [
-              _EdgeFade(color: paperColor, side: _EdgeSide.left),
-              const Spacer(),
-              _EdgeFade(color: paperColor, side: _EdgeSide.right),
-            ]))),
-        ]),
+            if (widget.items.length > 1)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Row(
+                    children: [
+                      _EdgeFade(color: paperColor, side: _EdgeSide.left),
+                      const Spacer(),
+                      _EdgeFade(color: paperColor, side: _EdgeSide.right),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
         if (widget.items.length > 1) ...[
           const SizedBox(height: 10),
           Row(
@@ -131,7 +150,9 @@ class _SwipeCardCarouselState<T> extends State<SwipeCardCarousel<T>> {
                 height: 6,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: active ? AppColors.indigo : scheme.outline.withValues(alpha: 0.4),
+                  color: active
+                      ? AppColors.indigo
+                      : scheme.outline.withValues(alpha: 0.4),
                 ),
               );
             }),
@@ -154,8 +175,12 @@ class _EdgeFade extends StatelessWidget {
       width: 28,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: side == _EdgeSide.left ? Alignment.centerLeft : Alignment.centerRight,
-          end: side == _EdgeSide.left ? Alignment.centerRight : Alignment.centerLeft,
+          begin: side == _EdgeSide.left
+              ? Alignment.centerLeft
+              : Alignment.centerRight,
+          end: side == _EdgeSide.left
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
           colors: [color, color.withValues(alpha: 0)],
         ),
       ),

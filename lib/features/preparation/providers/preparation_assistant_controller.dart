@@ -57,17 +57,16 @@ class PreparationAssistantControllerState {
     Set<String>? applying,
     Map<String, String>? cardErrors,
     String? pendingUserMessage,
-  }) =>
-      PreparationAssistantControllerState(
-        currentPlan: currentPlan ?? this.currentPlan,
-        turns: turns ?? this.turns,
-        sending: sending ?? this.sending,
-        expectedRevisions: expectedRevisions ?? this.expectedRevisions,
-        cardStatuses: cardStatuses ?? this.cardStatuses,
-        applying: applying ?? this.applying,
-        cardErrors: cardErrors ?? this.cardErrors,
-        pendingUserMessage: pendingUserMessage,
-      );
+  }) => PreparationAssistantControllerState(
+    currentPlan: currentPlan ?? this.currentPlan,
+    turns: turns ?? this.turns,
+    sending: sending ?? this.sending,
+    expectedRevisions: expectedRevisions ?? this.expectedRevisions,
+    cardStatuses: cardStatuses ?? this.cardStatuses,
+    applying: applying ?? this.applying,
+    cardErrors: cardErrors ?? this.cardErrors,
+    pendingUserMessage: pendingUserMessage,
+  );
 }
 
 /// 备赛助手会话 controller（spec §4）。非 autoDispose——关闭抽屉不销毁 state，
@@ -86,8 +85,7 @@ class PreparationAssistantController
 
   PreparationPlanRepository get _repo =>
       ref.read(preparationPlanRepositoryProvider);
-  AssistantHistoryStore get _store =>
-      ref.read(assistantHistoryStoreProvider);
+  AssistantHistoryStore get _store => ref.read(assistantHistoryStoreProvider);
   PreparationPlanAssistant get _assistant =>
       ref.read(preparationPlanAssistantProvider);
 
@@ -149,9 +147,7 @@ class PreparationAssistantController
           userMessage: trimmed,
           reply: data.reply,
           createdAt: DateTime.now().toUtc(),
-          cardStatuses: {
-            for (final c in data.changeSet.cards) c.id: c.status,
-          },
+          cardStatuses: {for (final c in data.changeSet.cards) c.id: c.status},
           changeSet: data.changeSet,
           requestId: data.requestId.isNotEmpty ? data.requestId : requestId,
         );
@@ -167,9 +163,7 @@ class PreparationAssistantController
           },
           cardStatuses: {
             ...state.cardStatuses,
-            turn.id: {
-              for (final c in data.changeSet.cards) c.id: c.status,
-            },
+            turn.id: {for (final c in data.changeSet.cards) c.id: c.status},
           },
           pendingUserMessage: null,
         );
@@ -284,7 +278,10 @@ class PreparationAssistantController
   }
 
   /// 把本 change set 剩余 pending 卡全部标 stale。
-  void _cascadeStale(AssistantTurn turn, Map<String, ChangeCardStatus> statuses) {
+  void _cascadeStale(
+    AssistantTurn turn,
+    Map<String, ChangeCardStatus> statuses,
+  ) {
     for (final c in turn.changeSet!.cards) {
       final s = statuses[c.id] ?? c.status;
       if (s == ChangeCardStatus.pending) {

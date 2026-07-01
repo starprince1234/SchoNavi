@@ -13,7 +13,9 @@ Future<ProviderContainer> _container({String apiKey = ''}) async {
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       if (apiKey.isNotEmpty)
-        initialAppConfigProvider.overrideWithValue(AppConfig.resolve(apiKey: apiKey)),
+        initialAppConfigProvider.overrideWithValue(
+          AppConfig.resolve(apiKey: apiKey),
+        ),
     ],
   );
 }
@@ -33,17 +35,20 @@ void main() {
     );
   });
 
-  test('dataSource=llm 接 AiOutreachEmailRepository + LocalProfileRepository', () async {
-    final container = await _container(apiKey: 'sk-test');
-    addTearDown(container.dispose);
+  test(
+    'dataSource=llm 接 AiOutreachEmailRepository + LocalProfileRepository',
+    () async {
+      final container = await _container(apiKey: 'sk-test');
+      addTearDown(container.dispose);
 
-    expect(
-      container.read(outreachEmailRepositoryProvider),
-      isA<AiOutreachEmailRepository>(),
-    );
-    expect(
-      container.read(profileRepositoryProvider),
-      isA<LocalProfileRepository>(),
-    );
-  });
+      expect(
+        container.read(outreachEmailRepositoryProvider),
+        isA<AiOutreachEmailRepository>(),
+      );
+      expect(
+        container.read(profileRepositoryProvider),
+        isA<LocalProfileRepository>(),
+      );
+    },
+  );
 }

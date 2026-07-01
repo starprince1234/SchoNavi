@@ -87,12 +87,7 @@ class _PhaseRow extends StatelessWidget {
                   ),
                 ),
                 if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 1.5,
-                      color: AppColors.line,
-                    ),
-                  ),
+                  Expanded(child: Container(width: 1.5, color: AppColors.line)),
               ],
             ),
           ),
@@ -102,7 +97,9 @@ class _PhaseRow extends StatelessWidget {
               padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 8),
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: isCurrent
                     ? BoxDecoration(
                         color: AppColors.indigoSoft,

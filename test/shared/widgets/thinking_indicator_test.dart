@@ -7,9 +7,7 @@ import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 void main() {
   testWidgets('渲染 svg 图标与「正在思考」文案 + 三个品牌渐变方形点', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ThinkingIndicator()),
-      ),
+      const MaterialApp(home: Scaffold(body: ThinkingIndicator())),
     );
 
     expect(find.byType(SvgPicture), findsOneWidget);
@@ -20,33 +18,38 @@ void main() {
     // 三个方形点（句号样式，非圆点），用 ValueKey<int>(0/1/2) 定位。
     for (var i = 0; i < 3; i++) {
       final dot = find.byKey(ValueKey<int>(i));
-      expect(dot, findsOneWidget,
-          reason: '第 $i 个点应存在（ValueKey<int>($i)）');
+      expect(dot, findsOneWidget, reason: '第 $i 个点应存在（ValueKey<int>($i)）');
       final box = tester.widget<DecoratedBox>(
         find.descendant(of: dot, matching: find.byType(DecoratedBox)).first,
       );
       final decoration = box.decoration as BoxDecoration;
-      expect(decoration.shape, BoxShape.rectangle,
-          reason: '点 $i 应为方形（句号样式，非圆点）');
-      expect(decoration.gradient, AppColors.brandGradient,
-          reason: '点 $i 应染品牌渐变');
+      expect(
+        decoration.shape,
+        BoxShape.rectangle,
+        reason: '点 $i 应为方形（句号样式，非圆点）',
+      );
+      expect(
+        decoration.gradient,
+        AppColors.brandGradient,
+        reason: '点 $i 应染品牌渐变',
+      );
       // 尺寸精简为 3×3。
-      expect(tester.getSize(dot), const Size(3, 3),
-          reason: '点 $i 应为 3×3（精简）');
+      expect(tester.getSize(dot), const Size(3, 3), reason: '点 $i 应为 3×3（精简）');
     }
 
     // 点应像句号贴在文案底部（底部对齐），而非垂直居中。
     final textRect = tester.getRect(find.text('正在思考'));
     final dot0Rect = tester.getRect(find.byKey(const ValueKey<int>(0)));
-    expect(dot0Rect.bottom, closeTo(textRect.bottom, 0.5),
-        reason: '点应与文案底部对齐（句号样式，不居中）');
+    expect(
+      dot0Rect.bottom,
+      closeTo(textRect.bottom, 0.5),
+      reason: '点应与文案底部对齐（句号样式，不居中）',
+    );
   });
 
   testWidgets('「正在思考」文案染品牌渐变且有亮纹扫过（与图标一致）', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ThinkingIndicator()),
-      ),
+      const MaterialApp(home: Scaffold(body: ThinkingIndicator())),
     );
 
     final text = find.text('正在思考');
@@ -56,11 +59,7 @@ void main() {
     final shaderMask = tester.widget<ShaderMask>(
       find.ancestor(of: text, matching: find.byType(ShaderMask)).first,
     );
-    expect(
-      shaderMask.blendMode,
-      BlendMode.srcIn,
-      reason: '文案应被 srcIn 染品牌渐变',
-    );
+    expect(shaderMask.blendMode, BlendMode.srcIn, reason: '文案应被 srcIn 染品牌渐变');
 
     // 文案上方必须有 CustomPaint(foregroundPainter) 叠加亮纹扫过。
     final customPaints = find
@@ -79,9 +78,7 @@ void main() {
 
   testWidgets('三点错峰上下跳跃（波浪式）', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ThinkingIndicator()),
-      ),
+      const MaterialApp(home: Scaffold(body: ThinkingIndicator())),
     );
 
     // 起始帧 v=0：t = (0*2 + i*0.2) % 1 → i=0,1,2 → 0/0.2/0.4 全 ≤0.6 活跃，
@@ -94,8 +91,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     final dy0 = _dotDy(tester, 0);
-    expect(dy0, isNot(equals(0.0)),
-        reason: 'v≈0.15 时 i=0 应处于活跃段，dy 非零（约 -3）');
+    expect(dy0, isNot(equals(0.0)), reason: 'v≈0.15 时 i=0 应处于活跃段，dy 非零（约 -3）');
 
     // 三点错峰：同一时刻 i=0 与 i=2 相位不同 → dy 不同。
     final dy2 = _dotDy(tester, 2);
@@ -104,17 +100,13 @@ void main() {
 
   testWidgets('动画 repeat 不阻塞 pump，dispose 后无异常', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: ThinkingIndicator()),
-      ),
+      const MaterialApp(home: Scaffold(body: ThinkingIndicator())),
     );
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
 
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: SizedBox.shrink()),
-      ),
+      const MaterialApp(home: Scaffold(body: SizedBox.shrink())),
     );
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull);

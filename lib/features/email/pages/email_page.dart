@@ -290,10 +290,7 @@ class _DraftFormState extends State<_DraftForm> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        _copied ? '已复制' : '复制',
-                        style: textTheme.titleSmall,
-                      ),
+                      Text(_copied ? '已复制' : '复制', style: textTheme.titleSmall),
                     ],
                   ),
                 ),
@@ -312,10 +309,7 @@ class _DraftFormState extends State<_DraftForm> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          '提示：邮件为 AI 生成草稿，请核对事实后再发送。',
-          style: TextStyle(fontSize: 12),
-        ),
+        const Text('提示：邮件为 AI 生成草稿，请核对事实后再发送。', style: TextStyle(fontSize: 12)),
       ],
     );
   }

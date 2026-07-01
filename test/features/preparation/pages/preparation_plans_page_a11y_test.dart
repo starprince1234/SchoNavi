@@ -17,67 +17,65 @@ import 'package:scho_navi/features/preparation/providers/preparation_providers.d
 /// 我们预置一条 plan 让列表渲染真实行，再直接 pump 页面本体并断言
 /// `takeException()` 为 null。
 PreparationPlan _plan({String id = 'p1'}) => PreparationPlan(
-      id: id,
-      competition: CompetitionSnapshot(
-        id: 'c1',
-        name: 'ACM-ICPC 亚洲区域赛',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: '',
-          contestTime: '',
-          teamSize: '',
-          format: '',
-          organizer: '',
-          officialUrl: null,
-        ),
-      ),
-      targetDate: DateTime(2026, 9, 1),
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.beginner,
-      status: PreparationPlanStatus.active,
-      phases: [
-        PreparationPhase(
-          key: 'team',
-          title: '组队',
-          startDate: DateTime(2026, 6, 28),
-          endDate: DateTime(2026, 7, 5),
-          tasks: [
-            PreparationTask(
-              id: 't1',
-              templateKey: 'team_form',
-              title: '组建队伍',
-              kind: PreparationTaskKind.required,
-              estimatedHours: 3,
-              dueDate: DateTime(2026, 7, 1),
-            ),
-          ],
+  id: id,
+  competition: CompetitionSnapshot(
+    id: 'c1',
+    name: 'ACM-ICPC 亚洲区域赛',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 9, 1),
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases: [
+    PreparationPhase(
+      key: 'team',
+      title: '组队',
+      startDate: DateTime(2026, 6, 28),
+      endDate: DateTime(2026, 7, 5),
+      tasks: [
+        PreparationTask(
+          id: 't1',
+          templateKey: 'team_form',
+          title: '组建队伍',
+          kind: PreparationTaskKind.required,
+          estimatedHours: 3,
+          dueDate: DateTime(2026, 7, 1),
         ),
       ],
-      tightSchedule: false,
-      overload: false,
-      createdAt: DateTime(2026, 6, 28),
-      updatedAt: DateTime(2026, 6, 28),
-    );
+    ),
+  ],
+  tightSchedule: false,
+  overload: false,
+  createdAt: DateTime(2026, 6, 28),
+  updatedAt: DateTime(2026, 6, 28),
+);
 
 GoRouter _router() => GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) => const PreparationPlansPage(),
-        ),
-        GoRoute(
-          path: '/preparation-plans/:id',
-          builder: (_, state) =>
-              Scaffold(body: Text('detail:${state.pathParameters['id']}')),
-        ),
-      ],
-    );
+  routes: [
+    GoRoute(path: '/', builder: (_, _) => const PreparationPlansPage()),
+    GoRoute(
+      path: '/preparation-plans/:id',
+      builder: (_, state) =>
+          Scaffold(body: Text('detail:${state.pathParameters['id']}')),
+    ),
+  ],
+);
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('375x800 + 1.5x + dark 无 overflow（预置一条 plan 渲染行）',
-      (tester) async {
+  testWidgets('375x800 + 1.5x + dark 无 overflow（预置一条 plan 渲染行）', (
+    tester,
+  ) async {
     addTearDown(() {
       tester.platformDispatcher.clearAllTestValues();
       tester.view.reset();

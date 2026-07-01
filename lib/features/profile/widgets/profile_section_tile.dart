@@ -31,7 +31,10 @@ class ProfileSectionTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
               ),
             ),
             Text(
@@ -40,8 +43,16 @@ class ProfileSectionTile extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             done
-                ? const Icon(Icons.check_circle, size: 18, color: AppColors.match)
-                : const Icon(Icons.chevron_right, size: 20, color: AppColors.inkSoft),
+                ? const Icon(
+                    Icons.check_circle,
+                    size: 18,
+                    color: AppColors.match,
+                  )
+                : const Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: AppColors.inkSoft,
+                  ),
           ],
         ),
       ),

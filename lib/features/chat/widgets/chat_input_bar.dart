@@ -61,7 +61,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final focusBorder = Border.all(
-      color: _focused ? AppColors.indigo : scheme.outline.withValues(alpha: 0.4),
+      color: _focused
+          ? AppColors.indigo
+          : scheme.outline.withValues(alpha: 0.4),
       width: _focused ? 2 : 1,
     );
     return SafeArea(
@@ -102,8 +104,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    hintText:
-                        widget.isNewSession ? '继续描述你的需求…' : '输入你的追问…',
+                    hintText: widget.isNewSession ? '继续描述你的需求…' : '输入你的追问…',
                   ),
                 ),
               ),

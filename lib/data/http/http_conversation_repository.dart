@@ -15,8 +15,7 @@ import '../dto/api_envelope.dart';
 import '../dto/chat_message_dto.dart';
 
 class HttpConversationRepository implements ConversationRepository {
-  HttpConversationRepository(this._dio, {UuidV7? ids})
-    : _ids = ids ?? UuidV7();
+  HttpConversationRepository(this._dio, {UuidV7? ids}) : _ids = ids ?? UuidV7();
 
   final Dio _dio;
   final UuidV7 _ids;
@@ -38,9 +37,7 @@ class HttpConversationRepository implements ConversationRepository {
   @override
   Future<Result<ConversationAggregate>> loadSession(String sessionId) {
     return guardApi(
-      () async => _dio.get<dynamic>(
-        '/api/v1/chat/sessions/$sessionId',
-      ),
+      () async => _dio.get<dynamic>('/api/v1/chat/sessions/$sessionId'),
       (data) {
         final json = asJsonObject(data);
         final sessionJson = json['session'];
@@ -140,9 +137,7 @@ class HttpConversationRepository implements ConversationRepository {
 
   @override
   Future<Result<void>> cancelAttempt(String attemptId) => guardApi(
-    () async => _dio.post<dynamic>(
-      '/api/v1/chat/attempts/$attemptId/cancel',
-    ),
+    () async => _dio.post<dynamic>('/api/v1/chat/attempts/$attemptId/cancel'),
     (_) {},
   );
 
@@ -159,27 +154,22 @@ class HttpConversationRepository implements ConversationRepository {
   );
 
   @override
-  Future<Result<List<ConversationSession>>> listSessions() => guardApi(
-    () async => _dio.get<dynamic>(
-      '/api/v1/chat/sessions',
-    ),
-    (data) {
-      final items = data is List
-          ? data
-          : (asJsonObject(data)['items'] as List<dynamic>? ?? const []);
-      return items
-          .whereType<Map>()
-          .map((e) => _session(Map<String, dynamic>.from(e)))
-          .toList(growable: false);
-    },
-  );
+  Future<Result<List<ConversationSession>>> listSessions() =>
+      guardApi(() async => _dio.get<dynamic>('/api/v1/chat/sessions'), (data) {
+        final items = data is List
+            ? data
+            : (asJsonObject(data)['items'] as List<dynamic>? ?? const []);
+        return items
+            .whereType<Map>()
+            .map((e) => _session(Map<String, dynamic>.from(e)))
+            .toList(growable: false);
+      });
 
   @override
   Future<Result<List<ConversationSession>>> listForks(String rootSessionId) =>
       guardApi(
-        () async => _dio.get<dynamic>(
-          '/api/v1/chat/sessions/$rootSessionId/forks',
-        ),
+        () async =>
+            _dio.get<dynamic>('/api/v1/chat/sessions/$rootSessionId/forks'),
         (data) {
           final items = data is List
               ? data
@@ -193,9 +183,7 @@ class HttpConversationRepository implements ConversationRepository {
 
   @override
   Future<Result<void>> deleteSession(String sessionId) => guardApi(
-    () async => _dio.delete<dynamic>(
-      '/api/v1/chat/sessions/$sessionId',
-    ),
+    () async => _dio.delete<dynamic>('/api/v1/chat/sessions/$sessionId'),
     (_) {},
   );
 
@@ -320,10 +308,8 @@ class HttpConversationRepository implements ConversationRepository {
       ownerId: json['owner_id']?.toString() ?? 'remote',
       revision: (json['revision'] as num?)?.toInt() ?? 0,
       title: json['title']?.toString(),
-      createdAt:
-          _requiredDateTime(json['created_at'], 'created_at'),
-      updatedAt:
-          _requiredDateTime(json['updated_at'], 'updated_at'),
+      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
+      updatedAt: _requiredDateTime(json['updated_at'], 'updated_at'),
       deletedAt: DateTime.tryParse(json['deleted_at']?.toString() ?? ''),
       legacyContextIncomplete: json['legacy_context_incomplete'] == true,
     );
@@ -362,10 +348,8 @@ class HttpConversationRepository implements ConversationRepository {
             ),
       userMessage: user,
       activeAttemptId: json['active_attempt_id']?.toString(),
-      createdAt:
-          _requiredDateTime(json['created_at'], 'created_at'),
-      updatedAt:
-          _requiredDateTime(json['updated_at'], 'updated_at'),
+      createdAt: _requiredDateTime(json['created_at'], 'created_at'),
+      updatedAt: _requiredDateTime(json['updated_at'], 'updated_at'),
     );
   }
 

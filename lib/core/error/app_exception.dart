@@ -49,8 +49,7 @@ class UnauthorizedException extends AppException {
 }
 
 class MissingLlmConfigurationException extends AppException {
-  const MissingLlmConfigurationException()
-    : super('未配置 LLM_API_KEY，无法使用大模型功能');
+  const MissingLlmConfigurationException() : super('未配置 LLM_API_KEY，无法使用大模型功能');
 }
 
 class ForbiddenException extends AppException {

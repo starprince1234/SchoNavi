@@ -39,9 +39,7 @@ void main() {
   );
 
   test('rows 含关键维度，每位导师均有单元格', () async {
-    final result = await repo.compare(
-      professorIds: [_p1.id, _p3.id],
-    );
+    final result = await repo.compare(professorIds: [_p1.id, _p3.id]);
     final report = (result as Success<ComparisonReport>).data;
 
     expect(report.professorIds, [_p1.id, _p3.id]);

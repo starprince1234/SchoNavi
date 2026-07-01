@@ -87,8 +87,11 @@ class PreparationCountdown extends StatelessWidget {
           if (currentPhase != null)
             Row(
               children: [
-                const Icon(Icons.flag_outlined,
-                    size: 16, color: AppColors.cyan),
+                const Icon(
+                  Icons.flag_outlined,
+                  size: 16,
+                  color: AppColors.cyan,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -131,8 +134,11 @@ class PreparationCountdown extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 16, color: AppColors.danger),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: AppColors.danger,
+          ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(

@@ -54,20 +54,17 @@ class _StreamChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>
@@ -258,10 +255,10 @@ void main() {
       container.read(_chatTestProvider.notifier).start(sessionId: 's1');
       await container.pump();
 
-      expect(
-        container.read(_chatTestProvider).followUpQuestions,
-        ['换一批', '偏应用'],
-      );
+      expect(container.read(_chatTestProvider).followUpQuestions, [
+        '换一批',
+        '偏应用',
+      ]);
     });
 
     test('后端 Failure → fallback 到 defaultChatQuickActions', () async {
@@ -290,10 +287,7 @@ void main() {
       container.read(_chatTestProvider.notifier).start(sessionId: 's1');
       await container.pump();
 
-      expect(
-        container.read(_chatTestProvider).followUpQuestions,
-        isEmpty,
-      );
+      expect(container.read(_chatTestProvider).followUpQuestions, isEmpty);
     });
 
     test('对话轮 stream onDone 后刷新 chip', () async {
@@ -311,10 +305,10 @@ void main() {
       await container.read(_chatTestProvider.notifier).send('继续');
       await container.pump();
 
-      expect(
-        container.read(_chatTestProvider).followUpQuestions,
-        ['再推荐', '换一批'],
-      );
+      expect(container.read(_chatTestProvider).followUpQuestions, [
+        '再推荐',
+        '换一批',
+      ]);
     });
 
     test('过期 fetch 不覆盖新 state（token 竞态）', () async {
@@ -332,10 +326,7 @@ void main() {
       src.setNext(const Success(['新值']));
       await container.read(_chatTestProvider.notifier).send('继续');
       await container.pump();
-      expect(
-        container.read(_chatTestProvider).followUpQuestions,
-        ['新值'],
-      );
+      expect(container.read(_chatTestProvider).followUpQuestions, ['新值']);
 
       // 初始 fetch 慢回来，旧值不应覆盖
       initialGate.complete(const Success(['旧值']));

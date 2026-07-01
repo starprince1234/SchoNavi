@@ -12,7 +12,9 @@ class HttpComparisonRepository implements ComparisonRepository {
   final Dio _dio;
 
   @override
-  Future<Result<ComparisonReport>> compare({required List<String> professorIds}) {
+  Future<Result<ComparisonReport>> compare({
+    required List<String> professorIds,
+  }) {
     return guardApi(
       () => _dio.post<dynamic>(
         '/api/v1/professors/compare',
@@ -22,4 +24,3 @@ class HttpComparisonRepository implements ComparisonRepository {
     );
   }
 }
-

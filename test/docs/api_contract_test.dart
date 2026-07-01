@@ -10,7 +10,10 @@ void main() {
 
     expect(text, contains('  /chat/quick-actions:'));
     expect(text, contains(r"$ref: '#/components/schemas/QuickActionsRequest'"));
-    expect(text, contains(r"$ref: '#/components/schemas/QuickActionsEnvelope'"));
+    expect(
+      text,
+      contains(r"$ref: '#/components/schemas/QuickActionsEnvelope'"),
+    );
   });
 
   test('protected endpoints declare bearer and cookie security', () {
@@ -69,6 +72,9 @@ void main() {
 
     expect(text, contains('  /api/v1/feedback:'));
     expect(text, contains(r"$ref: '#/components/schemas/UserFeedbackRequest'"));
-    expect(text, contains(r"$ref: '#/components/schemas/UserFeedbackEnvelope'"));
+    expect(
+      text,
+      contains(r"$ref: '#/components/schemas/UserFeedbackEnvelope'"),
+    );
   });
 }

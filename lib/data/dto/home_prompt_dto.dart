@@ -13,4 +13,3 @@ class HomePromptDto {
 
   HomePrompt toEntity() => HomePrompt(text: text);
 }
-

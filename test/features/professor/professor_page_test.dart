@@ -32,10 +32,7 @@ class _FakeLauncher implements LinkLauncher {
   }
 }
 
-Future<Widget> _wrap(
-  Result<Professor> result, {
-  LinkLauncher? launcher,
-}) async {
+Future<Widget> _wrap(Result<Professor> result, {LinkLauncher? launcher}) async {
   SharedPreferences.setMockInitialValues(<String, Object>{});
   final prefs = await SharedPreferences.getInstance();
   return ProviderScope(
@@ -61,9 +58,7 @@ const _professor = Professor(
 
 void main() {
   testWidgets('renders professor info', (tester) async {
-    await tester.pumpWidget(
-      await _wrap(const Success(_professor)),
-    );
+    await tester.pumpWidget(await _wrap(const Success(_professor)));
     await tester.pumpAndSettle();
     expect(find.text('张三  教授'), findsOneWidget);
     expect(find.textContaining('研究医学影像'), findsOneWidget);
@@ -144,7 +139,9 @@ void main() {
     expect(find.text('暂无主页信息'), findsOneWidget);
   });
 
-  testWidgets('failed homepage launch shows stale link message', (tester) async {
+  testWidgets('failed homepage launch shows stale link message', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       await _wrap(
         const Success(_professor),

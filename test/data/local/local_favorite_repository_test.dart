@@ -8,20 +8,17 @@ void main() {
   late SharedPreferencesLocalStore store;
   late LocalFavoriteRepository repo;
 
-  FavoriteItem item(
-    String id, {
-    DateTime? favoritedAt,
-    String? homepageUrl,
-  }) => FavoriteItem(
-    professorId: id,
-    name: '张三$id',
-    university: '上海交通大学',
-    college: '电子信息与电气工程学院',
-    title: '教授',
-    researchFields: const ['医学影像'],
-    homepageUrl: homepageUrl,
-    favoritedAt: favoritedAt ?? DateTime(2026, 6, 8, 10),
-  );
+  FavoriteItem item(String id, {DateTime? favoritedAt, String? homepageUrl}) =>
+      FavoriteItem(
+        professorId: id,
+        name: '张三$id',
+        university: '上海交通大学',
+        college: '电子信息与电气工程学院',
+        title: '教授',
+        researchFields: const ['医学影像'],
+        homepageUrl: homepageUrl,
+        favoritedAt: favoritedAt ?? DateTime(2026, 6, 8, 10),
+      );
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -50,21 +47,24 @@ void main() {
     expect(repo.isFavorite('p_001'), isFalse);
   });
 
-  test('newest favorites are listed first and duplicate id is replaced', () async {
-    await repo.add(item('p_001', favoritedAt: DateTime(2026, 6, 8, 10)));
-    await repo.add(item('p_002', favoritedAt: DateTime(2026, 6, 8, 11)));
-    await repo.add(
-      item(
-        'p_001',
-        favoritedAt: DateTime(2026, 6, 8, 12),
-        homepageUrl: 'https://example.edu.cn/new',
-      ),
-    );
+  test(
+    'newest favorites are listed first and duplicate id is replaced',
+    () async {
+      await repo.add(item('p_001', favoritedAt: DateTime(2026, 6, 8, 10)));
+      await repo.add(item('p_002', favoritedAt: DateTime(2026, 6, 8, 11)));
+      await repo.add(
+        item(
+          'p_001',
+          favoritedAt: DateTime(2026, 6, 8, 12),
+          homepageUrl: 'https://example.edu.cn/new',
+        ),
+      );
 
-    final items = repo.list();
-    expect(items.map((e) => e.professorId), ['p_001', 'p_002']);
-    expect(items.first.homepageUrl, 'https://example.edu.cn/new');
-  });
+      final items = repo.list();
+      expect(items.map((e) => e.professorId), ['p_001', 'p_002']);
+      expect(items.first.homepageUrl, 'https://example.edu.cn/new');
+    },
+  );
 
   test('watch emits current and changed lists', () async {
     final events = <List<FavoriteItem>>[];

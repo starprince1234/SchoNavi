@@ -139,8 +139,11 @@ class _TaskTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.event_outlined,
-                          size: 13, color: AppColors.inkFaint),
+                      const Icon(
+                        Icons.event_outlined,
+                        size: 13,
+                        color: AppColors.inkFaint,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _fmt(task.dueDate),
@@ -165,16 +168,22 @@ class _TaskTile extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.edit_outlined,
-                  size: 18, color: AppColors.inkFaint),
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.inkFaint,
+              ),
               tooltip: '编辑',
               onPressed: onEdit,
               visualDensity: VisualDensity.compact,
             ),
             if (_deletable)
               IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    size: 18, color: AppColors.danger),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: AppColors.danger,
+                ),
                 tooltip: '删除',
                 onPressed: onDelete,
                 visualDensity: VisualDensity.compact,
@@ -196,18 +205,21 @@ class _KindBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, fg, bg) = switch (kind) {
-      PreparationTaskKind.required =>
-        ('必做', AppColors.danger, AppColors.dangerSoft),
+      PreparationTaskKind.required => (
+        '必做',
+        AppColors.danger,
+        AppColors.dangerSoft,
+      ),
       PreparationTaskKind.optional => (
-          '可选',
-          AppColors.cyan,
-          AppColors.cyanSoft,
-        ),
+        '可选',
+        AppColors.cyan,
+        AppColors.cyanSoft,
+      ),
       PreparationTaskKind.userAdded => (
-          '用户',
-          AppColors.indigo,
-          AppColors.indigoSoft,
-        ),
+        '用户',
+        AppColors.indigo,
+        AppColors.indigoSoft,
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -217,11 +229,7 @@ class _KindBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
       ),
     );
   }
@@ -242,10 +250,7 @@ class _AddTaskButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: AppColors.line,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.line, width: 1),
           ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,

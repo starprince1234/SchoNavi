@@ -13,8 +13,7 @@ import '../dto/route_need_dto.dart';
 /// 已退役，关键词逻辑下沉到假后端 `follow_up_routing.dart`）。真后端可自行
 /// 实现更智能的路由；失败一律降级返回 false——接口契约「宁可少产卡，
 /// 不阻断对话」与 LLM 实现 [LlmRecommendationNeedClassifier] 对称。
-class HttpRecommendationNeedClassifier
-    implements RecommendationNeedClassifier {
+class HttpRecommendationNeedClassifier implements RecommendationNeedClassifier {
   HttpRecommendationNeedClassifier(this._dio);
 
   final Dio _dio;
@@ -42,7 +41,8 @@ class HttpRecommendationNeedClassifier
   /// 取上一轮前 5 条推荐作紧凑 recap（对齐 LLM 实现的 recs.take(5)）。
   List<Map<String, dynamic>> _recap(List<Recommendation> recs) {
     return [
-      for (final r in recs.take(5)) RecommendationRecapDto.fromEntity(r).toJson(),
+      for (final r in recs.take(5))
+        RecommendationRecapDto.fromEntity(r).toJson(),
     ];
   }
 }

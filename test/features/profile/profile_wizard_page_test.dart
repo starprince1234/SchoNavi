@@ -25,7 +25,10 @@ void main() {
     final router = GoRouter(
       initialLocation: '/profile/wizard',
       routes: [
-        GoRoute(path: '/profile/wizard', builder: (_, _) => const ProfileWizardPage()),
+        GoRoute(
+          path: '/profile/wizard',
+          builder: (_, _) => const ProfileWizardPage(),
+        ),
         GoRoute(path: '/profile', builder: (_, _) => const Text('hub-marker')),
       ],
     );

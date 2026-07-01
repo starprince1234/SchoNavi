@@ -58,7 +58,10 @@ void main() {
         gender: Gender.female,
         targetDegree: '申请博士',
         score: AcademicScore(
-          gpa: 3.8, scale: 4.0, rankMode: RankMode.percent, percent: 5,
+          gpa: 3.8,
+          scale: 4.0,
+          rankMode: RankMode.percent,
+          percent: 5,
         ),
         competitions: [
           Competition(name: 'ACM 区域赛', level: '国家级', award: '银牌', year: '2024'),

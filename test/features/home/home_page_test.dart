@@ -127,20 +127,17 @@ class _StreamChatRepo implements ChatRepository {
   Future<Result<String>> forkSession({
     required String sourceSessionId,
     required String professorId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ChatMessage>>> loadHistory({
     required String sessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<List<ForkRef>>> listForks({
     required String mainSessionId,
-  }) async =>
-      throw UnimplementedError();
+  }) async => throw UnimplementedError();
 
   @override
   Future<Result<void>> deleteFork({required String forkId}) async =>
@@ -242,26 +239,27 @@ void main() {
     expect(input.controller?.text, '我想找计算机视觉方向的导师，最好在北京。');
   });
 
-  testWidgets('competition prompt stays home and shows in-place recommendation', (
-    tester,
-  ) async {
-    await tester.pumpWidget(await _wrap());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'competition prompt stays home and shows in-place recommendation',
+    (tester) async {
+      await tester.pumpWidget(await _wrap());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('竞赛'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('竞赛'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), '我想参加蓝桥杯');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '我想参加蓝桥杯');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pumpAndSettle();
 
-    // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
-    expect(find.text('competition-marker'), findsNothing);
-    expect(find.text('我想参加蓝桥杯', skipOffstage: false), findsOneWidget);
-    expect(find.text('蓝桥杯'), findsOneWidget);
-    expect(find.text('调整条件'), findsOneWidget);
-  });
+      // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
+      expect(find.text('competition-marker'), findsNothing);
+      expect(find.text('我想参加蓝桥杯', skipOffstage: false), findsOneWidget);
+      expect(find.text('蓝桥杯'), findsOneWidget);
+      expect(find.text('调整条件'), findsOneWidget);
+    },
+  );
 
   testWidgets('mentor prompt stays home and starts in-place conversation', (
     tester,
@@ -303,25 +301,26 @@ void main() {
     expect(find.byType(SwipeRecommendationCard), findsNothing);
   });
 
-  testWidgets('competition quick tag stays home and shows in-place recommendation', (
-    tester,
-  ) async {
-    await tester.pumpWidget(await _wrap());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'competition quick tag stays home and shows in-place recommendation',
+    (tester) async {
+      await tester.pumpWidget(await _wrap());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('竞赛'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('竞赛'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('人工智能竞赛'));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('人工智能竞赛'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pumpAndSettle();
 
-    // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
-    expect(find.text('competition-marker'), findsNothing);
-    expect(find.text('蓝桥杯'), findsOneWidget);
-    expect(find.text('调整条件'), findsOneWidget);
-  });
+      // 不跳路由：原地出现竞赛推荐卡 + 调整条件。
+      expect(find.text('competition-marker'), findsNothing);
+      expect(find.text('蓝桥杯'), findsOneWidget);
+      expect(find.text('调整条件'), findsOneWidget);
+    },
+  );
 
   testWidgets('right edge swipe opens the end drawer', (tester) async {
     await tester.pumpWidget(await _wrap());

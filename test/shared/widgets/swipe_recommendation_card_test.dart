@@ -4,26 +4,28 @@ import 'package:scho_navi/shared/widgets/recommendation_card_data.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 
 RecommendationCardData _data(RecommendationKind kind) => RecommendationCardData(
-      id: 'x',
-      title: '标题',
-      subtitle: '副标题',
-      tags: const ['标签A', '标签B'],
-      matchScore: 0.8,
-      reason: '理由理由理由理由理由',
-      openUrl: kind == RecommendationKind.competition ? 'https://x' : null,
-      kind: kind,
-    );
+  id: 'x',
+  title: '标题',
+  subtitle: '副标题',
+  tags: const ['标签A', '标签B'],
+  matchScore: 0.8,
+  reason: '理由理由理由理由理由',
+  openUrl: kind == RecommendationKind.competition ? 'https://x' : null,
+  kind: kind,
+);
 
 void main() {
   testWidgets('导师卡渲染标题/副标题/标签/理由，无官网按钮', (t) async {
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SwipeRecommendationCard(
-          data: _data(RecommendationKind.mentor),
-          onTap: () {},
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SwipeRecommendationCard(
+            data: _data(RecommendationKind.mentor),
+            onTap: () {},
+          ),
         ),
       ),
-    ));
+    );
     expect(find.text('标题'), findsOneWidget);
     expect(find.text('副标题'), findsOneWidget);
     expect(find.text('标签A'), findsOneWidget);
@@ -32,28 +34,32 @@ void main() {
   });
 
   testWidgets('竞赛卡有 onOpenUrlPressed 时显示访问官网', (t) async {
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SwipeRecommendationCard(
-          data: _data(RecommendationKind.competition),
-          onTap: () {},
-          onOpenUrlPressed: () {},
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SwipeRecommendationCard(
+            data: _data(RecommendationKind.competition),
+            onTap: () {},
+            onOpenUrlPressed: () {},
+          ),
         ),
       ),
-    ));
+    );
     expect(find.text('访问官网'), findsOneWidget);
   });
 
   testWidgets('onTap 触发回调', (t) async {
     var tapped = false;
-    await t.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SwipeRecommendationCard(
-          data: _data(RecommendationKind.mentor),
-          onTap: () => tapped = true,
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SwipeRecommendationCard(
+            data: _data(RecommendationKind.mentor),
+            onTap: () => tapped = true,
+          ),
         ),
       ),
-    ));
+    );
     await t.tap(find.text('标题'));
     await t.pump();
     expect(tapped, isTrue);

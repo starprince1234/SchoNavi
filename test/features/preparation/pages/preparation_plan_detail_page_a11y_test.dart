@@ -16,72 +16,72 @@ import 'package:scho_navi/features/preparation/providers/preparation_providers.d
 /// 我们预置一条 plan（含多阶段任务），让倒计时、时间轴、任务清单都渲染，
 /// 再直接 pump 页面本体并断言 `takeException()` 为 null。
 PreparationPlan _plan() => PreparationPlan(
-      id: 'p1',
-      competition: CompetitionSnapshot(
-        id: 'c1',
-        name: 'ACM-ICPC 亚洲区域赛',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: '',
-          contestTime: '',
-          teamSize: '',
-          format: '',
-          organizer: '',
-          officialUrl: null,
+  id: 'p1',
+  competition: CompetitionSnapshot(
+    id: 'c1',
+    name: 'ACM-ICPC 亚洲区域赛',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 9, 1),
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases: [
+    PreparationPhase(
+      key: 'team_formation',
+      title: '组队',
+      startDate: DateTime(2026, 6, 28),
+      endDate: DateTime(2026, 7, 5),
+      tasks: [
+        PreparationTask(
+          id: 't1',
+          templateKey: 'team_form',
+          title: '组建队伍',
+          kind: PreparationTaskKind.required,
+          estimatedHours: 3,
+          dueDate: DateTime(2026, 7, 1),
+          note: '3 人队伍，含 1 名替补',
         ),
-      ),
-      targetDate: DateTime(2026, 9, 1),
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.beginner,
-      status: PreparationPlanStatus.active,
-      phases: [
-        PreparationPhase(
-          key: 'team_formation',
-          title: '组队',
-          startDate: DateTime(2026, 6, 28),
-          endDate: DateTime(2026, 7, 5),
-          tasks: [
-            PreparationTask(
-              id: 't1',
-              templateKey: 'team_form',
-              title: '组建队伍',
-              kind: PreparationTaskKind.required,
-              estimatedHours: 3,
-              dueDate: DateTime(2026, 7, 1),
-              note: '3 人队伍，含 1 名替补',
-            ),
-            PreparationTask(
-              id: 't2',
-              templateKey: 'role_split',
-              title: '确定分工角色',
-              kind: PreparationTaskKind.optional,
-              estimatedHours: 1,
-              dueDate: DateTime(2026, 7, 3),
-            ),
-          ],
-        ),
-        PreparationPhase(
-          key: 'practice',
-          title: '专项训练',
-          startDate: DateTime(2026, 7, 6),
-          endDate: DateTime(2026, 8, 10),
-          tasks: [
-            PreparationTask(
-              id: 't3',
-              templateKey: 'ds_training',
-              title: '数据结构与算法专题训练',
-              kind: PreparationTaskKind.required,
-              estimatedHours: 20,
-              dueDate: DateTime(2026, 8, 5),
-            ),
-          ],
+        PreparationTask(
+          id: 't2',
+          templateKey: 'role_split',
+          title: '确定分工角色',
+          kind: PreparationTaskKind.optional,
+          estimatedHours: 1,
+          dueDate: DateTime(2026, 7, 3),
         ),
       ],
-      tightSchedule: true,
-      overload: false,
-      createdAt: DateTime(2026, 6, 28),
-      updatedAt: DateTime(2026, 6, 28),
-    );
+    ),
+    PreparationPhase(
+      key: 'practice',
+      title: '专项训练',
+      startDate: DateTime(2026, 7, 6),
+      endDate: DateTime(2026, 8, 10),
+      tasks: [
+        PreparationTask(
+          id: 't3',
+          templateKey: 'ds_training',
+          title: '数据结构与算法专题训练',
+          kind: PreparationTaskKind.required,
+          estimatedHours: 20,
+          dueDate: DateTime(2026, 8, 5),
+        ),
+      ],
+    ),
+  ],
+  tightSchedule: true,
+  overload: false,
+  createdAt: DateTime(2026, 6, 28),
+  updatedAt: DateTime(2026, 6, 28),
+);
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));

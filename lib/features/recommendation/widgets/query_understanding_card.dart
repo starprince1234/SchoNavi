@@ -28,11 +28,7 @@ class QueryUnderstandingCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 18,
-                color: AppColors.indigo,
-              ),
+              const Icon(Icons.auto_awesome, size: 18, color: AppColors.indigo),
               const SizedBox(width: 8),
               Text('我理解到的需求', style: textTheme.titleMedium),
             ],
@@ -48,9 +44,7 @@ class QueryUnderstandingCard extends StatelessWidget {
             ...u.uncertainties.map(
               (x) => Text(
                 '· $x',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
               ),
             ),
           ],
@@ -82,9 +76,7 @@ class _KVRow extends StatelessWidget {
             width: 64,
             child: Text(
               label,
-              style: textTheme.labelSmall?.copyWith(
-                color: AppColors.inkSoft,
-              ),
+              style: textTheme.labelSmall?.copyWith(color: AppColors.inkSoft),
             ),
           ),
           const SizedBox(width: 8),

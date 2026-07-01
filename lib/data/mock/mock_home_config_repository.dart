@@ -6,7 +6,7 @@ class MockHomeConfigRepository implements HomeConfigRepository {
   const MockHomeConfigRepository();
 
   static const Map<String, ({List<String> taglines, List<String> quickTags})>
-      _configs = {
+  _configs = {
     'mentor': (
       taglines: [
         '说说你想研究的方向，我帮你找到合适的导师',
@@ -57,7 +57,11 @@ class MockHomeConfigRepository implements HomeConfigRepository {
     final config = _configs[mode];
     final prompts = await const MockHomePromptRepository().fetchPrompts(mode);
     if (config == null) {
-      return HomeConfig(taglines: const [], quickTags: const [], prompts: prompts);
+      return HomeConfig(
+        taglines: const [],
+        quickTags: const [],
+        prompts: prompts,
+      );
     }
     return HomeConfig(
       taglines: config.taglines,

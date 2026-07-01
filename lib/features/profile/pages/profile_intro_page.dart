@@ -56,12 +56,18 @@ class ProfileIntroPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.shield_outlined, size: 16, color: scheme.onSurfaceVariant),
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 16,
+                    color: scheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       '你的资料将用于个性化推荐、智能套磁与匹配分析',
-                      style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -136,7 +142,9 @@ class _ValueCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),

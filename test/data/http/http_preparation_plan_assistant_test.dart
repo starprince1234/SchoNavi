@@ -8,63 +8,63 @@ import 'package:scho_navi/domain/entities/plan_change_card.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
 
 PreparationPlan _plan({String id = 'pp_1'}) => PreparationPlan(
-      id: id,
-      competition: CompetitionSnapshot(
-        id: 'comp_demo',
-        name: 'Demo Cup',
-        category: '计算机类',
-        rulesSummary: CompetitionRulesSummary(
-          signupTime: '',
-          contestTime: '',
-          teamSize: '',
-          format: '',
-          organizer: '',
-          officialUrl: null,
-        ),
-      ),
-      targetDate: DateTime(2026, 5, 30),
-      timelineType: CompetitionTimelineType.submission,
-      defenseDate: DateTime(2026, 6, 10),
-      revision: 1,
-      weeklyCommitment: WeeklyCommitment.hours6to10,
-      experienceLevel: ExperienceLevel.intermediate,
-      status: PreparationPlanStatus.active,
-      phases: [
-        PreparationPhase(
-          key: 'proposal_writing',
-          title: '方案撰写',
-          startDate: DateTime(2026, 5, 10),
-          endDate: DateTime(2026, 5, 22),
-          tasks: [
-            PreparationTask(
-              id: 'task_core_algo',
-              title: '核心算法实现',
-              kind: PreparationTaskKind.required,
-              estimatedHours: 16,
-              dueDate: DateTime(2026, 5, 15),
-            ),
-          ],
-        ),
-        PreparationPhase(
-          key: 'defense_prep',
-          title: '答辩准备',
-          startDate: DateTime(2026, 5, 31),
-          endDate: DateTime(2026, 6, 10),
-          tasks: const [],
+  id: id,
+  competition: CompetitionSnapshot(
+    id: 'comp_demo',
+    name: 'Demo Cup',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 5, 30),
+  timelineType: CompetitionTimelineType.submission,
+  defenseDate: DateTime(2026, 6, 10),
+  revision: 1,
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.intermediate,
+  status: PreparationPlanStatus.active,
+  phases: [
+    PreparationPhase(
+      key: 'proposal_writing',
+      title: '方案撰写',
+      startDate: DateTime(2026, 5, 10),
+      endDate: DateTime(2026, 5, 22),
+      tasks: [
+        PreparationTask(
+          id: 'task_core_algo',
+          title: '核心算法实现',
+          kind: PreparationTaskKind.required,
+          estimatedHours: 16,
+          dueDate: DateTime(2026, 5, 15),
         ),
       ],
-      createdAt: DateTime(2026, 5, 1),
-      updatedAt: DateTime(2026, 5, 1),
-    );
+    ),
+    PreparationPhase(
+      key: 'defense_prep',
+      title: '答辩准备',
+      startDate: DateTime(2026, 5, 31),
+      endDate: DateTime(2026, 6, 10),
+      tasks: const [],
+    ),
+  ],
+  createdAt: DateTime(2026, 5, 1),
+  updatedAt: DateTime(2026, 5, 1),
+);
 
 PlanAssistantRequest _req() => PlanAssistantRequest(
-      planId: 'pp_1',
-      calendarToday: DateTime(2026, 5, 1),
-      basePlanRevision: 1,
-      planSnapshot: _plan(),
-      userMessage: '这周期末考没空，往后挪；答辩前留个模拟答辩',
-      requestId: 'req_test',
-    );
+  planId: 'pp_1',
+  calendarToday: DateTime(2026, 5, 1),
+  basePlanRevision: 1,
+  planSnapshot: _plan(),
+  userMessage: '这周期末考没空，往后挪；答辩前留个模拟答辩',
+  requestId: 'req_test',
+);
 
 void main() {
   test('HTTP 调用 fake 后端返回助手回复与改动卡', () async {
@@ -90,8 +90,7 @@ void main() {
     expect(add.status, ChangeCardStatus.pending);
   });
 
-  test('默认 handler map 已注册 assistant 端点（plan id pp_1，无需手动 register）',
-      () async {
+  test('默认 handler map 已注册 assistant 端点（plan id pp_1，无需手动 register）', () async {
     final dio = Dio(BaseOptions(baseUrl: 'https://fake.local'));
     dio.httpClientAdapter = FakeBackendAdapter();
     final d = HttpPreparationPlanAssistant(dio);
@@ -99,10 +98,7 @@ void main() {
     final r = await d.suggestChanges(_req());
 
     expect(r, isA<Success<AssistantReply>>());
-    expect(
-      (r as Success<AssistantReply>).data.changeSet.cards.length,
-      2,
-    );
+    expect((r as Success<AssistantReply>).data.changeSet.cards.length, 2);
   });
 
   test('未注册的 plan id 返回 404 Failure', () async {

@@ -18,11 +18,11 @@ class SlidingPillSwitch<T> extends StatelessWidget {
     required this.onChanged,
     required this.labels,
     this.icons,
-  })  : assert(labels.length == values.length, 'labels must match values'),
-        assert(
-          icons == null || icons.length == values.length,
-          'icons must match values when provided',
-        );
+  }) : assert(labels.length == values.length, 'labels must match values'),
+       assert(
+         icons == null || icons.length == values.length,
+         'icons must match values when provided',
+       );
 
   final List<T> values;
   final T selected;

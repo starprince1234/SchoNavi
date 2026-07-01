@@ -20,22 +20,26 @@ mixin ChatForkMixin on ChatRepository {
     required String professorId,
   }) async {
     try {
-      final existing =
-          await historyStore.findFork(sourceSessionId, professorId);
+      final existing = await historyStore.findFork(
+        sourceSessionId,
+        professorId,
+      );
       if (existing != null) return Success(existing.forkId);
       final forkId = 'f_${sourceSessionId}_$professorId';
       final source = await historyStore.load(sourceSessionId) ?? const [];
       await historyStore.save(forkId, source);
       final prof = db.getProfessor(professorId);
-      await historyStore.saveFork(ForkRef(
-        forkId: forkId,
-        mainSessionId: sourceSessionId,
-        professorId: professorId,
-        professorName: prof?.name ?? '该导师',
-        university: prof?.university ?? '',
-        college: prof?.college,
-        createdAt: DateTime.now(),
-      ));
+      await historyStore.saveFork(
+        ForkRef(
+          forkId: forkId,
+          mainSessionId: sourceSessionId,
+          professorId: professorId,
+          professorName: prof?.name ?? '该导师',
+          university: prof?.university ?? '',
+          college: prof?.college,
+          createdAt: DateTime.now(),
+        ),
+      );
       return Success(forkId);
     } catch (_) {
       return Failure(const UnknownException());

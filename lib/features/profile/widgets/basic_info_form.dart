@@ -5,7 +5,11 @@ import '../../../shared/widgets/choice_chip_group.dart';
 import '../../../shared/widgets/labeled_text_field.dart';
 
 class BasicInfoForm extends StatelessWidget {
-  const BasicInfoForm({super.key, required this.value, required this.onChanged});
+  const BasicInfoForm({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   final UserProfile value;
   final ValueChanged<UserProfile> onChanged;
@@ -36,7 +40,9 @@ class BasicInfoForm extends StatelessWidget {
         LabeledTextField(
           label: '姓名 / 称呼',
           initialValue: value.name,
-          onChanged: (v) => onChanged(value.copyWith(name: v.trim().isEmpty ? null : v.trim())),
+          onChanged: (v) => onChanged(
+            value.copyWith(name: v.trim().isEmpty ? null : v.trim()),
+          ),
         ),
         const SizedBox(height: 14),
         const _Label('性别'),
@@ -49,13 +55,17 @@ class BasicInfoForm extends StatelessWidget {
         LabeledTextField(
           label: '现就读学校',
           initialValue: value.school,
-          onChanged: (v) => onChanged(value.copyWith(school: v.trim().isEmpty ? null : v.trim())),
+          onChanged: (v) => onChanged(
+            value.copyWith(school: v.trim().isEmpty ? null : v.trim()),
+          ),
         ),
         const SizedBox(height: 14),
         LabeledTextField(
           label: '专业',
           initialValue: value.major,
-          onChanged: (v) => onChanged(value.copyWith(major: v.trim().isEmpty ? null : v.trim())),
+          onChanged: (v) => onChanged(
+            value.copyWith(major: v.trim().isEmpty ? null : v.trim()),
+          ),
         ),
         const SizedBox(height: 14),
         const _Label('当前阶段'),

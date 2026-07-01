@@ -125,20 +125,19 @@ class RecommendationDto {
     matchScore: matchScore,
   );
 
-  factory RecommendationDto.fromEntity(Recommendation r) =>
-      RecommendationDto(
-        professorId: r.professorId,
-        name: r.name,
-        university: r.university,
-        college: r.college,
-        title: r.title,
-        researchFields: r.researchFields,
-        matchLevel: r.matchLevel.name,
-        reason: r.reason,
-        limitations: r.limitations,
-        homepageUrl: r.homepageUrl,
-        matchScore: r.matchScore,
-      );
+  factory RecommendationDto.fromEntity(Recommendation r) => RecommendationDto(
+    professorId: r.professorId,
+    name: r.name,
+    university: r.university,
+    college: r.college,
+    title: r.title,
+    researchFields: r.researchFields,
+    matchLevel: r.matchLevel.name,
+    reason: r.reason,
+    limitations: r.limitations,
+    homepageUrl: r.homepageUrl,
+    matchScore: r.matchScore,
+  );
 }
 
 class RecommendationResultDto {

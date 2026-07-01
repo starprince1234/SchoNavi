@@ -52,10 +52,10 @@ class _FakeConversationRepo implements ConversationRepository {
   _FakeConversationRepo({
     required List<ConversationSession> sessions,
     Map<String, List<ConversationSession>> forks = const {},
-  })  : _sessions = List.of(sessions),
-        _forks = forks.map(
-          (key, value) => MapEntry(key, List<ConversationSession>.of(value)),
-        );
+  }) : _sessions = List.of(sessions),
+       _forks = forks.map(
+         (key, value) => MapEntry(key, List<ConversationSession>.of(value)),
+       );
 
   final List<ConversationSession> _sessions;
   final Map<String, List<ConversationSession>> _forks;
@@ -159,10 +159,7 @@ Widget _pump(_FakeConversationRepo conversationRepo) {
   );
 }
 
-ConversationSession _root({
-  String id = 's1',
-  String title = '想做CV',
-}) {
+ConversationSession _root({String id = 's1', String title = '想做CV'}) {
   final now = DateTime.utc(2026, 6, 27);
   return ConversationSession(
     id: id,
@@ -198,9 +195,7 @@ ConversationSession _fork({
 
 void main() {
   testWidgets('主条目显示会话标题和分支按钮，不显示旧摘要/计数/标签', (tester) async {
-    final repo = _FakeConversationRepo(
-      sessions: [_root(title: '想做CV，想去北京')],
-    );
+    final repo = _FakeConversationRepo(sessions: [_root(title: '想做CV，想去北京')]);
 
     await tester.pumpWidget(_pump(repo));
     await tester.pumpAndSettle();

@@ -8,24 +8,23 @@ RecommendedCompetition _comp({
   double score = 0.7,
   String? url = 'https://icpc.global/',
   List<String> tags = const ['算法编程', '团队赛', '高强度训练'],
-}) =>
-    RecommendedCompetition(
-      id: 'comp_icpc',
-      name: 'ACM-ICPC',
-      category: '计算机类',
-      level: '国际级',
-      tags: tags,
-      teamSize: '3 人团队',
-      signupTime: '约每年 4 月',
-      contestTime: '9-12 月',
-      format: '5 小时算法编程',
-      organizer: 'ACM',
-      officialUrl: url,
-      reason: '方向契合',
-      preparationTips: const [],
-      limitations: const [],
-      matchScore: score,
-    );
+}) => RecommendedCompetition(
+  id: 'comp_icpc',
+  name: 'ACM-ICPC',
+  category: '计算机类',
+  level: '国际级',
+  tags: tags,
+  teamSize: '3 人团队',
+  signupTime: '约每年 4 月',
+  contestTime: '9-12 月',
+  format: '5 小时算法编程',
+  organizer: 'ACM',
+  officialUrl: url,
+  reason: '方向契合',
+  preparationTips: const [],
+  limitations: const [],
+  matchScore: score,
+);
 
 void main() {
   test('映射竞赛卡：subtitle=类别/级别，tags take(2)，openUrl=officialUrl', () {

@@ -120,7 +120,10 @@ ProviderContainer _container(
 void main() {
   test('success with recommendations writes competition history', () async {
     final history = _FakeHistoryRepo();
-    final container = _container(Success(_result(empty: false)), history: history);
+    final container = _container(
+      Success(_result(empty: false)),
+      history: history,
+    );
     addTearDown(container.dispose);
 
     final data = await container.read(
@@ -133,7 +136,10 @@ void main() {
 
   test('success with empty recommendations does not write history', () async {
     final history = _FakeHistoryRepo();
-    final container = _container(Success(_result(empty: true)), history: history);
+    final container = _container(
+      Success(_result(empty: true)),
+      history: history,
+    );
     addTearDown(container.dispose);
 
     await container.read(competitionRecommendationProvider('x').future);

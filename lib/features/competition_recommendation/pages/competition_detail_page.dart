@@ -90,11 +90,7 @@ class _CompetitionDetailBody extends ConsumerWidget {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          merged.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(merged.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -113,14 +109,16 @@ class _CompetitionDetailBody extends ConsumerWidget {
                         children: [
                           Text(
                             merged.name,
-                            style: theme.textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             '${merged.category} / ${merged.level}',
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(color: AppColors.inkSoft),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.inkSoft,
+                            ),
                           ),
                         ],
                       ),

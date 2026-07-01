@@ -133,10 +133,7 @@ class _IdlePrompt extends StatelessWidget {
 }
 
 class _AnalysisView extends StatelessWidget {
-  const _AnalysisView({
-    required this.analysis,
-    required this.onRegenerate,
-  });
+  const _AnalysisView({required this.analysis, required this.onRegenerate});
 
   final MatchAnalysis analysis;
   final VoidCallback onRegenerate;

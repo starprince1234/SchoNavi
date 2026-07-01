@@ -41,11 +41,7 @@ class BentoActionTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 28,
-              color: iconColor ?? scheme.primary,
-            ),
+            Icon(icon, size: 28, color: iconColor ?? scheme.primary),
             const SizedBox(height: 4),
             Text(
               label,

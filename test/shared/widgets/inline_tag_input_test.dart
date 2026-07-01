@@ -158,9 +158,7 @@ void main() {
     });
 
     testWidgets('窄宽度换行时 chip 不重叠且不越出输入框', (tester) async {
-      final controller = InlineTagController(
-        text: '{人工智能}{网络安全}{计算机科学}导师',
-      );
+      final controller = InlineTagController(text: '{人工智能}{网络安全}{计算机科学}导师');
 
       await tester.pumpWidget(
         _wrap(
@@ -196,9 +194,7 @@ void main() {
     });
 
     testWidgets('点击换行后的关闭按钮只删除对应标签', (tester) async {
-      final controller = InlineTagController(
-        text: '{人工智能}{网络安全}{计算机科学}导师',
-      );
+      final controller = InlineTagController(text: '{人工智能}{网络安全}{计算机科学}导师');
 
       await tester.pumpWidget(
         _wrap(

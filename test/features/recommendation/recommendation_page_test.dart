@@ -164,9 +164,7 @@ void main() {
       reason: '方向相关。',
       limitations: [],
     );
-    await tester.pumpWidget(
-      await _wrap(Success(_data([recWithoutUrl]))),
-    );
+    await tester.pumpWidget(await _wrap(Success(_data([recWithoutUrl]))));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('访问主页'));
@@ -175,7 +173,9 @@ void main() {
     expect(find.text('暂无主页信息'), findsOneWidget);
   });
 
-  testWidgets('failed homepage launch shows stale link message', (tester) async {
+  testWidgets('failed homepage launch shows stale link message', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       await _wrap(
         Success(_data([_rec])),

@@ -119,7 +119,9 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
                     ),
                     onDismissed: (_) {
                       Haptics.medium();
-                      ref.read(favoriteRepositoryProvider).remove(item.professorId);
+                      ref
+                          .read(favoriteRepositoryProvider)
+                          .remove(item.professorId);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: const Text('已删除收藏'),
@@ -136,10 +138,7 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
                     child: tile,
                   );
                 }
-                return AnimatedEntrance(
-                  index: index,
-                  child: tile,
-                );
+                return AnimatedEntrance(index: index, child: tile);
               },
             ),
           );
