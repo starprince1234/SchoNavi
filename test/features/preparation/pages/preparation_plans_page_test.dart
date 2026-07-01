@@ -89,8 +89,9 @@ class _FakePreparationReminderPlatform implements PreparationReminderPlatform {
   }
 
   @override
-  Future<CalendarAddResult> addDeadlineEvent(CalendarDeadlineEvent event) async =>
-      CalendarAddResult.success;
+  Future<CalendarAddResult> addDeadlineEvent(
+    CalendarDeadlineEvent event,
+  ) async => CalendarAddResult.success;
 
   @override
   Future<ReminderNotificationStatus> requestNotificationPermission() async =>

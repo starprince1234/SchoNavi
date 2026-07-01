@@ -315,7 +315,8 @@ class PreparationPlan {
     timelineType: timelineType ?? this.timelineType,
     eventEndDate: eventEndDate ?? this.eventEndDate,
     defenseDate: defenseDate ?? this.defenseDate,
-    registrationDeadline: identical(registrationDeadline, _registrationDeadlineUnset)
+    registrationDeadline:
+        identical(registrationDeadline, _registrationDeadlineUnset)
         ? this.registrationDeadline
         : registrationDeadline as DateTime?,
     revision: revision ?? this.revision,

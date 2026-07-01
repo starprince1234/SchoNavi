@@ -208,7 +208,9 @@ class _PreparationPlanFormPageState
       mode: PreparationDatePickerMode.single,
       firstDate: today.add(const Duration(days: 1)),
       lastDate: _targetDate!.subtract(const Duration(days: 1)),
-      initial: PreparationDateSelection(single: _registrationDeadline ?? _targetDate!),
+      initial: PreparationDateSelection(
+        single: _registrationDeadline ?? _targetDate!,
+      ),
     );
     final value = picked?.single;
     if (value == null) return;
@@ -335,7 +337,9 @@ class _PreparationPlanFormPageState
             calendarToday: CalendarDate.normalize(DateTime.now()),
             profile: ref.read(profileProvider),
           );
-      final plan = generated.copyWith(registrationDeadline: _registrationDeadline);
+      final plan = generated.copyWith(
+        registrationDeadline: _registrationDeadline,
+      );
       await ref.read(preparationPlanRepositoryProvider).save(plan);
       if (!mounted) return;
       context.pushReplacement('/preparation-plans/${plan.id}');

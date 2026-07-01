@@ -33,11 +33,7 @@ class PreparationDeadlineCard extends StatelessWidget {
     return BentoTile(
       child: Row(
         children: [
-          Icon(
-            Icons.event_outlined,
-            size: 20,
-            color: AppColors.indigo,
-          ),
+          Icon(Icons.event_outlined, size: 20, color: AppColors.indigo),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -75,7 +71,9 @@ class PreparationDeadlineCard extends StatelessWidget {
                     )
                   : const Icon(Icons.event_available_outlined),
               tooltip: '加入日历',
-              onPressed: (adding || onAddToCalendar == null) ? null : onAddToCalendar,
+              onPressed: (adding || onAddToCalendar == null)
+                  ? null
+                  : onAddToCalendar,
             )
           else if (onEditDate != null)
             TextButton(onPressed: onEditDate, child: const Text('设置')),

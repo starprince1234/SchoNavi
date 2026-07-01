@@ -171,7 +171,9 @@ void main() {
     });
 
     test('copyWith registrationDeadline=null 清空，不传保留旧值', () {
-      final plan = _basePlan().copyWith(registrationDeadline: DateTime(2026, 8, 15));
+      final plan = _basePlan().copyWith(
+        registrationDeadline: DateTime(2026, 8, 15),
+      );
       expect(plan.registrationDeadline, DateTime(2026, 8, 15));
       // 不传 → 保留
       final kept = plan.copyWith(targetDate: DateTime(2026, 9, 2));

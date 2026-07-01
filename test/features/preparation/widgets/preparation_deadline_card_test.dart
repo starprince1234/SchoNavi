@@ -54,7 +54,9 @@ void main() {
         ),
       ),
     );
-    final btn = t.widget<IconButton>(find.byKey(const Key('deadline-add-calendar')));
+    final btn = t.widget<IconButton>(
+      find.byKey(const Key('deadline-add-calendar')),
+    );
     expect(btn.onPressed, isNull);
   });
 }

@@ -8,10 +8,7 @@ void main() {
       title: 'ACM-ICPC·报名截止',
       isoDay: '2026-08-15',
     );
-    expect(event.toJson(), {
-      'title': 'ACM-ICPC·报名截止',
-      'isoDay': '2026-08-15',
-    });
+    expect(event.toJson(), {'title': 'ACM-ICPC·报名截止', 'isoDay': '2026-08-15'});
   });
 
   test('CalendarDeadlineEvent.toJson 包含可选字段', () {
@@ -39,17 +36,27 @@ void main() {
 
 class _FakePlatformForCalendar implements PreparationReminderPlatform {
   @override
-  Future<CalendarAddResult> addDeadlineEvent(CalendarDeadlineEvent event) async =>
-      CalendarAddResult.success;
-  @override bool get isSupported => true;
-  @override Future<void> syncSnapshot(PreparationReminderSnapshot snapshot) async {}
-  @override Future<void> updateSchedule(ReminderPreferences preferences) async {}
-  @override Future<ReminderNotificationStatus> getNotificationStatus() async =>
+  Future<CalendarAddResult> addDeadlineEvent(
+    CalendarDeadlineEvent event,
+  ) async => CalendarAddResult.success;
+  @override
+  bool get isSupported => true;
+  @override
+  Future<void> syncSnapshot(PreparationReminderSnapshot snapshot) async {}
+  @override
+  Future<void> updateSchedule(ReminderPreferences preferences) async {}
+  @override
+  Future<ReminderNotificationStatus> getNotificationStatus() async =>
       ReminderNotificationStatus.granted;
-  @override Future<ReminderNotificationStatus> requestNotificationPermission() async =>
+  @override
+  Future<ReminderNotificationStatus> requestNotificationPermission() async =>
       ReminderNotificationStatus.granted;
-  @override Future<bool> pinWidget() async => false;
-  @override Future<void> openNotificationSettings() async {}
-  @override Future<String?> takeInitialRoute() async => null;
-  @override void setRouteHandler(ReminderRouteHandler? handler) {}
+  @override
+  Future<bool> pinWidget() async => false;
+  @override
+  Future<void> openNotificationSettings() async {}
+  @override
+  Future<String?> takeInitialRoute() async => null;
+  @override
+  void setRouteHandler(ReminderRouteHandler? handler) {}
 }

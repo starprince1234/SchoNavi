@@ -31,12 +31,7 @@ class CalendarDeadlineEvent {
 }
 
 /// `addDeadlineEvent` 返回值（spec §4.1）。
-enum CalendarAddResult {
-  success,
-  fallbackIntentLaunched,
-  unsupported,
-  failed,
-}
+enum CalendarAddResult { success, fallbackIntentLaunched, unsupported, failed }
 
 typedef ReminderRouteHandler = void Function(String route);
 
@@ -107,7 +102,9 @@ class MethodChannelPreparationReminderPlatform
   }
 
   @override
-  Future<CalendarAddResult> addDeadlineEvent(CalendarDeadlineEvent event) async {
+  Future<CalendarAddResult> addDeadlineEvent(
+    CalendarDeadlineEvent event,
+  ) async {
     if (!isSupported) return CalendarAddResult.unsupported;
     try {
       final result = await _channel.invokeMethod<String>(

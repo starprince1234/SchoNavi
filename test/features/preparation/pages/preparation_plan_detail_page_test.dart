@@ -463,9 +463,7 @@ void main() {
           overrides: [
             preparationReminderPlatformProvider.overrideWithValue(fake),
           ],
-          child: MaterialApp(
-            home: PreparationPlanDetailPage(planId: 'p1'),
-          ),
+          child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
         ),
       ),
     );
@@ -489,9 +487,7 @@ void main() {
           overrides: [
             preparationReminderPlatformProvider.overrideWithValue(fake),
           ],
-          child: MaterialApp(
-            home: PreparationPlanDetailPage(planId: 'p1'),
-          ),
+          child: MaterialApp(home: PreparationPlanDetailPage(planId: 'p1')),
         ),
       ),
     );

@@ -259,10 +259,8 @@ class _PreparationPlanDetailPageState
             label: '报名截止',
             date: plan.registrationDeadline,
             adding: _addingLabel == '报名截止',
-            onAddToCalendar: () => _addToCalendar(
-              label: '报名截止',
-              date: plan.registrationDeadline,
-            ),
+            onAddToCalendar: () =>
+                _addToCalendar(label: '报名截止', date: plan.registrationDeadline),
             onEditDate: () => _editRegistrationDeadline(),
           ),
           const SizedBox(height: 8),
@@ -271,7 +269,8 @@ class _PreparationPlanDetailPageState
                 ? '提交截止'
                 : '比赛开始',
             date: plan.targetDate,
-            adding: _addingLabel ==
+            adding:
+                _addingLabel ==
                 (plan.timelineType == CompetitionTimelineType.submission
                     ? '提交截止'
                     : '比赛开始'),
@@ -556,12 +555,13 @@ class _PreparationPlanDetailPageState
         isoDay: CalendarDate.toIsoDay(date),
         notes: '由 SchoNavi 备赛计划添加',
       );
-      final result =
-          await ref.read(preparationReminderPlatformProvider).addDeadlineEvent(
-        event,
-      );
+      final result = await ref
+          .read(preparationReminderPlatformProvider)
+          .addDeadlineEvent(event);
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(_calendarResultMessage(result))));
+      messenger.showSnackBar(
+        SnackBar(content: Text(_calendarResultMessage(result))),
+      );
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('加入日历失败，请稍后重试')));
@@ -571,11 +571,11 @@ class _PreparationPlanDetailPageState
   }
 
   String _calendarResultMessage(CalendarAddResult r) => switch (r) {
-        CalendarAddResult.success => '已加入系统日历',
-        CalendarAddResult.fallbackIntentLaunched => '已打开日历 App，请确认保存',
-        CalendarAddResult.unsupported => '当前设备不支持，请手动添加',
-        CalendarAddResult.failed => '加入日历失败，请稍后重试',
-      };
+    CalendarAddResult.success => '已加入系统日历',
+    CalendarAddResult.fallbackIntentLaunched => '已打开日历 App，请确认保存',
+    CalendarAddResult.unsupported => '当前设备不支持，请手动添加',
+    CalendarAddResult.failed => '加入日历失败，请稍后重试',
+  };
 
   Future<void> _editRegistrationDeadline() async {
     final plan = _plan;
@@ -597,9 +597,9 @@ class _PreparationPlanDetailPageState
     final updated = plan.copyWith(registrationDeadline: value);
     await _saveAndRefresh(updated);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('报名截止已更新')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('报名截止已更新')));
   }
 
   // ── 保存 + 本地刷新 ─────────────────────────────────────────────────────
