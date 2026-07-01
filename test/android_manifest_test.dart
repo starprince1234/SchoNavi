@@ -81,4 +81,36 @@ void main() {
       expect(colors, contains('name="$name"'), reason: 'missing $name in light colors');
     }
   });
+
+  test('four widget layout files exist', () {
+    for (final name in [
+      'preparation_widget_micro',
+      'preparation_widget_small',
+      'preparation_widget_wide',
+      'preparation_widget_hero',
+    ]) {
+      final file = File('android/app/src/main/res/layout/$name.xml');
+      expect(file.existsSync(), isTrue, reason: 'missing layout $name.xml');
+    }
+    expect(
+      File('android/app/src/main/res/layout/preparation_widget_compact.xml').existsSync(),
+      isFalse,
+      reason: 'compact.xml should be removed',
+    );
+    expect(
+      File('android/app/src/main/res/layout/preparation_widget_expanded.xml').existsSync(),
+      isFalse,
+      reason: 'expanded.xml should be removed',
+    );
+  });
+
+  test('widget_info declares resize bounds', () {
+    final info = File(
+      'android/app/src/main/res/xml/preparation_widget_info.xml',
+    ).readAsStringSync();
+    expect(info, contains('android:minResizeWidth'));
+    expect(info, contains('android:minResizeHeight'));
+    expect(info, contains('android:targetCellWidth'));
+    expect(info, contains('android:targetCellHeight'));
+  });
 }
