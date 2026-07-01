@@ -77,6 +77,8 @@ class _ProfileWizardPageState extends ConsumerState<ProfileWizardPage> {
       index: _step,
       count: 3,
       onBack: _step == 0 ? null : _back,
+      onSystemBack: _step == 0 ? null : _back,
+      canPop: _step == 0,
       onNext: _next,
       nextLabel: _step == 2 ? '完成' : '下一步',
       child: child,
