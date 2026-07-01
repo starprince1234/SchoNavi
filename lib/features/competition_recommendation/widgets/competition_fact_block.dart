@@ -36,6 +36,8 @@ class _KVRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final isEmpty = value.isEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -47,7 +49,9 @@ class _KVRow extends StatelessWidget {
             width: 64,
             child: Text(
               label,
-              style: textTheme.labelSmall?.copyWith(color: AppColors.inkSoft),
+              style: textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -55,7 +59,7 @@ class _KVRow extends StatelessWidget {
             child: Text(
               isEmpty ? '暂无信息' : value,
               style: textTheme.bodySmall?.copyWith(
-                color: isEmpty ? AppColors.inkFaint : null,
+                color: isEmpty ? AppColors.faintOf(isDark) : null,
               ),
             ),
           ),

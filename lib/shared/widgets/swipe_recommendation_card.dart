@@ -39,6 +39,8 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
   Widget build(BuildContext context) {
     final r = widget.data;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
         final card = BentoTile(
@@ -70,7 +72,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppColors.inkFaint,
+                              color: AppColors.faintOf(isDark),
                             ),
                           ),
                         ],
@@ -149,7 +151,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
                               duration: const Duration(milliseconds: 150),
                               decoration: BoxDecoration(
                                 color: (_favoriteDown || widget.isFavorite)
-                                    ? AppColors.indigoSoft
+                                    ? AppColors.indigoSoftOf(isDark)
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: widget.isFavorite
@@ -205,6 +207,8 @@ class _CompactFields extends StatelessWidget {
     if (fields.isEmpty) {
       return Text('暂无方向信息', style: Theme.of(context).textTheme.bodySmall);
     }
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final visible = fields.take(2).toList(growable: false);
     final hidden = fields.length - visible.length;
     return Wrap(
@@ -216,17 +220,17 @@ class _CompactFields extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 118),
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.indigoSoft,
+              color: AppColors.indigoSoftOf(isDark),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               field,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppColors.indigoPressed,
+                color: isDark ? AppColors.inkDark : AppColors.indigoPressed,
               ),
             ),
           ),
@@ -234,15 +238,15 @@ class _CompactFields extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.cyanSoft,
+              color: AppColors.cyanSoftOf(isDark),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               '+$hidden',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppColors.cyan,
+                color: isDark ? AppColors.inkDark : AppColors.cyan,
               ),
             ),
           ),

@@ -113,8 +113,11 @@ class _DaysChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final urgent = daysLeft <= 7;
-    final bg = urgent ? AppColors.dangerSoft : AppColors.cyanSoft;
+    final bg = urgent
+        ? AppColors.dangerSoftOf(isDark)
+        : AppColors.cyanSoftOf(isDark);
     final fg = urgent ? AppColors.danger : AppColors.cyan;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

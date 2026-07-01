@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/haptics/haptics.dart';
-import '../../../core/theme/app_colors.dart';
 import 'glass_surface.dart';
 
 /// 圆形玻璃悬浮按钮：复用于首页与对话页的左上/右上操作位。
@@ -28,7 +27,8 @@ class FloatingTopButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = _disabled ? AppColors.inkSoft : AppColors.ink;
+    final scheme = Theme.of(context).colorScheme;
+    final iconColor = _disabled ? scheme.onSurfaceVariant : scheme.onSurface;
     return Tooltip(
       message: tooltip,
       child: GlassSurface(
@@ -36,7 +36,7 @@ class FloatingTopButton extends StatelessWidget {
         radius: 22, // 直径 44 / 2
         padding: EdgeInsets.zero,
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          color: scheme.outline.withValues(alpha: 0.35),
         ),
         child: Material(
           color: Colors.transparent,

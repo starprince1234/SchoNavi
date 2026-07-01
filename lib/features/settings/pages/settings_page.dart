@@ -15,6 +15,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cfg = ref.watch(appConfigProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -34,6 +35,29 @@ class SettingsPage extends ConsumerWidget {
             onTap: () {
               Haptics.light();
               context.push('/profile');
+            },
+          ),
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: SectionHeader('外观'),
+          ),
+          ListTile(
+            key: const Key('settings-theme-mode-entry'),
+            leading: const Icon(Icons.brightness_auto_outlined),
+            title: const Text('主题模式'),
+            subtitle: Text(_themeModeSubtitle(themeMode)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_themeModeLabel(themeMode)),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () {
+              Haptics.light();
+              _showThemeModeSheet(context, ref, themeMode);
             },
           ),
           const Divider(),
@@ -78,6 +102,46 @@ class SettingsPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showThemeModeSheet(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode current,
+  ) async {
+    final selected = await showModalBottomSheet<ThemeMode>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: SectionHeader('选择主题模式'),
+            ),
+            for (final mode in ThemeMode.values)
+              ListTile(
+                key: Key('settings-theme-mode-${_themeModeValue(mode)}'),
+                leading: Icon(_themeModeIcon(mode)),
+                title: Text(_themeModeLabel(mode)),
+                subtitle: Text(_themeModeSubtitle(mode)),
+                trailing: mode == current
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: Theme.of(ctx).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  Haptics.selection();
+                  Navigator.of(ctx).pop(mode);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || selected == null) return;
+    await ref.read(appThemeModeProvider.notifier).setThemeMode(selected);
   }
 
   Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
@@ -131,4 +195,28 @@ class SettingsPage extends ConsumerWidget {
       messenger.showSnackBar(SnackBar(content: Text(message)));
     }
   }
+
+  static String _themeModeValue(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => 'system',
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+  };
+
+  static String _themeModeLabel(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => '跟随系统',
+    ThemeMode.light => '浅色',
+    ThemeMode.dark => '深色',
+  };
+
+  static String _themeModeSubtitle(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => '根据设备深色模式自动切换',
+    ThemeMode.light => '始终使用浅色外观',
+    ThemeMode.dark => '始终使用深色外观',
+  };
+
+  static IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => Icons.brightness_auto_outlined,
+    ThemeMode.light => Icons.light_mode_outlined,
+    ThemeMode.dark => Icons.dark_mode_outlined,
+  };
 }

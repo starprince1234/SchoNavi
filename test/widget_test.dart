@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/app.dart';
 import 'package:scho_navi/core/di/providers.dart';
@@ -21,5 +22,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('SchoNavi'), findsOneWidget);
     expect(find.byTooltip('菜单'), findsOneWidget);
+  });
+
+  testWidgets('App uses persisted theme mode', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'seenOnboarding': true,
+      appThemeModePreferenceKey: 'dark',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const SchoNaviApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.themeMode, ThemeMode.dark);
   });
 }

@@ -128,6 +128,14 @@ class AppColors {
   static Color panelOf(bool isDark) => isDark ? panelDark : panel;
   static Color surfaceOf(bool isDark) => isDark ? surfaceDark : surface;
   static Color lineOf(bool isDark) => isDark ? lineDark : line;
+  static Color indigoSoftOf(bool isDark) =>
+      isDark ? indigoSoftDark : indigoSoft;
+  static Color cyanSoftOf(bool isDark) => isDark ? cyanSoftDark : cyanSoft;
+  static Color matchSoftOf(bool isDark) => isDark ? const Color(0xFF134E4A) : matchSoft;
+  static Color dangerSoftOf(bool isDark) =>
+      isDark ? const Color(0xFF4C0519) : dangerSoft;
+  static Color faintOf(bool isDark) =>
+      isDark ? inkSoftDark.withValues(alpha: 0.82) : inkFaint;
   static Color glassOf(bool isDark) => isDark ? glassDark : glassLight;
   static Color glassBorderOf(bool isDark) =>
       isDark ? glassBorderDark : glassBorderLight;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 
 class FieldChips extends StatelessWidget {
   const FieldChips({super.key, required this.fields});
@@ -10,6 +9,7 @@ class FieldChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (fields.isEmpty) return const Text('暂无信息');
+    final scheme = Theme.of(context).colorScheme;
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -18,15 +18,15 @@ class FieldChips extends StatelessWidget {
             (field) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors.panel,
+                color: scheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 field,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.ink,
+                  color: scheme.onSurface,
                 ),
               ),
             ),

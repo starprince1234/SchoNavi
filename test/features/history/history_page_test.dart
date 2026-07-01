@@ -37,16 +37,6 @@ Future<Widget> _wrap({
         builder: (_, state) =>
             Text('会话：${state.uri.queryParameters['sid'] ?? ''}'),
       ),
-      GoRoute(
-        path: '/recommendation',
-        builder: (_, state) =>
-            Text('重推：${state.uri.queryParameters['q'] ?? ''}'),
-      ),
-      GoRoute(
-        path: '/competition-recommendation',
-        builder: (_, state) =>
-            Text('竞赛重推：${state.uri.queryParameters['q'] ?? ''}'),
-      ),
     ],
   );
   final container = ProviderContainer(

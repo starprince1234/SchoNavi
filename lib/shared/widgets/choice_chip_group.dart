@@ -44,6 +44,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -51,10 +52,10 @@ class _Chip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: active ? AppColors.indigo : AppColors.surface,
+          color: active ? AppColors.indigo : scheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: active ? AppColors.indigo : AppColors.line,
+            color: active ? AppColors.indigo : scheme.outline,
             width: active ? 2 : 1,
           ),
         ),
@@ -63,7 +64,7 @@ class _Chip extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: active ? Colors.white : AppColors.ink,
+            color: active ? Colors.white : scheme.onSurface,
           ),
         ),
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/di/providers.dart';
+import 'core/platform/preparation_reminder_platform.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/preparation/providers/preparation_reminder_providers.dart';
@@ -15,23 +17,25 @@ class SchoNaviApp extends ConsumerStatefulWidget {
 
 class _SchoNaviAppState extends ConsumerState<SchoNaviApp> {
   var _initialRouteHandled = false;
+  PreparationReminderPlatform? _reminderPlatform;
 
   @override
   void dispose() {
-    ref.read(preparationReminderPlatformProvider).setRouteHandler(null);
+    _reminderPlatform?.setRouteHandler(null);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(appThemeModeProvider);
     ref.watch(preparationReminderSyncProvider);
     _bindPreparationReminderRoutes(router);
     return MaterialApp.router(
       title: 'SchoNavi',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.light,
+      themeMode: themeMode,
       routerConfig: router,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         physics: const BouncingScrollPhysics(),
@@ -41,6 +45,7 @@ class _SchoNaviAppState extends ConsumerState<SchoNaviApp> {
 
   void _bindPreparationReminderRoutes(GoRouter router) {
     final platform = ref.read(preparationReminderPlatformProvider);
+    _reminderPlatform = platform;
     platform.setRouteHandler(router.go);
     if (_initialRouteHandled) return;
     _initialRouteHandled = true;

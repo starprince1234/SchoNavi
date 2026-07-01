@@ -19,12 +19,13 @@ class ProfileSectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: BentoTile(
         onTap: onTap,
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.line),
+        color: scheme.surface,
+        border: Border.all(color: scheme.outline),
         shadow: null,
         child: Row(
           children: [
@@ -39,7 +40,7 @@ class ProfileSectionTile extends StatelessWidget {
             ),
             Text(
               summary,
-              style: const TextStyle(color: AppColors.inkSoft, fontSize: 13),
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
             ),
             const SizedBox(width: 6),
             done
@@ -48,10 +49,10 @@ class ProfileSectionTile extends StatelessWidget {
                     size: 18,
                     color: AppColors.match,
                   )
-                : const Icon(
+                : Icon(
                     Icons.chevron_right,
                     size: 20,
-                    color: AppColors.inkSoft,
+                    color: scheme.onSurfaceVariant,
                   ),
           ],
         ),

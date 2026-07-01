@@ -24,6 +24,9 @@ class PreparationCountdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final remaining = plan.targetDate.difference(today).inDays;
     final remainingClamped = remaining < 0 ? 0 : remaining;
 
@@ -39,7 +42,7 @@ class PreparationCountdown extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (plan.tightSchedule || plan.overload) ...[
-            _warningBanner(),
+            _warningBanner(context),
             const SizedBox(height: 12),
           ],
           Row(
@@ -55,18 +58,21 @@ class PreparationCountdown extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '剩余天数',
-                  style: TextStyle(color: AppColors.inkSoft, fontSize: 13),
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               const Spacer(),
               Text(
                 '$completed/$total',
-                style: const TextStyle(
-                  color: AppColors.inkSoft,
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -77,9 +83,9 @@ class PreparationCountdown extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: AppColors.line,
+	              value: progress,
+	              minHeight: 6,
+	              backgroundColor: scheme.outline,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.cyan),
             ),
           ),
@@ -95,20 +101,23 @@ class PreparationCountdown extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '当前阶段：${currentPhase.title}',
-                    style: const TextStyle(
-                      color: AppColors.inkSoft,
-                      fontSize: 12,
-                    ),
+	                    '当前阶段：${currentPhase.title}',
+	                    style: TextStyle(
+	                      color: scheme.onSurfaceVariant,
+	                      fontSize: 12,
+	                    ),
                   ),
                 ),
               ],
             )
-          else
-            const Text(
-              '当前阶段：—',
-              style: TextStyle(color: AppColors.inkFaint, fontSize: 12),
-            ),
+	          else
+	            Text(
+	              '当前阶段：—',
+	              style: TextStyle(
+	                color: AppColors.faintOf(isDark),
+	                fontSize: 12,
+	              ),
+	            ),
         ],
       ),
     );
@@ -123,13 +132,14 @@ class PreparationCountdown extends StatelessWidget {
     return null;
   }
 
-  Widget _warningBanner() {
+  Widget _warningBanner(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOverload = plan.overload;
     final label = isOverload ? '任务超负荷，建议精简' : '时间偏紧，请抓紧节奏';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.dangerSoft,
+        color: AppColors.dangerSoftOf(isDark),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(

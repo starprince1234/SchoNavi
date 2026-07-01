@@ -100,7 +100,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
         title: 'SchoNavi',
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        themeMode: ThemeMode.light,
+        themeMode: ThemeMode.system,
         home: _loadError == null
             ? SplashPage(
                 readyToExit: preferences != null,

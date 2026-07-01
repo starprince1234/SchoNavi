@@ -62,6 +62,7 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
     final cfg = ref.watch(appConfigProvider);
     final aiOn = cfg.dataSource == DataSource.llm;
     final extraction = ref.watch(achievementsExtractionProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     ref.listen(achievementsExtractionProvider, (prev, next) {
       final draft = next.value;
@@ -80,7 +81,7 @@ class _AchievementsEditorState extends ConsumerState<AchievementsEditor> {
                 '粘贴/输入你的竞赛、论文、项目、专利等经历，如：'
                 'ACM 区域赛银牌；一篇 EI 一作论文…',
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: scheme.surface,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),

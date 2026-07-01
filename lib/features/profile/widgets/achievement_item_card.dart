@@ -22,10 +22,11 @@ class AchievementItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return BentoTile(
       onTap: onTap,
-      color: AppColors.surface,
-      border: Border.all(color: AppColors.line),
+      color: scheme.surface,
+      border: Border.all(color: scheme.outline),
       shadow: null,
       child: Row(
         children: [
@@ -45,13 +46,13 @@ class AchievementItemCard extends StatelessWidget {
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      subtitle!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
+	                    child: Text(
+	                      subtitle!,
+	                      style: TextStyle(
+	                        fontSize: 12,
+	                        color: scheme.onSurfaceVariant,
+	                      ),
+	                    ),
                   ),
               ],
             ),

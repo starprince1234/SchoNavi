@@ -41,6 +41,7 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -48,10 +49,10 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
           padding: const EdgeInsets.only(bottom: 6, left: 2),
           child: Text(
             widget.label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: AppColors.inkSoft,
+              color: scheme.onSurfaceVariant,
             ),
           ),
         ),
@@ -65,15 +66,15 @@ class _LabeledTextFieldState extends State<LabeledTextField> {
             hintText: widget.hintText,
             errorText: widget.errorText,
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: scheme.surface,
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.line),
+              borderSide: BorderSide(color: scheme.outline),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.line),
+              borderSide: BorderSide(color: scheme.outline),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),

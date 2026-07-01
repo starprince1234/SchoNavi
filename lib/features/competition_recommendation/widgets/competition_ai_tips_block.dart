@@ -13,6 +13,7 @@ class CompetitionAiTipsBlock extends StatelessWidget {
     final limits = competition.limitations;
     if (tips.isEmpty && limits.isEmpty) return const SizedBox.shrink();
     final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return BentoTile(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -36,7 +37,9 @@ class CompetitionAiTipsBlock extends StatelessWidget {
             ...limits.map(
               (x) => Text(
                 '· $x',
-                style: textTheme.bodySmall?.copyWith(color: AppColors.inkSoft),
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],

@@ -74,8 +74,7 @@ class _SwipeCardCarouselState<T> extends State<SwipeCardCarousel<T>> {
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final paperColor = AppColors.paperOf(isDark);
+    final paperColor = Theme.of(context).scaffoldBackgroundColor;
     final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
     final h = widget.height ?? (250 + (textScale - 1).clamp(0, 1) * 54);
     return Column(

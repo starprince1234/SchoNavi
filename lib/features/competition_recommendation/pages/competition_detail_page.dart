@@ -88,6 +88,7 @@ class _CompetitionDetailBody extends ConsumerWidget {
     final active = ref.watch(activePlanForCompetitionProvider(competitionId));
 
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(merged.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -114,12 +115,12 @@ class _CompetitionDetailBody extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            '${merged.category} / ${merged.level}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.inkSoft,
-                            ),
-                          ),
+	                          Text(
+	                            '${merged.category} / ${merged.level}',
+	                            style: theme.textTheme.bodySmall?.copyWith(
+	                              color: scheme.onSurfaceVariant,
+	                            ),
+	                          ),
                         ],
                       ),
                     ),

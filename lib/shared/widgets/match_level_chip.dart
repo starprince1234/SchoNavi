@@ -20,10 +20,18 @@ class MatchLevelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final (Color bg, Color fg) = switch (level) {
       MatchLevel.high => (AppColors.indigo, Colors.white),
-      MatchLevel.medium => (AppColors.indigoSoft, AppColors.indigoPressed),
-      MatchLevel.low => (AppColors.panel, AppColors.inkSoft),
+      MatchLevel.medium => (
+        AppColors.indigoSoftOf(isDark),
+        isDark ? AppColors.inkDark : AppColors.indigoPressed,
+      ),
+      MatchLevel.low => (
+        scheme.surfaceContainerHighest,
+        scheme.onSurfaceVariant,
+      ),
     };
 
     if (matchScore == null) {

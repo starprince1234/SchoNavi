@@ -56,6 +56,7 @@ class CompetitionHomeResultView extends StatelessWidget {
   }
 
   Widget _buildLoading(BuildContext context, String prompt) {
+    final scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,12 +67,12 @@ class CompetitionHomeResultView extends StatelessWidget {
             children: [
               Icon(Icons.auto_awesome, size: 18, color: AppColors.indigo),
               const SizedBox(width: 8),
-              Text(
-                '正在为你匹配竞赛…',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
-              ),
+	              Text(
+	                '正在为你匹配竞赛…',
+	                style: Theme.of(
+	                  context,
+	                ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+	              ),
               const SizedBox(width: 12),
               SizedBox(
                 width: 14,
@@ -153,18 +154,19 @@ class CompetitionHomeResultView extends StatelessWidget {
   }
 
   Widget _buildEmpty(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _UserMessageBubble(text: prompt),
           const SizedBox(height: 16),
-          Text(
-            '暂无匹配竞赛，试试调整条件',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
-          ),
+	          Text(
+	            '暂无匹配竞赛，试试调整条件',
+	            style: Theme.of(
+	              context,
+	            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+	          ),
           const SizedBox(height: 16),
           OutlinedButton(onPressed: onAdjust, child: const Text('调整条件')),
         ],
@@ -209,6 +211,8 @@ class _UserMessageBubble extends StatelessWidget {
     if (content == null || content.isEmpty) {
       return const SizedBox.shrink();
     }
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
     final width = MediaQuery.sizeOf(context).width * 0.78;
     return Align(
       alignment: Alignment.centerRight,
@@ -216,10 +220,10 @@ class _UserMessageBubble extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: width),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.indigoSoft,
-            borderRadius: BorderRadius.circular(14),
-          ),
+	          decoration: BoxDecoration(
+	            color: AppColors.indigoSoftOf(isDark),
+	            borderRadius: BorderRadius.circular(14),
+	          ),
           child: Text(content, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ),

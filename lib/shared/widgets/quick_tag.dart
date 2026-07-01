@@ -44,14 +44,17 @@ class _QuickTagState extends State<QuickTag> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: const [AppColors.shadowCool],
         ),
-        child: Text(widget.label, style: textTheme.labelSmall),
+        child: Text(
+          widget.label,
+          style: textTheme.labelSmall?.copyWith(color: scheme.onSurface),
+        ),
       ),
     );
 
     if (_down) {
       content = ColorFiltered(
-        colorFilter: const ColorFilter.mode(
-          Color(0x1A000000),
+        colorFilter: ColorFilter.mode(
+          scheme.onSurface.withValues(alpha: 0.10),
           BlendMode.srcATop,
         ),
         child: content,

@@ -90,6 +90,31 @@ void main() {
     expect(find.textContaining('资料仅保存在本机'), findsNothing);
   });
 
+  testWidgets('设置页可选择并持久化主题模式', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+        child: const MaterialApp(home: SettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('跟随系统'), findsOneWidget);
+    expect(find.text('根据设备深色模式自动切换'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('settings-theme-mode-entry')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-theme-mode-dark')));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getString(appThemeModePreferenceKey), 'dark');
+    expect(find.text('深色'), findsOneWidget);
+    expect(find.text('始终使用深色外观'), findsOneWidget);
+  });
+
   testWidgets('HTTP 远端清除失败时展示错误', (tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
