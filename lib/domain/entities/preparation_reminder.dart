@@ -33,6 +33,29 @@ class ReminderPreferences {
   }
 }
 
+enum ReminderPhaseStatus { completed, active, upcoming }
+
+class PreparationReminderPhaseSummary {
+  const PreparationReminderPhaseSummary({
+    required this.title,
+    required this.startDate,
+    required this.endDate,
+    required this.status,
+  });
+
+  final String title;
+  final DateTime startDate;
+  final DateTime endDate;
+  final ReminderPhaseStatus status;
+
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'startDate': _isoDay(startDate),
+    'endDate': _isoDay(endDate),
+    'status': status.name,
+  };
+}
+
 enum ReminderNotificationStatus { granted, denied, notRequired }
 
 class PreparationReminderPlanSummary {
@@ -45,6 +68,7 @@ class PreparationReminderPlanSummary {
     required this.totalTasks,
     this.nextTaskTitle,
     this.nextTaskDueDate,
+    this.phases = const [],
   });
 
   final String planId;
@@ -55,6 +79,7 @@ class PreparationReminderPlanSummary {
   final int totalTasks;
   final String? nextTaskTitle;
   final DateTime? nextTaskDueDate;
+  final List<PreparationReminderPhaseSummary> phases;
 
   Map<String, dynamic> toJson() => {
     'planId': planId,
@@ -65,6 +90,7 @@ class PreparationReminderPlanSummary {
     'totalTasks': totalTasks,
     if (nextTaskTitle != null) 'nextTaskTitle': nextTaskTitle,
     if (nextTaskDueDate != null) 'nextTaskDueDate': _isoDay(nextTaskDueDate!),
+    'phases': phases.map((p) => p.toJson()).toList(growable: false),
   };
 }
 
@@ -77,7 +103,7 @@ class PreparationReminderSnapshot {
     required this.plans,
   });
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   final DateTime generatedAt;
   final int currentStreak;

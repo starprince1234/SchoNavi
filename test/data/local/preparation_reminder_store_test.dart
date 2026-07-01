@@ -68,4 +68,51 @@ void main() {
     final days = localStore.loadActivityDays();
     expect(days, contains('2026-06-29'));
   });
+
+  test('snapshot toJson 含 phases 与 schemaVersion=2', () {
+    final plan = PreparationReminderPlanSummary(
+      planId: 'p1',
+      competitionName: '蓝桥杯',
+      targetDate: DateTime(2026, 8, 1),
+      currentPhase: '冲刺',
+      completedTasks: 6,
+      totalTasks: 10,
+      nextTaskTitle: '刷完 5 道动规',
+      nextTaskDueDate: DateTime(2026, 7, 2),
+      phases: [
+        PreparationReminderPhaseSummary(
+          title: '基础',
+          startDate: DateTime(2026, 6, 1),
+          endDate: DateTime(2026, 6, 15),
+          status: ReminderPhaseStatus.completed,
+        ),
+        PreparationReminderPhaseSummary(
+          title: '冲刺',
+          startDate: DateTime(2026, 6, 25),
+          endDate: DateTime(2026, 7, 20),
+          status: ReminderPhaseStatus.active,
+        ),
+      ],
+    );
+    final snapshot = PreparationReminderSnapshot(
+      generatedAt: DateTime(2026, 6, 30),
+      currentStreak: 5,
+      preparedToday: true,
+      lastActivityDay: '2026-06-30',
+      plans: [plan],
+    );
+
+    final json = snapshot.toJson();
+
+    expect(json['schemaVersion'], 2);
+    final planJson = (json['plans'] as List).single as Map<String, dynamic>;
+    expect(planJson.containsKey('phases'), isTrue);
+    final phases = planJson['phases'] as List;
+    expect(phases.length, 2);
+    final first = phases.first as Map<String, dynamic>;
+    expect(first['title'], '基础');
+    expect(first['startDate'], '2026-06-01');
+    expect(first['endDate'], '2026-06-15');
+    expect(first['status'], 'completed');
+  });
 }
