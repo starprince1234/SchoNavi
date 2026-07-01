@@ -61,6 +61,7 @@ class _PreparationPlanFormPageState
   DateTime? _targetDate;
   DateTime? _eventEndDate;
   DateTime? _defenseDate;
+  DateTime? _registrationDeadline;
   WeeklyCommitment _weeklyCommitment = WeeklyCommitment.hours6to10;
   late ExperienceLevel _experienceLevel;
   bool _submitting = false;
@@ -196,6 +197,24 @@ class _PreparationPlanFormPageState
     );
   }
 
+  Future<void> _pickRegistrationDeadline() async {
+    if (_targetDate == null) {
+      setState(() => _dateError = '请先选择比赛日期');
+      return;
+    }
+    final today = CalendarDate.normalize(DateTime.now());
+    final picked = await showPreparationDatePicker(
+      context: context,
+      mode: PreparationDatePickerMode.single,
+      firstDate: today.add(const Duration(days: 1)),
+      lastDate: _targetDate!.subtract(const Duration(days: 1)),
+      initial: PreparationDateSelection(single: _registrationDeadline ?? _targetDate!),
+    );
+    final value = picked?.single;
+    if (value == null) return;
+    setState(() => _registrationDeadline = value);
+  }
+
   String? _validate(DateTime today) {
     if (_effectiveTimelineType == CompetitionTimelineType.eventWindow) {
       final start = _targetDate;
@@ -303,7 +322,7 @@ class _PreparationPlanFormPageState
       _dateError = null;
     });
     try {
-      final plan = await ref
+      final generated = await ref
           .read(preparationPlanGeneratorProvider)
           .generate(
             competition: widget.competition,
@@ -316,6 +335,7 @@ class _PreparationPlanFormPageState
             calendarToday: CalendarDate.normalize(DateTime.now()),
             profile: ref.read(profileProvider),
           );
+      final plan = generated.copyWith(registrationDeadline: _registrationDeadline);
       await ref.read(preparationPlanRepositoryProvider).save(plan);
       if (!mounted) return;
       context.pushReplacement('/preparation-plans/${plan.id}');
@@ -426,6 +446,38 @@ class _PreparationPlanFormPageState
                 style: const TextStyle(color: AppColors.danger, fontSize: 12),
               ),
             ),
+          const SizedBox(height: 16),
+          _sectionLabel('报名截止（可选）'),
+          BentoTile(
+            onTap: _submitting ? null : _pickRegistrationDeadline,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.event_available_outlined,
+                  size: 20,
+                  color: AppColors.indigo,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _registrationDeadline == null
+                        ? '可选，设置后可一键加入日历'
+                        : _fmt(_registrationDeadline!),
+                    style: TextStyle(
+                      color: _registrationDeadline == null
+                          ? AppColors.inkFaint
+                          : cs.onSurface,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.inkFaint,
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 16),
           _sectionLabel('水平诊断'),
           _diagnosisSection(cs),

@@ -289,4 +289,10 @@ void main() {
     final saved = await store.get('计算机类');
     expect(saved!.effectiveLevel, ExperienceLevel.experienced);
   });
+
+  testWidgets('报名截止行显示并可打开', (tester) async {
+    final container = await bootstrap();
+    await pumpForm(tester, container, _comp());
+    expect(find.textContaining('报名截止'), findsOneWidget);
+  });
 }
