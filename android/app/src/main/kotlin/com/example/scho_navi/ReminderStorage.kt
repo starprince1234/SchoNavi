@@ -3,6 +3,13 @@ package com.example.scho_navi
 import android.content.Context
 import org.json.JSONObject
 
+data class ReminderPhase(
+    val title: String,
+    val startDate: String,
+    val endDate: String,
+    val status: String,
+)
+
 data class ReminderPlan(
     val planId: String,
     val competitionName: String,
@@ -12,6 +19,7 @@ data class ReminderPlan(
     val totalTasks: Int,
     val nextTaskTitle: String?,
     val nextTaskDueDate: String?,
+    val phases: List<ReminderPhase> = emptyList(),
 )
 
 data class ReminderSnapshot(
@@ -41,12 +49,29 @@ object ReminderStorage {
             .getString(SNAPSHOT, null) ?: return ReminderSnapshot(0, null, emptyList())
         return try {
             val root = JSONObject(raw)
-            if (root.optInt("schemaVersion", 0) != 1) return ReminderSnapshot(0, null, emptyList())
+            val schema = root.optInt("schemaVersion", 0)
+            if (schema !in 1..2) return ReminderSnapshot(0, null, emptyList())
             val plansJson = root.optJSONArray("plans")
             val plans = buildList {
                 if (plansJson != null) {
                     for (index in 0 until plansJson.length()) {
                         val item = plansJson.optJSONObject(index) ?: continue
+                        val phasesJson = item.optJSONArray("phases")
+                        val phases = buildList {
+                            if (phasesJson != null) {
+                                for (pi in 0 until phasesJson.length()) {
+                                    val ph = phasesJson.optJSONObject(pi) ?: continue
+                                    add(
+                                        ReminderPhase(
+                                            title = ph.optString("title"),
+                                            startDate = ph.optString("startDate"),
+                                            endDate = ph.optString("endDate"),
+                                            status = ph.optString("status", "upcoming"),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
                         add(
                             ReminderPlan(
                                 planId = item.optString("planId"),
@@ -57,6 +82,7 @@ object ReminderStorage {
                                 totalTasks = item.optInt("totalTasks"),
                                 nextTaskTitle = item.optString("nextTaskTitle").ifBlank { null },
                                 nextTaskDueDate = item.optString("nextTaskDueDate").ifBlank { null },
+                                phases = phases,
                             ),
                         )
                     }
