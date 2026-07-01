@@ -121,6 +121,24 @@ void main() {
     expect(find.textContaining('未找到'), findsOneWidget);
   });
 
+  testWidgets('未知 id 空态 AppBar 标题为「竞赛详情」', (t) async {
+    final container = await bootstrap();
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: CompetitionDetailPage(competitionId: 'nope'),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    final appBar = t.widget<AppBar>(find.byType(AppBar));
+    final title = appBar.title;
+    expect(title, isA<Text>());
+    expect((title as Text).data, '竞赛详情');
+  });
+
   testWidgets('传入 recommended 时显示 AI 补充提示', (t) async {
     final container = await bootstrap();
     await t.pumpWidget(

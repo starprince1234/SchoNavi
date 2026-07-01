@@ -30,7 +30,7 @@ class CompetitionDetailPage extends ConsumerWidget {
       data: (base) {
         if (base == null) {
           return Scaffold(
-            appBar: AppBar(),
+            appBar: AppBar(title: const Text('竞赛详情')),
             body: Center(
               child: Text(
                 '未找到该竞赛',
@@ -46,11 +46,11 @@ class CompetitionDetailPage extends ConsumerWidget {
         );
       },
       loading: () => Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(title: const Text('竞赛详情')),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (_, _) => Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(title: const Text('竞赛详情')),
         body: Center(
           child: Text(
             '竞赛信息加载失败，请稍后重试',
