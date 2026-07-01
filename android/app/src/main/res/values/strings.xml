@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preparation_widget_description">轮换展示备赛倒计时、下一任务和连续备赛天数</string>
+</resources>

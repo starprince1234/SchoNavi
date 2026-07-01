@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/preparation/providers/preparation_reminder_providers.dart';
 
-class SchoNaviApp extends ConsumerWidget {
+class SchoNaviApp extends ConsumerStatefulWidget {
   const SchoNaviApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SchoNaviApp> createState() => _SchoNaviAppState();
+}
+
+class _SchoNaviAppState extends ConsumerState<SchoNaviApp> {
+  var _initialRouteHandled = false;
+
+  @override
+  void dispose() {
+    ref.read(preparationReminderPlatformProvider).setRouteHandler(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    ref.watch(preparationReminderSyncProvider);
+    _bindPreparationReminderRoutes(router);
     return MaterialApp.router(
       title: 'SchoNavi',
       theme: AppTheme.light(),
@@ -20,5 +37,18 @@ class SchoNaviApp extends ConsumerWidget {
         physics: const BouncingScrollPhysics(),
       ),
     );
+  }
+
+  void _bindPreparationReminderRoutes(GoRouter router) {
+    final platform = ref.read(preparationReminderPlatformProvider);
+    platform.setRouteHandler(router.go);
+    if (_initialRouteHandled) return;
+    _initialRouteHandled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final route = await platform.takeInitialRoute();
+      if (!mounted || route == null) return;
+      router.go(route);
+    });
   }
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../shared/widgets/empty_view.dart';
+import '../providers/preparation_reminder_providers.dart';
 import '../providers/preparation_providers.dart';
 import '../widgets/preparation_plan_list_tile.dart';
 
@@ -44,6 +45,14 @@ class _PreparationPlansPageState extends ConsumerState<PreparationPlansPage> {
         backgroundColor: AppColors.paperOf(isDark),
         elevation: 0,
         foregroundColor: AppColors.inkOf(isDark),
+        actions: [
+          IconButton(
+            key: const Key('preparation-pin-widget-button'),
+            tooltip: '添加桌面小组件',
+            icon: const Icon(Icons.widgets_outlined),
+            onPressed: _pinWidget,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -51,14 +60,8 @@ class _PreparationPlansPageState extends ConsumerState<PreparationPlansPage> {
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
             child: SegmentedButton<_PlanFilter>(
               segments: const [
-                ButtonSegment(
-                  value: _PlanFilter.active,
-                  label: Text('进行中'),
-                ),
-                ButtonSegment(
-                  value: _PlanFilter.archived,
-                  label: Text('已归档'),
-                ),
+                ButtonSegment(value: _PlanFilter.active, label: Text('进行中')),
+                ButtonSegment(value: _PlanFilter.archived, label: Text('已归档')),
               ],
               selected: {_filter},
               onSelectionChanged: (s) => setState(() => _filter = s.first),
@@ -66,14 +69,12 @@ class _PreparationPlansPageState extends ConsumerState<PreparationPlansPage> {
           ),
           Expanded(
             child: asyncList.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => EmptyView(message: '加载失败：$e'),
               data: (plans) {
-                final filtered = plans
-                    .where((p) => p.status == desired)
-                    .toList()
-                  ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+                final filtered =
+                    plans.where((p) => p.status == desired).toList()
+                      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
                 if (filtered.isEmpty) {
                   return EmptyView(
                     message: _filter == _PlanFilter.active
@@ -100,5 +101,27 @@ class _PreparationPlansPageState extends ConsumerState<PreparationPlansPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _pinWidget() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final requested = await ref
+          .read(preparationReminderPlatformProvider)
+          .pinWidget();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            requested
+                ? '已向系统发起添加桌面小组件请求'
+                : '当前设备不支持一键添加，请从系统桌面长按添加 SchoNavi 小组件',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('添加小组件失败，请稍后重试')));
+    }
   }
 }
