@@ -38,7 +38,10 @@ void main() {
         '<action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>',
       ),
     );
-    expect(manifest, contains('android:resource="@xml/preparation_widget_info"'));
+    expect(
+      manifest,
+      contains('android:resource="@xml/preparation_widget_info"'),
+    );
     expect(manifest, contains('android:name=".ReminderReceiver"'));
     expect(manifest, contains('android:name=".ReminderRescheduleReceiver"'));
     expect(
@@ -78,7 +81,11 @@ void main() {
       'widget_chip',
       'widget_progress_track',
     ]) {
-      expect(colors, contains('name="$name"'), reason: 'missing $name in light colors');
+      expect(
+        colors,
+        contains('name="$name"'),
+        reason: 'missing $name in light colors',
+      );
     }
   });
 
@@ -93,12 +100,16 @@ void main() {
       expect(file.existsSync(), isTrue, reason: 'missing layout $name.xml');
     }
     expect(
-      File('android/app/src/main/res/layout/preparation_widget_compact.xml').existsSync(),
+      File(
+        'android/app/src/main/res/layout/preparation_widget_compact.xml',
+      ).existsSync(),
       isFalse,
       reason: 'compact.xml should be removed',
     );
     expect(
-      File('android/app/src/main/res/layout/preparation_widget_expanded.xml').existsSync(),
+      File(
+        'android/app/src/main/res/layout/preparation_widget_expanded.xml',
+      ).existsSync(),
       isFalse,
       reason: 'expanded.xml should be removed',
     );

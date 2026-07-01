@@ -27,7 +27,8 @@ PreparationPlan plan({
   weeklyCommitment: WeeklyCommitment.hours6to10,
   experienceLevel: ExperienceLevel.beginner,
   status: status,
-  phases: phases ??
+  phases:
+      phases ??
       [
         PreparationPhase(
           key: 'phase',
