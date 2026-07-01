@@ -14,6 +14,7 @@ class ProfileIntroPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      appBar: AppBar(title: const Text('完善档案')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -90,7 +91,7 @@ class ProfileIntroPage extends StatelessWidget {
                 child: TextButton(
                   onPressed: () {
                     Haptics.light();
-                    if (context.mounted) context.pop();
+                    if (context.mounted && context.canPop()) context.pop();
                   },
                   child: const Text('以后再说'),
                 ),
