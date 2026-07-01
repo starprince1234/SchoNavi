@@ -29,6 +29,7 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         pendingInitialRoute = intent?.getStringExtra(EXTRA_ROUTE)
         super.onCreate(savedInstanceState)
+        WidgetRotationScheduler.apply(this)
 
         splashScreen.setOnExitAnimationListener { splashScreenView ->
             splashScreenView.animate()
@@ -78,6 +79,7 @@ class MainActivity : FlutterActivity() {
                     val json = call.arguments as? String ?: "{}"
                     ReminderStorage.saveSnapshot(this, json)
                     PreparationWidgetProvider.refreshAll(this)
+                    WidgetRotationScheduler.apply(this)
                     result.success(null)
                 }
                 "updateSchedule" -> {

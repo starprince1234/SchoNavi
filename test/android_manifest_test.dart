@@ -113,4 +113,15 @@ void main() {
     expect(info, contains('android:targetCellWidth'));
     expect(info, contains('android:targetCellHeight'));
   });
+
+  test('main Android manifest registers widget rotation receiver', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    expect(manifest, contains('android:name=".WidgetRotationReceiver"'));
+    expect(
+      manifest,
+      contains('com.example.scho_navi.action.ROTATE_PREPARATION_WIDGET'),
+    );
+  });
 }
