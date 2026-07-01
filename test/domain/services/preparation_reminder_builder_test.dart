@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
+import 'package:scho_navi/domain/entities/preparation_reminder.dart';
 import 'package:scho_navi/domain/services/preparation_reminder_builder.dart';
 
 PreparationPlan plan({
@@ -7,6 +8,7 @@ PreparationPlan plan({
   required DateTime targetDate,
   PreparationPlanStatus status = PreparationPlanStatus.active,
   List<PreparationTask>? tasks,
+  List<PreparationPhase>? phases,
 }) => PreparationPlan(
   id: id,
   competition: CompetitionSnapshot(
@@ -25,15 +27,16 @@ PreparationPlan plan({
   weeklyCommitment: WeeklyCommitment.hours6to10,
   experienceLevel: ExperienceLevel.beginner,
   status: status,
-  phases: [
-    PreparationPhase(
-      key: 'phase',
-      title: '强化训练',
-      startDate: DateTime(2026, 6, 1),
-      endDate: DateTime(2026, 7, 31),
-      tasks: tasks ?? const [],
-    ),
-  ],
+  phases: phases ??
+      [
+        PreparationPhase(
+          key: 'phase',
+          title: '强化训练',
+          startDate: DateTime(2026, 6, 1),
+          endDate: DateTime(2026, 7, 31),
+          tasks: tasks ?? const [],
+        ),
+      ],
   createdAt: DateTime(2026, 6, 1),
   updatedAt: DateTime(2026, 6, 1),
 );
@@ -128,5 +131,66 @@ void main() {
       now: now,
     );
     expect(broken.currentStreak, 0);
+  });
+
+  test('phases 按今天计算 completed/active/upcoming 状态', () {
+    final snapshot = builder.build(
+      plans: [
+        plan(
+          id: 'p1',
+          targetDate: DateTime(2026, 8, 1),
+          phases: [
+            PreparationPhase(
+              key: 'base',
+              title: '基础',
+              startDate: DateTime(2026, 6, 1),
+              endDate: DateTime(2026, 6, 15),
+              tasks: const [],
+            ),
+            PreparationPhase(
+              key: 'sprint',
+              title: '冲刺',
+              startDate: DateTime(2026, 6, 25),
+              endDate: DateTime(2026, 7, 20),
+              tasks: const [],
+            ),
+            PreparationPhase(
+              key: 'mock',
+              title: '模拟',
+              startDate: DateTime(2026, 7, 21),
+              endDate: DateTime(2026, 7, 31),
+              tasks: const [],
+            ),
+          ],
+        ),
+      ],
+      activityDays: const {},
+      now: now,
+    );
+
+    final phases = snapshot.plans.single.phases;
+    expect(phases.map((p) => p.title), ['基础', '冲刺', '模拟']);
+    expect(phases[0].status, ReminderPhaseStatus.completed);
+    expect(phases[1].status, ReminderPhaseStatus.active);
+    expect(phases[2].status, ReminderPhaseStatus.upcoming);
+  });
+
+  test('phases 超过 5 段时截断为 5 段', () {
+    final many = List.generate(
+      7,
+      (i) => PreparationPhase(
+        key: 'p$i',
+        title: '阶段$i',
+        startDate: DateTime(2026, 6, 1 + i * 5),
+        endDate: DateTime(2026, 6, 5 + i * 5),
+        tasks: const [],
+      ),
+    );
+    final snapshot = builder.build(
+      plans: [plan(id: 'p1', targetDate: DateTime(2026, 8, 1), phases: many)],
+      activityDays: const {},
+      now: now,
+    );
+    expect(snapshot.plans.single.phases.length, 5);
   });
 }

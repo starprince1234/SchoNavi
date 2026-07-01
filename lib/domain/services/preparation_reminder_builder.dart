@@ -69,6 +69,25 @@ class PreparationReminderBuilder {
       });
     final currentPhase = _currentPhase(plan.phases, today);
 
+    final phaseSummaries = plan.phases.take(5).map((phase) {
+      final start = _day(phase.startDate);
+      final end = _day(phase.endDate);
+      final ReminderPhaseStatus status;
+      if (today.isAfter(end)) {
+        status = ReminderPhaseStatus.completed;
+      } else if (today.isBefore(start)) {
+        status = ReminderPhaseStatus.upcoming;
+      } else {
+        status = ReminderPhaseStatus.active;
+      }
+      return PreparationReminderPhaseSummary(
+        title: phase.title,
+        startDate: phase.startDate,
+        endDate: phase.endDate,
+        status: status,
+      );
+    }).toList(growable: false);
+
     return PreparationReminderPlanSummary(
       planId: plan.id,
       competitionName: plan.competition.name,
@@ -80,6 +99,7 @@ class PreparationReminderBuilder {
       nextTaskDueDate: incomplete.isEmpty
           ? null
           : incomplete.first.task.dueDate,
+      phases: phaseSummaries,
     );
   }
 
