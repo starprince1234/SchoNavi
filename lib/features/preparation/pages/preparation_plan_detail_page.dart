@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/calendar_date.dart';
 import '../../../core/haptics/haptics.dart';
+import '../../../core/platform/preparation_reminder_platform.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/preparation_template.dart';
 import '../../../domain/repositories/preparation_plan_repository.dart';
 import '../../../domain/services/preparation_scheduler.dart';
 import '../providers/preparation_providers.dart';
+import '../providers/preparation_reminder_providers.dart';
 import '../widgets/assistant_drawer.dart';
 import '../widgets/preparation_anchor_bar.dart';
 import '../widgets/preparation_countdown.dart';
 import '../widgets/preparation_date_picker.dart';
+import '../widgets/preparation_deadline_card.dart';
 import '../widgets/preparation_phase_timeline.dart';
 import '../widgets/preparation_task_list.dart';
 
@@ -158,6 +162,7 @@ class _PreparationPlanDetailPageState
     extends ConsumerState<PreparationPlanDetailPage> {
   PreparationPlan? _plan;
   bool _loading = true;
+  String? _addingLabel;
 
   @override
   void initState() {
@@ -249,6 +254,34 @@ class _PreparationPlanDetailPageState
           PreparationCountdown(plan: plan, today: _today),
           const SizedBox(height: 8),
           PreparationAnchorBar(plan: plan),
+          const SizedBox(height: 12),
+          PreparationDeadlineCard(
+            label: '报名截止',
+            date: plan.registrationDeadline,
+            adding: _addingLabel == '报名截止',
+            onAddToCalendar: () => _addToCalendar(
+              label: '报名截止',
+              date: plan.registrationDeadline,
+            ),
+            onEditDate: () => _editRegistrationDeadline(),
+          ),
+          const SizedBox(height: 8),
+          PreparationDeadlineCard(
+            label: plan.timelineType == CompetitionTimelineType.submission
+                ? '提交截止'
+                : '比赛开始',
+            date: plan.targetDate,
+            adding: _addingLabel ==
+                (plan.timelineType == CompetitionTimelineType.submission
+                    ? '提交截止'
+                    : '比赛开始'),
+            onAddToCalendar: () => _addToCalendar(
+              label: plan.timelineType == CompetitionTimelineType.submission
+                  ? '提交截止'
+                  : '比赛开始',
+              date: plan.targetDate,
+            ),
+          ),
           const SizedBox(height: 12),
           PreparationPhaseTimeline(plan: plan, today: _today),
           const SizedBox(height: 12),
@@ -507,6 +540,66 @@ class _PreparationPlanDetailPageState
     await _repo.delete(plan.id);
     if (!mounted) return;
     Navigator.of(context).maybePop();
+  }
+
+  // ── 加入系统日历 / 编辑报名截止 ─────────────────────────────────────────
+  Future<void> _addToCalendar({
+    required String label,
+    required DateTime? date,
+  }) async {
+    if (date == null || _addingLabel != null) return;
+    setState(() => _addingLabel = label);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final event = CalendarDeadlineEvent(
+        title: '${_plan!.competition.name}·$label',
+        isoDay: CalendarDate.toIsoDay(date),
+        notes: '由 SchoNavi 备赛计划添加',
+      );
+      final result =
+          await ref.read(preparationReminderPlatformProvider).addDeadlineEvent(
+        event,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(_calendarResultMessage(result))));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('加入日历失败，请稍后重试')));
+    } finally {
+      if (mounted) setState(() => _addingLabel = null);
+    }
+  }
+
+  String _calendarResultMessage(CalendarAddResult r) => switch (r) {
+        CalendarAddResult.success => '已加入系统日历',
+        CalendarAddResult.fallbackIntentLaunched => '已打开日历 App，请确认保存',
+        CalendarAddResult.unsupported => '当前设备不支持，请手动添加',
+        CalendarAddResult.failed => '加入日历失败，请稍后重试',
+      };
+
+  Future<void> _editRegistrationDeadline() async {
+    final plan = _plan;
+    if (plan == null) return;
+    final today = _today;
+    final picked = await showPreparationDatePicker(
+      context: context,
+      mode: PreparationDatePickerMode.single,
+      firstDate: today.add(const Duration(days: 1)),
+      lastDate: plan.targetDate.subtract(const Duration(days: 1)),
+      initial: PreparationDateSelection(
+        single: plan.registrationDeadline ?? plan.targetDate,
+      ),
+    );
+    final value = picked?.single;
+    if (value == null) return; // 取消
+    // 选到的日期若 >= targetDate 视为非法，直接忽略（DatePicker 已约束 lastDate）
+    if (!value.isBefore(plan.targetDate)) return;
+    final updated = plan.copyWith(registrationDeadline: value);
+    await _saveAndRefresh(updated);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('报名截止已更新')),
+    );
   }
 
   // ── 保存 + 本地刷新 ─────────────────────────────────────────────────────

@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/platform/preparation_reminder_platform.dart';
 import 'package:scho_navi/domain/entities/preparation_plan.dart';
+import 'package:scho_navi/domain/entities/preparation_reminder.dart';
 import 'package:scho_navi/features/preparation/pages/preparation_plan_detail_page.dart';
 import 'package:scho_navi/features/preparation/providers/preparation_providers.dart';
+import 'package:scho_navi/features/preparation/providers/preparation_reminder_providers.dart';
+import 'package:scho_navi/features/preparation/widgets/preparation_anchor_bar.dart';
 
 PreparationPlan _plan() => PreparationPlan(
   id: 'p1',
@@ -49,6 +53,34 @@ PreparationPlan _plan() => PreparationPlan(
   createdAt: DateTime(2026, 6, 28),
   updatedAt: DateTime(2026, 6, 28),
 );
+
+class _FakeCalendarPlatform implements PreparationReminderPlatform {
+  CalendarAddResult nextResult = CalendarAddResult.success;
+  @override
+  Future<CalendarAddResult> addDeadlineEvent(
+    CalendarDeadlineEvent event,
+  ) async => nextResult;
+  @override
+  bool get isSupported => true;
+  @override
+  Future<void> syncSnapshot(PreparationReminderSnapshot snapshot) async {}
+  @override
+  Future<void> updateSchedule(ReminderPreferences preferences) async {}
+  @override
+  Future<ReminderNotificationStatus> getNotificationStatus() async =>
+      ReminderNotificationStatus.granted;
+  @override
+  Future<ReminderNotificationStatus> requestNotificationPermission() async =>
+      ReminderNotificationStatus.granted;
+  @override
+  Future<bool> pinWidget() async => false;
+  @override
+  Future<void> openNotificationSettings() async {}
+  @override
+  Future<String?> takeInitialRoute() async => null;
+  @override
+  void setRouteHandler(ReminderRouteHandler? handler) {}
+}
 
 void main() {
   setUp(() async => SharedPreferences.setMockInitialValues({}));
@@ -168,11 +200,13 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    // 打开添加任务对话框。
-    await t.tap(find.text('添加任务'));
+    // 新增的关键日期卡片把任务清单推到视口外；拖动 ListView 让「添加任务」可见。
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -300));
+    await t.pumpAndSettle();
+    await t.tap(find.text('添加任务'), warnIfMissed: false);
     await t.pumpAndSettle();
     // 点击日期行触发 showDatePicker；钳制后不应抛断言。
-    await t.tap(find.textContaining('截止：'));
+    await t.tap(find.textContaining('截止：'), warnIfMissed: false);
     await t.pump();
     expect(t.takeException(), isNull);
   });
@@ -191,8 +225,20 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    expect(find.textContaining('提交'), findsOneWidget);
-    expect(find.textContaining('答辩'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PreparationAnchorBar),
+        matching: find.textContaining('提交'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(PreparationAnchorBar),
+        matching: find.textContaining('答辩'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('defense_prep 阶段添加任务日期区间为提交后', (t) async {
@@ -397,5 +443,61 @@ void main() {
 
     // 4) 提交型不应改动 eventEndDate（本例无 eventEndDate，仍为 null）。
     expect(result.eventEndDate, isNull);
+  });
+
+  // ── 加入系统日历集成（Task 6） ──────────────────────────────────────────────
+  PreparationPlan deadlinePlan({DateTime? registrationDeadline}) =>
+      _plan().copyWith(registrationDeadline: registrationDeadline);
+
+  testWidgets('点加入日历成功显示已加入系统日历', (t) async {
+    final fake = _FakeCalendarPlatform()
+      ..nextResult = CalendarAddResult.success;
+    final container = await bootstrap();
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(deadlinePlan(registrationDeadline: DateTime(2026, 8, 15)));
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: ProviderScope(
+          overrides: [
+            preparationReminderPlatformProvider.overrideWithValue(fake),
+          ],
+          child: MaterialApp(
+            home: PreparationPlanDetailPage(planId: 'p1'),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('deadline-add-calendar')).first);
+    await t.pumpAndSettle();
+    expect(find.text('已加入系统日历'), findsOneWidget);
+  });
+
+  testWidgets('unsupported 时显示当前设备不支持', (t) async {
+    final fake = _FakeCalendarPlatform()
+      ..nextResult = CalendarAddResult.unsupported;
+    final container = await bootstrap();
+    await container
+        .read(preparationPlanRepositoryProvider)
+        .save(deadlinePlan(registrationDeadline: DateTime(2026, 8, 15)));
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: ProviderScope(
+          overrides: [
+            preparationReminderPlatformProvider.overrideWithValue(fake),
+          ],
+          child: MaterialApp(
+            home: PreparationPlanDetailPage(planId: 'p1'),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('deadline-add-calendar')).first);
+    await t.pumpAndSettle();
+    expect(find.text('当前设备不支持，请手动添加'), findsOneWidget);
   });
 }
