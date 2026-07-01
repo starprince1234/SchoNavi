@@ -249,6 +249,8 @@ class PreparationPhase {
 }
 
 /// 备赛计划
+const Object _registrationDeadlineUnset = Object();
+
 class PreparationPlan {
   const PreparationPlan({
     required this.id,
@@ -257,6 +259,7 @@ class PreparationPlan {
     this.timelineType = CompetitionTimelineType.submission,
     this.eventEndDate,
     this.defenseDate,
+    this.registrationDeadline,
     this.revision = 0,
     required this.weeklyCommitment,
     required this.experienceLevel,
@@ -275,6 +278,7 @@ class PreparationPlan {
   final CompetitionTimelineType timelineType;
   final DateTime? eventEndDate;
   final DateTime? defenseDate;
+  final DateTime? registrationDeadline;
   final int revision;
   final WeeklyCommitment weeklyCommitment;
   final ExperienceLevel experienceLevel;
@@ -293,6 +297,7 @@ class PreparationPlan {
     CompetitionTimelineType? timelineType,
     DateTime? eventEndDate,
     DateTime? defenseDate,
+    Object? registrationDeadline = _registrationDeadlineUnset,
     int? revision,
     WeeklyCommitment? weeklyCommitment,
     ExperienceLevel? experienceLevel,
@@ -310,6 +315,9 @@ class PreparationPlan {
     timelineType: timelineType ?? this.timelineType,
     eventEndDate: eventEndDate ?? this.eventEndDate,
     defenseDate: defenseDate ?? this.defenseDate,
+    registrationDeadline: identical(registrationDeadline, _registrationDeadlineUnset)
+        ? this.registrationDeadline
+        : registrationDeadline as DateTime?,
     revision: revision ?? this.revision,
     weeklyCommitment: weeklyCommitment ?? this.weeklyCommitment,
     experienceLevel: experienceLevel ?? this.experienceLevel,
@@ -331,6 +339,8 @@ class PreparationPlan {
       'event_end_date': CalendarDate.toIsoDay(eventEndDate!),
     if (defenseDate != null)
       'defense_date': CalendarDate.toIsoDay(defenseDate!),
+    if (registrationDeadline != null)
+      'registration_deadline': CalendarDate.toIsoDay(registrationDeadline!),
     'revision': revision,
     'weekly_commitment': weeklyCommitment.name,
     'experience_level': experienceLevel.name,
@@ -360,6 +370,9 @@ class PreparationPlan {
         defenseDate: json['defense_date'] == null
             ? null
             : CalendarDate.parseIsoDay(json['defense_date'] as String),
+        registrationDeadline: json['registration_deadline'] == null
+            ? null
+            : CalendarDate.parseIsoDay(json['registration_deadline'] as String),
         revision: (json['revision'] as int?) ?? 0,
         weeklyCommitment: WeeklyCommitment.values.byName(
           json['weekly_commitment'] as String,

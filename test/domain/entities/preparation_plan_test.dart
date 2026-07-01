@@ -145,6 +145,42 @@ void main() {
       expect(plan.revision, 0);
     });
   });
+
+  group('registrationDeadline', () {
+    test('registrationDeadline toJson/fromJson 往返', () {
+      final plan = _basePlan().copyWith(
+        registrationDeadline: DateTime(2026, 8, 15),
+      );
+      final json = plan.toJson();
+      expect(json['registration_deadline'], '2026-08-15');
+      final restored = PreparationPlan.fromJson(json);
+      expect(restored.registrationDeadline, DateTime(2026, 8, 15));
+    });
+
+    test('registrationDeadline 为 null 时不写入 JSON', () {
+      final plan = _basePlan().copyWith(); // 不设置
+      final json = plan.toJson();
+      expect(json.containsKey('registration_deadline'), isFalse);
+      expect(PreparationPlan.fromJson(json).registrationDeadline, isNull);
+    });
+
+    test('旧 JSON 无 registration_deadline 字段时容错为 null', () {
+      final json = _basePlan().toJson();
+      json.remove('registration_deadline');
+      expect(PreparationPlan.fromJson(json).registrationDeadline, isNull);
+    });
+
+    test('copyWith registrationDeadline=null 清空，不传保留旧值', () {
+      final plan = _basePlan().copyWith(registrationDeadline: DateTime(2026, 8, 15));
+      expect(plan.registrationDeadline, DateTime(2026, 8, 15));
+      // 不传 → 保留
+      final kept = plan.copyWith(targetDate: DateTime(2026, 9, 2));
+      expect(kept.registrationDeadline, DateTime(2026, 8, 15));
+      // 显式传 null → 清空
+      final cleared = plan.copyWith(registrationDeadline: null);
+      expect(cleared.registrationDeadline, isNull);
+    });
+  });
 }
 
 CompetitionSnapshot _comp() => CompetitionSnapshot(
@@ -158,4 +194,28 @@ CompetitionSnapshot _comp() => CompetitionSnapshot(
     format: '现场',
     organizer: '某',
   ),
+);
+
+PreparationPlan _basePlan() => PreparationPlan(
+  id: 'p1',
+  competition: CompetitionSnapshot(
+    id: 'c1',
+    name: 'ACM-ICPC',
+    category: '计算机类',
+    rulesSummary: CompetitionRulesSummary(
+      signupTime: '',
+      contestTime: '',
+      teamSize: '',
+      format: '',
+      organizer: '',
+      officialUrl: null,
+    ),
+  ),
+  targetDate: DateTime(2026, 9, 1),
+  weeklyCommitment: WeeklyCommitment.hours6to10,
+  experienceLevel: ExperienceLevel.beginner,
+  status: PreparationPlanStatus.active,
+  phases: const [],
+  createdAt: DateTime(2026, 6, 28),
+  updatedAt: DateTime(2026, 6, 28),
 );
