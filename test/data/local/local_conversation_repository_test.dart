@@ -1,12 +1,8 @@
-import 'dart:io';
-
-import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/result/result.dart';
-import 'package:scho_navi/data/local/conversation_database.dart';
-import 'package:scho_navi/data/local/drift_conversation_store.dart';
 import 'package:scho_navi/data/local/local_conversation_repository.dart';
+import 'package:scho_navi/data/local/memory_conversation_store.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
 import 'package:scho_navi/domain/entities/conversation_event.dart';
@@ -114,7 +110,7 @@ class _QuickActions implements QuickActionsSource {
 }
 
 LocalConversationRepository _repository(
-  DriftConversationStore store,
+  MemoryConversationStore store,
   LlmClient llm,
   _Classifier classifier,
 ) => LocalConversationRepository(
@@ -128,19 +124,15 @@ LocalConversationRepository _repository(
 );
 
 void main() {
-  late ConversationDatabase database;
-  late DriftConversationStore store;
+  late MemoryConversationStore store;
   late _Classifier classifier;
 
   setUp(() {
-    database = ConversationDatabase(NativeDatabase.memory());
-    store = DriftConversationStore(database);
+    store = MemoryConversationStore();
     classifier = _Classifier();
   });
 
-  tearDown(() => database.close());
-
-  test('重建 repository 后从数据库恢复推荐与对话上下文', () async {
+  test('重建 repository 后从同一内存 store 恢复推荐与对话上下文', () async {
     final first = _repository(store, _RecordingLlm('unused'), classifier);
     final created = (await first.createSession() as Success).data;
     final firstEvents = await first
@@ -269,7 +261,7 @@ void main() {
     expect(await repo.loadSession(fork.id), isA<Failure>());
   });
 
-  test('助手反馈持久化并在 repository 重建后恢复', () async {
+  test('助手反馈保存到内存 store 并在 repository 重建后恢复', () async {
     final repo = _repository(store, _RecordingLlm('回答'), classifier);
     final created = (await repo.createSession() as Success).data;
     await repo
@@ -443,31 +435,23 @@ void main() {
     expect(await store.latestCheckpoint(session.id), isNotNull);
   });
 
-  test('数据库重开将遗留活动 turn 和 attempt 原子恢复为 interrupted', () async {
-    final directory = await Directory.systemTemp.createTemp(
-      'scho-navi-conversation-',
-    );
-    final file = File('${directory.path}${Platform.pathSeparator}chat.sqlite');
-    final firstDatabase = ConversationDatabase(NativeDatabase(file));
-    final firstStore = DriftConversationStore(firstDatabase);
-    final session = await firstStore.createSession();
-    await firstStore.beginTurn(
-      sessionId: session.id,
-      text: '尚未完成的问题',
-      expectedRevision: 0,
-    );
-    await firstDatabase.close();
+  test('新内存 store 不恢复上一实例的会话', () async {
+    final firstStore = MemoryConversationStore();
+    final first = _repository(firstStore, _RecordingLlm('回答'), classifier);
+    final created = (await first.createSession() as Success).data;
+    await first
+        .submitTurn(
+          sessionId: created.id,
+          text: '推荐计算机视觉导师',
+          expectedRevision: 0,
+        )
+        .toList();
 
-    final reopenedDatabase = ConversationDatabase(NativeDatabase(file));
-    try {
-      final reopenedStore = DriftConversationStore(reopenedDatabase);
-      final aggregate = await reopenedStore.loadAggregate(session.id);
-      expect(aggregate, isNotNull);
-      expect(aggregate!.session.revision, 1);
-      expect(aggregate.turns.single.status, ConversationTurnStatus.interrupted);
-    } finally {
-      await reopenedDatabase.close();
-      await directory.delete(recursive: true);
-    }
+    final secondStore = MemoryConversationStore();
+    final second = _repository(secondStore, _RecordingLlm('回答'), classifier);
+
+    expect(await second.loadSession(created.id), isA<Failure>());
+    final sessions = (await second.listSessions() as Success).data;
+    expect(sessions, isEmpty);
   });
 }

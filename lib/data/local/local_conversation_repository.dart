@@ -17,7 +17,7 @@ import '../../domain/repositories/recommendation_repository.dart';
 import '../../shared/utils/quick_actions_source.dart';
 import '../../shared/utils/recommendation_need_classifier.dart';
 import '../mock/mock_db.dart';
-import 'drift_conversation_store.dart';
+import 'conversation_store.dart';
 
 class LocalConversationRepository implements ConversationRepository {
   LocalConversationRepository({
@@ -32,7 +32,7 @@ class LocalConversationRepository implements ConversationRepository {
     UuidV7? ids,
   }) : ids = ids ?? store.ids;
 
-  final DriftConversationStore store;
+  final ConversationStore store;
   final LlmClient llm;
   final RecommendationRepository recommendations;
   final RecommendationNeedClassifier classifier;

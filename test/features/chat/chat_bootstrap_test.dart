@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
+import 'package:scho_navi/data/local/local_conversation_repository.dart';
+import 'package:scho_navi/data/local/memory_conversation_store.dart';
+import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
-import 'package:scho_navi/domain/entities/chat_result.dart';
 import 'package:scho_navi/domain/entities/competition_recommendation_result.dart';
 import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/query_understanding.dart';
@@ -14,85 +17,40 @@ import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/entities/recommendation_result.dart';
 import 'package:scho_navi/domain/entities/search_history_item.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
-import 'package:scho_navi/domain/entities/fork_ref.dart';
-import 'package:scho_navi/domain/repositories/chat_repository.dart';
+import 'package:scho_navi/domain/repositories/conversation_repository.dart';
 import 'package:scho_navi/domain/repositories/history_repository.dart';
 import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/domain/repositories/recommendation_repository.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
+import 'package:scho_navi/shared/utils/quick_actions_source.dart';
 import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
 
-/// 可控流式 chat 仓储：记录推荐上下文注入，普通追问返回固定流。
-class _StreamChatRepo implements ChatRepository {
-  _StreamChatRepo(this.stream);
+class _RecordingLlm implements LlmClient {
+  _RecordingLlm(this.answer);
 
-  final Stream<String> Function() stream;
-  int seedCalls = 0;
-  String? lastSeedSessionId;
-  RecommendationResult? lastSeedResult;
+  final String answer;
   int streamCalls = 0;
-  String? lastSessionId;
-  String? lastMessage;
 
   @override
-  Future<Result<ChatResult>> sendMessage({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) async => throw UnimplementedError();
+  Future<Result<String>> complete({
+    required List<LlmMessage> messages,
+    bool jsonMode = false,
+    double temperature = 0.7,
+  }) async => const Success('摘要');
 
   @override
-  Future<void> seedRecommendationTurn({
-    required String sessionId,
-    required String userPrompt,
-    required RecommendationResult result,
-  }) async {
-    seedCalls++;
-    lastSeedSessionId = sessionId;
-    lastSeedResult = result;
-  }
-
-  @override
-  Future<void> persistMessages(
-    String sessionId,
-    List<ChatMessage> messages,
-  ) async {}
-
-  @override
-  Stream<String> streamReply({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) {
+  Stream<String> stream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+  }) async* {
     streamCalls++;
-    lastSessionId = sessionId;
-    lastMessage = message;
-    return stream();
+    yield answer;
   }
-
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async => throw UnimplementedError();
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async =>
-      throw UnimplementedError();
 }
 
 class _FakeRecRepo implements RecommendationRepository {
   _FakeRecRepo(this._result);
+
   final Result<RecommendationResult> _result;
   int calls = 0;
   String? lastPrompt;
@@ -142,8 +100,10 @@ class _QueueRecRepo implements RecommendationRepository {
 
 class _FakeNeedClassifier implements RecommendationNeedClassifier {
   _FakeNeedClassifier(this._value);
+
   final bool _value;
   int calls = 0;
+
   @override
   Future<bool> needRecommendations(
     String followUp, {
@@ -168,6 +128,14 @@ class _BlockingNeedClassifier implements RecommendationNeedClassifier {
   }
 }
 
+class _QuickActions implements QuickActionsSource {
+  @override
+  Future<Result<List<String>>> fetch({
+    required String followUp,
+    RecommendationResult? lastResult,
+  }) async => const Success(['继续了解']);
+}
+
 class _FakeProfileRepo implements ProfileRepository {
   @override
   UserProfile load() => const UserProfile();
@@ -179,9 +147,7 @@ class _FakeProfileRepo implements ProfileRepository {
   Future<void> clear() async {}
 }
 
-/// 内存假 history 仓储，避免 sharedPrefs 依赖，聚焦 chat 逻辑测试。
 class _FakeHistoryRepo implements HistoryRepository {
-  int addCalls = 0;
   @override
   List<SearchHistoryItem> list() => const [];
   @override
@@ -190,10 +156,7 @@ class _FakeHistoryRepo implements HistoryRepository {
   Future<void> addFromResult({
     required String prompt,
     required RecommendationResult result,
-  }) async {
-    addCalls++;
-  }
-
+  }) async {}
   @override
   Future<void> addFromCompetitionResult({
     required String prompt,
@@ -205,7 +168,7 @@ class _FakeHistoryRepo implements HistoryRepository {
   Future<void> clear() async {}
 }
 
-RecommendationResult _recResult({String sessionId = 's_rec'}) =>
+RecommendationResult _recResult({String sessionId = ''}) =>
     RecommendationResult(
       sessionId: sessionId,
       queryUnderstanding: const QueryUnderstanding(
@@ -243,15 +206,11 @@ RecommendationResult _recResult({String sessionId = 's_rec'}) =>
     );
 
 ProviderContainer _container({
-  required ChatRepository chatRepo,
-  required RecommendationRepository recRepo,
-  required RecommendationNeedClassifier needClassifier,
+  required ConversationRepository conversationRepo,
 }) {
   final container = ProviderContainer(
     overrides: [
-      chatRepositoryProvider.overrideWithValue(chatRepo),
-      recommendationRepositoryProvider.overrideWithValue(recRepo),
-      recommendationNeedClassifierProvider.overrideWithValue(needClassifier),
+      conversationRepositoryProvider.overrideWithValue(conversationRepo),
       profileRepositoryProvider.overrideWithValue(_FakeProfileRepo()),
       historyRepositoryProvider.overrideWithValue(_FakeHistoryRepo()),
     ],
@@ -260,278 +219,267 @@ ProviderContainer _container({
   return container;
 }
 
+LocalConversationRepository _conversationRepo({
+  required MemoryConversationStore store,
+  required LlmClient llm,
+  required RecommendationRepository recRepo,
+  required RecommendationNeedClassifier needClassifier,
+}) {
+  return LocalConversationRepository(
+    store: store,
+    llm: llm,
+    recommendations: recRepo,
+    classifier: needClassifier,
+    quickActions: _QuickActions(),
+    db: MockDb(),
+    profile: () => const UserProfile(),
+  );
+}
+
 final _chatTestProvider = chatProvider(Object());
 
 void main() {
   test('bootstrapRecommendations：首轮产用户消息 + 助手消息含推荐卡片', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['可以']));
+    final store = MemoryConversationStore();
     final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final llm = _RecordingLlm('可以');
+    final repo = _conversationRepo(
+      store: store,
+      llm: llm,
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    container.read(_chatTestProvider.notifier).start(sessionId: 'tmp');
+    await container.read(_chatTestProvider.notifier).create();
+    final initialSession = container.read(_chatTestProvider).sessionId!;
     await container
         .read(_chatTestProvider.notifier)
         .bootstrapRecommendations('想做计算机视觉，想去北京');
-    await container.pump();
 
     final state = container.read(_chatTestProvider);
-    expect(state.sessionId, 's_rec'); // 用 result.sessionId
+    expect(state.sessionId, initialSession);
     expect(state.messages, hasLength(2));
     expect(state.messages[0].role, ChatRole.user);
     expect(state.messages[0].content, '想做计算机视觉，想去北京');
     expect(state.messages[1].role, ChatRole.assistant);
     expect(state.messages[1].status, ChatMessageStatus.done);
+    expect(state.messages[1].kind, ChatMessageKind.recommendation);
     expect(state.messages[1].relatedRecommendations, hasLength(2));
     expect(state.messages[1].relatedRecommendations.first.name, '张三');
-    // 开场白应含「为你挑了 N 位」。
     expect(state.messages[1].content, contains('为你挑了'));
-    // 推荐上下文被注入，sessionId 与推荐结果一致。
-    expect(chat.seedCalls, 1);
-    expect(chat.lastSeedSessionId, 's_rec');
-    expect(chat.lastSeedResult?.sessionId, 's_rec');
-    // 推荐轮不再额外调用聊天 LLM。
-    expect(chat.streamCalls, 0);
     expect(rec.calls, 1);
-    expect(rec.lastSessionId, 'tmp');
+    expect(rec.lastSessionId, initialSession);
+    expect(llm.streamCalls, 0);
     expect(state.followUpQuestions, ['只看北京', '偏理论']);
   });
 
-  test('bootstrapRecommendations 守卫：messages 非空时不重复产卡', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
-    final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+  test('bootstrapRecommendations 守卫：busy 时重复提交被忽略', () async {
+    final store = MemoryConversationStore();
+    final rec = _CompleterRecRepo();
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
-    await notifier.bootstrapRecommendations('第一次');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
+    final pending = notifier.bootstrapRecommendations('第一次');
     await container.pump();
-    expect(rec.calls, 1);
 
-    // 第二次调用：已有消息，应被守卫忽略。
+    expect(container.read(_chatTestProvider).activity, ChatActivity.classifying);
     await notifier.bootstrapRecommendations('第二次');
-    await container.pump();
-    expect(rec.calls, 1); // 不再调推荐仓储
-    expect(container.read(_chatTestProvider).messages, hasLength(2)); // 消息不增加
+    await notifier.send('重复追问');
+
+    rec.completer.complete(Success(_recResult()));
+    await pending;
+    expect(rec.calls, 1);
+    final messages = container.read(_chatTestProvider).messages;
+    expect(messages, hasLength(2));
+    expect(messages.any((message) => message.content == '第二次'), isFalse);
+    expect(messages.any((message) => message.content == '重复追问'), isFalse);
   });
 
   test('追问经 needClassifier 命中：新助手消息含推荐卡片', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['好的']));
+    final store = MemoryConversationStore();
+    final need = _FakeNeedClassifier(true);
     final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(true); // 命中产卡
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('好的'),
       recRepo: rec,
       needClassifier: need,
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
-    await container.pump();
-
     await notifier.send('只看上海的');
-    await container.pump();
 
     final msgs = container.read(_chatTestProvider).messages;
-    expect(msgs, hasLength(4)); // user, assistant(首轮), user(追问), assistant(追问)
-    final followupAssistant = msgs.last;
-    expect(followupAssistant.role, ChatRole.assistant);
-    expect(followupAssistant.relatedRecommendations, hasLength(2));
+    expect(msgs, hasLength(4));
+    expect(msgs.last.role, ChatRole.assistant);
+    expect(msgs.last.kind, ChatMessageKind.recommendation);
+    expect(msgs.last.relatedRecommendations, hasLength(2));
     expect(need.calls, 1);
-    expect(rec.calls, 2); // 首轮 + 追问各一次
+    expect(rec.calls, 2);
   });
 
   test('追问未命中：纯文字流式，无推荐卡片', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['解释']));
+    final store = MemoryConversationStore();
+    final need = _FakeNeedClassifier(false);
     final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(false); // 不产卡
-    final container = _container(
-      chatRepo: chat,
+    final llm = _RecordingLlm('解释');
+    final repo = _conversationRepo(
+      store: store,
+      llm: llm,
       recRepo: rec,
       needClassifier: need,
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
-    await container.pump();
-
     await notifier.send('为什么推荐他');
-    await container.pump();
 
     final followupAssistant = container.read(_chatTestProvider).messages.last;
     expect(followupAssistant.role, ChatRole.assistant);
+    expect(followupAssistant.kind, ChatMessageKind.conversation);
+    expect(followupAssistant.content, '解释');
     expect(followupAssistant.relatedRecommendations, isEmpty);
-    expect(rec.calls, 1); // 仅首轮，追问未再调
+    expect(rec.calls, 1);
+    expect(llm.streamCalls, 1);
   });
 
   test('推荐获取失败：显示可重试的推荐错误，不调用聊天流', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['兜底回复']));
+    final store = MemoryConversationStore();
     final rec = _FakeRecRepo(const Failure(ServerException()));
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final llm = _RecordingLlm('兜底回复');
+    final repo = _conversationRepo(
+      store: store,
+      llm: llm,
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
-    await container.pump();
 
     final msgs = container.read(_chatTestProvider).messages;
     expect(msgs, hasLength(2));
     final assistant = msgs.last;
     expect(assistant.role, ChatRole.assistant);
     expect(assistant.status, ChatMessageStatus.error);
-    expect(assistant.kind, ChatMessageKind.recommendation);
     expect(assistant.relatedRecommendations, isEmpty);
-    expect(chat.streamCalls, 0);
+    expect(llm.streamCalls, 0);
   });
 
   test('regenerate 不重新调用推荐仓储（卡片沿用原结果）', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['再答']));
+    final store = MemoryConversationStore();
     final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('再答'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
-    await container.pump();
     final recCallsBefore = rec.calls;
 
     await notifier.regenerate();
-    await container.pump();
 
-    expect(rec.calls, recCallsBefore); // regenerate 没多调推荐
-  });
-
-  test('推荐请求未完成时重复提交被忽略', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
-    final rec = _CompleterRecRepo();
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
-      recRepo: rec,
-      needClassifier: need,
-    );
-    addTearDown(container.dispose);
-
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 's_unique');
-    final pending = notifier.bootstrapRecommendations('第一次');
-    await container.pump();
-
-    expect(
-      container.read(_chatTestProvider).activity,
-      ChatActivity.recommending,
-    );
-    await notifier.bootstrapRecommendations('第二次');
-    await notifier.send('重复追问');
-    expect(rec.calls, 1);
-    expect(
-      container.read(_chatTestProvider).messages,
-      hasLength(2),
-    ); // user + 占位
-
-    rec.completer.complete(Success(_recResult(sessionId: 's_unique')));
-    await pending;
-    expect(container.read(_chatTestProvider).messages, hasLength(2));
+    expect(rec.calls, recCallsBefore);
   });
 
   test('分类未完成时重复发送只保留第一条用户消息', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['解释']));
-    final rec = _FakeRecRepo(Success(_recResult()));
+    final store = MemoryConversationStore();
     final need = _BlockingNeedClassifier();
-    final container = _container(
-      chatRepo: chat,
-      recRepo: rec,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('解释'),
+      recRepo: _FakeRecRepo(Success(_recResult())),
       needClassifier: need,
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 's1');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create(professorId: 'p_001');
     final pending = notifier.send('第一条');
     await container.pump();
     await notifier.send('第二条');
 
-    expect(need.calls, 1);
-    expect(
-      container.read(_chatTestProvider).activity,
-      ChatActivity.classifying,
-    );
-    expect(container.read(_chatTestProvider).messages, hasLength(1));
-
     need.completer.complete(false);
     await pending;
-    expect(container.read(_chatTestProvider).messages, hasLength(2));
+    expect(need.calls, 1);
+    final messages = container.read(_chatTestProvider).messages;
+    expect(messages.where((message) => message.content == '第一条'), hasLength(1));
+    expect(messages.any((message) => message.content == '第二条'), isFalse);
+    expect(messages.last.content, '解释');
   });
 
   test('切换会话后旧推荐结果不能覆盖新会话', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final store = MemoryConversationStore();
     final rec = _CompleterRecRepo();
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'old');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
+    final oldSession = container.read(_chatTestProvider).sessionId!;
     final pending = notifier.bootstrapRecommendations('旧请求');
     await container.pump();
 
-    notifier.start(sessionId: 'new');
-    rec.completer.complete(Success(_recResult(sessionId: 'old')));
+    await notifier.create();
+    final newSession = container.read(_chatTestProvider).sessionId!;
+    rec.completer.complete(Success(_recResult(sessionId: oldSession)));
     await pending;
 
     final state = container.read(_chatTestProvider);
-    expect(state.sessionId, 'new');
+    expect(state.sessionId, newSession);
     expect(state.messages, isEmpty);
-    expect(chat.seedCalls, 0);
   });
 
   test('推荐失败后可重试并成功产卡', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final store = MemoryConversationStore();
     final rec = _QueueRecRepo([
       const Failure(ServerException()),
       Success(_recResult()),
     ]);
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 's1');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
     final errorMessage = container.read(_chatTestProvider).messages.last;
     expect(errorMessage.status, ChatMessageStatus.error);
@@ -539,39 +487,29 @@ void main() {
     await notifier.retryRecommendation(errorMessage.id);
     final state = container.read(_chatTestProvider);
     expect(rec.calls, 2);
-    expect(state.messages, hasLength(2));
+    expect(state.messages.last.status, ChatMessageStatus.done);
     expect(state.messages.last.relatedRecommendations, isNotEmpty);
   });
 
-  test('bootstrap 进行中：末尾为 sending 占位助手消息', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+  test('bootstrap 完成后占位替换为推荐结果', () async {
+    final store = MemoryConversationStore();
     final rec = _CompleterRecRepo();
-    final need = _FakeNeedClassifier(false);
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(false),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     final pending = notifier.bootstrapRecommendations('想做CV');
     await container.pump();
 
-    final msgs = container.read(_chatTestProvider).messages;
-    expect(msgs, hasLength(2)); // user + 占位
-    expect(msgs[0].role, ChatRole.user);
-    expect(msgs[1].role, ChatRole.assistant);
-    expect(msgs[1].status, ChatMessageStatus.sending);
-    expect(msgs[1].kind, ChatMessageKind.recommendation);
-    expect(msgs[1].content, '');
-    expect(msgs[1].relatedRecommendations, isEmpty);
-
     rec.completer.complete(Success(_recResult()));
     await pending;
-    await container.pump();
-    // 完成后占位被替换为结果消息，仍是 2 条。
     final done = container.read(_chatTestProvider).messages;
     expect(done, hasLength(2));
     expect(done[1].status, ChatMessageStatus.done);
@@ -579,26 +517,24 @@ void main() {
   });
 
   test('send 推荐命中：占位替换为结果，不追加第三条', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
+    final store = MemoryConversationStore();
     final rec = _FakeRecRepo(Success(_recResult()));
-    final need = _FakeNeedClassifier(true); // 追问命中产卡
-    final container = _container(
-      chatRepo: chat,
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(true),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
-    await notifier.bootstrapRecommendations('想做CV'); // 首轮 2 条
-    await container.pump();
-
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
+    await notifier.bootstrapRecommendations('想做CV');
     await notifier.send('只看北京的');
-    await container.pump();
 
     final msgs = container.read(_chatTestProvider).messages;
-    expect(msgs, hasLength(4)); // user, assistant(首轮), user(追问), assistant(追问)
+    expect(msgs, hasLength(4));
     expect(msgs.last.role, ChatRole.assistant);
     expect(msgs.last.status, ChatMessageStatus.done);
     expect(msgs.last.kind, ChatMessageKind.recommendation);
@@ -606,27 +542,62 @@ void main() {
   });
 
   test('send 推荐失败：占位替换为 error，不追加第三条', () async {
-    final chat = _StreamChatRepo(() => Stream.fromIterable(const ['x']));
-    final rec = _FakeRecRepo(const Failure(ServerException()));
-    final need = _FakeNeedClassifier(true); // 命中产卡但推荐失败
-    final container = _container(
-      chatRepo: chat,
+    final store = MemoryConversationStore();
+    final rec = _QueueRecRepo([
+      Success(_recResult()),
+      const Failure(ServerException()),
+    ]);
+    final repo = _conversationRepo(
+      store: store,
+      llm: _RecordingLlm('x'),
       recRepo: rec,
-      needClassifier: need,
+      needClassifier: _FakeNeedClassifier(true),
     );
+    final container = _container(conversationRepo: repo);
     addTearDown(container.dispose);
 
-    final notifier = container.read(_chatTestProvider.notifier)
-      ..start(sessionId: 'tmp');
+    final notifier = container.read(_chatTestProvider.notifier);
+    await notifier.create();
     await notifier.bootstrapRecommendations('想做CV');
-    await container.pump();
-
     await notifier.send('只看北京的');
-    await container.pump();
 
     final msgs = container.read(_chatTestProvider).messages;
     expect(msgs, hasLength(4));
     expect(msgs.last.status, ChatMessageStatus.error);
-    expect(msgs.last.kind, ChatMessageKind.recommendation);
+  });
+
+  test('新内存 store 会话不跨 provider/repository 实例恢复', () async {
+    final firstStore = MemoryConversationStore();
+    final first = _conversationRepo(
+      store: firstStore,
+      llm: _RecordingLlm('x'),
+      recRepo: _FakeRecRepo(Success(_recResult())),
+      needClassifier: _FakeNeedClassifier(false),
+    );
+    final firstContainer = _container(conversationRepo: first);
+    addTearDown(firstContainer.dispose);
+
+    final firstNotifier = firstContainer.read(_chatTestProvider.notifier);
+    await firstNotifier.create();
+    await firstNotifier.bootstrapRecommendations('想做CV');
+    final oldSession = firstContainer.read(_chatTestProvider).sessionId!;
+
+    final second = _conversationRepo(
+      store: MemoryConversationStore(),
+      llm: _RecordingLlm('x'),
+      recRepo: _FakeRecRepo(Success(_recResult())),
+      needClassifier: _FakeNeedClassifier(false),
+    );
+    final secondContainer = _container(conversationRepo: second);
+    addTearDown(secondContainer.dispose);
+
+    await secondContainer.read(_chatTestProvider.notifier).start(
+          sessionId: oldSession,
+        );
+
+    expect(
+      secondContainer.read(_chatTestProvider).activity,
+      ChatActivity.loadFailed,
+    );
   });
 }

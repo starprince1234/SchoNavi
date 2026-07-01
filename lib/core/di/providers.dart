@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -27,13 +28,11 @@ import '../../data/http/http_feedback_repository.dart';
 import '../../data/http/http_history_repository.dart';
 import '../../data/http/http_home_config_repository.dart';
 import '../../data/local/local_chat_history_store.dart';
-import '../../data/local/conversation_database.dart';
-import '../../data/local/conversation_legacy_migrator.dart';
-import '../../data/local/drift_conversation_store.dart';
 import '../../data/local/local_conversation_repository.dart';
 import '../../data/local/local_favorite_repository.dart';
 import '../../data/local/local_history_repository.dart';
 import '../../data/local/local_profile_repository.dart';
+import '../../data/local/memory_conversation_store.dart';
 import '../../data/mock/mock_db.dart';
 import '../../data/mock/mock_professor_repository.dart';
 import '../../data/http/http_home_prompt_repository.dart';
@@ -259,39 +258,18 @@ final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   }
 });
 
-final conversationDatabaseProvider = Provider<ConversationDatabase>((ref) {
-  final database = ConversationDatabase();
-  ref.onDispose(database.close);
-  return database;
-});
-
-final conversationStoreProvider = Provider<DriftConversationStore>((ref) {
-  return DriftConversationStore(ref.watch(conversationDatabaseProvider));
-});
-
-final conversationLegacyMigratorProvider = Provider<ConversationLegacyMigrator>(
-  (ref) {
-    return ConversationLegacyMigrator(
-      store: ref.watch(conversationStoreProvider),
-      legacyStore: ref.watch(localStoreProvider),
-    );
-  },
-);
-
 final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
   final cfg = ref.watch(appConfigProvider);
   switch (cfg.dataSource) {
     case DataSource.llm:
       return LocalConversationRepository(
-        store: ref.watch(conversationStoreProvider),
+        store: MemoryConversationStore(),
         llm: ref.watch(llmClientProvider),
         recommendations: ref.watch(recommendationRepositoryProvider),
         classifier: ref.watch(recommendationNeedClassifierProvider),
         quickActions: ref.watch(quickActionsSourceProvider),
         db: ref.watch(mockDbProvider),
         profile: () => ref.read(profileRepositoryProvider).load(),
-        initialize: () =>
-            ref.read(conversationLegacyMigratorProvider).migrateIfNeeded(),
       );
     case DataSource.http:
       return HttpConversationRepository(ref.watch(apiDioProvider));
@@ -403,6 +381,43 @@ final sharedPreferencesProvider = Provider<SharedPreferences>(
 final localStoreProvider = Provider<LocalStore>(
   (ref) => SharedPreferencesLocalStore(ref.watch(sharedPreferencesProvider)),
 );
+
+const appThemeModePreferenceKey = 'themeMode';
+
+final appThemeModeProvider =
+    NotifierProvider<AppThemeModeController, ThemeMode>(
+      AppThemeModeController.new,
+    );
+
+class AppThemeModeController extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() {
+    final raw = ref
+        .watch(localStoreProvider)
+        .getString(appThemeModePreferenceKey);
+    return _decode(raw);
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    state = mode;
+    await ref
+        .read(localStoreProvider)
+        .setString(appThemeModePreferenceKey, _encode(mode));
+  }
+
+  static ThemeMode _decode(String? value) => switch (value) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.system,
+  };
+
+  static String _encode(ThemeMode mode) => switch (mode) {
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+  };
+}
 
 /// 外链打开（教师主页等）。feature 层只依赖 [LinkLauncher] 接口，便于注入假实现。
 final linkLauncherProvider = Provider<LinkLauncher>(
