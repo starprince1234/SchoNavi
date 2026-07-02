@@ -47,4 +47,22 @@ void main() {
     await tester.tap(find.text('回首页重挑 ›'));
     expect(tapped, isTrue);
   });
+
+  testWidgets('forkReroute 已接线 onRegenerate 仍不显示重新生成按钮', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageBubble(
+            message: _reroute(),
+            onTapRecommendation: (_) {},
+            onRegenerate: (_) {},
+            onRerouteHome: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('重新生成'), findsNothing);
+    expect(find.byTooltip('复制'), findsNothing);
+    expect(find.text('继续问这位'), findsOneWidget);
+  });
 }

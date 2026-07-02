@@ -85,8 +85,11 @@ class _FakeConversationRepo implements ConversationRepository {
       const Success(null);
 }
 
-Future<Widget> _harness(UserProfile profile) async {
-  SharedPreferences.setMockInitialValues(<String, Object>{});
+Future<Widget> _harness(UserProfile profile, {bool agreed = false}) async {
+  final initial = <String, Object>{
+    if (agreed) 'privacy_agreed': true,
+  };
+  SharedPreferences.setMockInitialValues(initial);
   final prefs = await SharedPreferences.getInstance();
   final container = ProviderContainer(
     overrides: [
@@ -125,6 +128,10 @@ Future<Widget> _harness(UserProfile profile) async {
         path: '/profile/intro',
         builder: (_, _) => const Scaffold(body: Text('intro-page')),
       ),
+      GoRoute(
+        path: '/profile/privacy',
+        builder: (_, _) => const Scaffold(body: Text('privacy-page')),
+      ),
     ],
   );
 
@@ -135,8 +142,8 @@ Future<Widget> _harness(UserProfile profile) async {
 }
 
 void main() {
-  testWidgets('空 profile：点档案头进入 /profile/intro', (tester) async {
-    await tester.pumpWidget(await _harness(const UserProfile()));
+  testWidgets('空 profile + 已同意隐私：点档案头进入 /profile/intro', (tester) async {
+    await tester.pumpWidget(await _harness(const UserProfile(), agreed: true));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Open drawer'));
@@ -146,6 +153,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('intro-page'), findsOneWidget);
+    expect(find.text('privacy-page'), findsNothing);
+  });
+
+  testWidgets('空 profile + 未同意隐私：点档案头进入 /profile/privacy', (tester) async {
+    await tester.pumpWidget(await _harness(const UserProfile(), agreed: false));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open drawer'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('档案'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('privacy-page'), findsOneWidget);
+    expect(find.text('intro-page'), findsNothing);
   });
 
   testWidgets('非空 profile：点档案头进入 /profile', (tester) async {

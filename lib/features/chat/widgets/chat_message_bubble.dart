@@ -211,6 +211,7 @@ class ChatMessageBubble extends StatelessWidget {
 
   bool get _showActions =>
       message.role == ChatRole.assistant &&
+      message.kind != ChatMessageKind.forkReroute &&
       message.status == ChatMessageStatus.done &&
       (onRegenerate != null ||
           onFeedback != null ||

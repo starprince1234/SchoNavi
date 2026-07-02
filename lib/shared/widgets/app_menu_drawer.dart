@@ -34,12 +34,17 @@ class AppMenuDrawer extends ConsumerWidget {
           children: [
             // ── 顶部档案入口 ─────────────────────────────────────────────
             _ProfileHeader(
-              onTap: () => _navigate(
-                context,
-                ref.read(profileProvider).isEmpty
-                    ? '/profile/intro'
-                    : '/profile',
-              ),
+              onTap: () {
+                final profile = ref.read(profileProvider);
+                final agreed = ref.read(localStoreProvider).getBool(
+                  'privacy_agreed',
+                ) ??
+                    false;
+                final target = profile.isEmpty
+                    ? (agreed ? '/profile/intro' : '/profile/privacy')
+                    : '/profile';
+                _navigate(context, target);
+              },
             ),
             Divider(height: 1, color: scheme.outline),
 
