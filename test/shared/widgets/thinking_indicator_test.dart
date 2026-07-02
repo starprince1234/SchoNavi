@@ -111,6 +111,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull);
   });
+
+  test('深色模式光纹峰值色比浅色模式更暗（适配明暗）', () {
+    final lightPeak = ThinkingIndicator.shimmerPeakColorFor(Brightness.light);
+    final darkPeak = ThinkingIndicator.shimmerPeakColorFor(Brightness.dark);
+    final lightArgb = lightPeak.toARGB32();
+    final darkArgb = darkPeak.toARGB32();
+
+    // RGB 三通道均为 255（白色高光，色相一致仅明度切换）。
+    expect((lightArgb >> 16) & 0xFF, 0xFF);
+    expect((lightArgb >> 8) & 0xFF, 0xFF);
+    expect(lightArgb & 0xFF, 0xFF);
+    expect((darkArgb >> 16) & 0xFF, 0xFF);
+    expect((darkArgb >> 8) & 0xFF, 0xFF);
+    expect(darkArgb & 0xFF, 0xFF);
+
+    // 浅色保持原 35%（0x59），确保不回归既有视觉。
+    expect((lightArgb >> 24) & 0xFF, 0x59);
+    // 深色模式 alpha 必须低于浅色，避免在 indigo→cyan 渐变填充上过刺眼。
+    expect((darkArgb >> 24) & 0xFF, lessThan(0x59));
+  });
 }
 
 /// 读取第 i 个圆点 Transform.translate 的 vertical offset。
