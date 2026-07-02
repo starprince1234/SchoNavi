@@ -2,16 +2,50 @@ package com.example.scho_navi
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
-import java.time.LocalDate
 import java.time.ZonedDateTime
+
+data class Digest(
+    val remainingToday: Int,
+    val upcomingDeadlines: Int,
+    val nearestDeadlineName: String?,
+    val nearestDeadlineDay: String?,
+)
+
+object ReminderDigest {
+    fun project(snapshot: ReminderSnapshot, today: java.time.LocalDate): Digest {
+        val todayStr = today.toString()
+        var remaining = 0
+        var upcoming = 0
+        var nearest: ReminderPlan? = null
+        for (plan in snapshot.plans) {
+            remaining += plan.pendingTasks.count { it.dueIsoDay == todayStr }
+            val target = runCatching { java.time.LocalDate.parse(plan.targetDate) }.getOrNull()
+            if (target != null && !target.isBefore(today)) {
+                upcoming++
+                val nearestTarget = nearest?.let {
+                    runCatching { java.time.LocalDate.parse(it.targetDate) }.getOrNull()
+                }
+                if (nearest == null || (nearestTarget != null && target.isBefore(nearestTarget))) {
+                    nearest = plan
+                }
+            }
+        }
+        return Digest(
+            remainingToday = remaining,
+            upcomingDeadlines = upcoming,
+            nearestDeadlineName = nearest?.competitionName,
+            nearestDeadlineDay = nearest?.targetDate,
+        )
+    }
+}
 
 object ReminderScheduler {
     const val ACTION_NOTIFY = "com.example.scho_navi.action.SEND_PREPARATION_REMINDER"
@@ -35,75 +69,60 @@ object ReminderScheduler {
 
     private fun pendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
         context,
-        4103,
-        Intent(context, ReminderReceiver::class.java).apply { action = ACTION_NOTIFY },
+        0,
+        Intent(context, DailyReminderReceiver::class.java).apply {
+            action = ACTION_NOTIFY
+            data = Uri.parse("schonavi://alarm/daily")
+        },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 }
 
-class ReminderReceiver : BroadcastReceiver() {
-    companion object {
-        private const val CHANNEL_ID = "preparation_reminders"
-        private const val NOTIFICATION_ID = 4104
-    }
-
+class DailyReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != ReminderScheduler.ACTION_NOTIFY) return
         ReminderScheduler.apply(context)
         val schedule = ReminderStorage.loadSchedule(context)
         if (!schedule.enabled || !canNotify(context)) return
-        val plan = mostUrgentPlan(ReminderStorage.loadSnapshot(context).plans) ?: return
-        val notificationManager = context.getSystemService(NotificationManager::class.java)
-        ensureChannel(notificationManager)
-        val route = "/preparation-plans/${plan.planId}"
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            action = "com.example.scho_navi.OPEN_REMINDER_${plan.planId}"
-            putExtra(MainActivity.EXTRA_ROUTE, route)
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val snapshot = ReminderStorage.loadSnapshot(context)
+        if (snapshot.schemaVersion !in 1..3) return
+        ReminderNotificationFactory.ensureChannels(context)
+
+        val today = java.time.LocalDate.now()
+        val candidate = snapshot.plans
+            .filter { it.pendingTasks.isNotEmpty() }
+            .minWithOrNull(
+                compareBy<ReminderPlan> { it.pendingTasks.first().dueIsoDay }
+                    .thenBy { it.pendingTasks.first().sortOrder }
+                    .thenBy { it.targetDate }
+                    .thenBy { it.planId },
+            )
+
+        if (candidate != null) {
+            val task = candidate.pendingTasks.first()
+            val completeIntent = actionPendingIntent(context, "COMPLETE", candidate.planId, task.taskId)
+            val snoozeIntent = actionPendingIntent(context, "SNOOZE", candidate.planId, task.taskId)
+            val viewIntent = viewPendingIntent(context, candidate.planId)
+            val notification = ReminderNotificationFactory.buildTaskNotification(
+                context, candidate, task, completeIntent, snoozeIntent, viewIntent,
+            )
+            context.getSystemService(NotificationManager::class.java)
+                .notify(
+                    ReminderNotificationFactory.taskTag(candidate.planId, task.taskId),
+                    ReminderNotificationFactory.TASK_NOTIFICATION_ID,
+                    notification,
+                )
         }
-        val openPendingIntent = PendingIntent.getActivity(
+
+        val digest = ReminderDigest.project(snapshot, today)
+        val summary = ReminderNotificationFactory.buildPreparationSummary(
             context,
-            4105,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            digest.remainingToday,
+            digest.upcomingDeadlines,
+            digest.nearestDeadlineName,
+            digest.nearestDeadlineDay,
         )
-        val due = plan.nextTaskDueDate?.let(::parseDay)
-        val overdue = due?.isBefore(LocalDate.now()) == true
-        val body = if (overdue) {
-            "任务已到期：${plan.nextTaskTitle}"
-        } else {
-            "下一项：${plan.nextTaskTitle}${due?.let { " · ${it.monthValue}月${it.dayOfMonth}日截止" } ?: ""}"
-        }
-        val notification = android.app.Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_reminder_notification)
-            .setContentTitle("今晚推进「${plan.competitionName}」")
-            .setContentText(body)
-            .setStyle(android.app.Notification.BigTextStyle().bigText(body))
-            .setContentIntent(openPendingIntent)
-            .setAutoCancel(true)
-            .setCategory(android.app.Notification.CATEGORY_REMINDER)
-            .build()
-        notificationManager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun mostUrgentPlan(plans: List<ReminderPlan>): ReminderPlan? = plans
-        .filter { it.nextTaskTitle != null && it.nextTaskDueDate != null }
-        .minWithOrNull(
-            compareBy<ReminderPlan> { it.nextTaskDueDate }
-                .thenBy { it.targetDate }
-                .thenBy { it.planId },
-        )
-
-    private fun ensureChannel(manager: NotificationManager) {
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "备赛提醒",
-                NotificationManager.IMPORTANCE_DEFAULT,
-            ).apply {
-                description = "每天提醒最紧急的备赛任务"
-            },
-        )
+        context.getSystemService(NotificationManager::class.java)
+            .notify("summary:preparation", ReminderNotificationFactory.PREPARATION_SUMMARY_ID, summary)
     }
 
     private fun canNotify(context: Context): Boolean {
@@ -113,10 +132,33 @@ class ReminderReceiver : BroadcastReceiver() {
             PackageManager.PERMISSION_GRANTED
     }
 
-    private fun parseDay(value: String): LocalDate? = try {
-        LocalDate.parse(value)
-    } catch (_: Exception) {
-        null
+    private fun actionPendingIntent(context: Context, action: String, planId: String, taskId: String): PendingIntent {
+        val encodedPlan = Uri.encode(planId)
+        val encodedTask = Uri.encode(taskId)
+        val data = Uri.parse("schonavi://notification/action/$action/$encodedPlan/$encodedTask")
+        val intent = Intent(context, ReminderActionReceiver::class.java).apply {
+            this.action = "com.example.scho_navi.action.NOTIFICATION_$action"
+            setDataAndNormalize(data)
+            putExtra("planId", planId)
+            putExtra("taskId", taskId)
+        }
+        return PendingIntent.getBroadcast(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun viewPendingIntent(context: Context, planId: String): PendingIntent {
+        val route = "/preparation-plans/${Uri.encode(planId)}"
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = "com.example.scho_navi.OPEN_REMINDER_$planId"
+            putExtra(MainActivity.EXTRA_ROUTE, route)
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context, 4105, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 }
 
