@@ -194,4 +194,64 @@ void main() {
     );
     expect(snapshot.plans.single.phases.length, 5);
   });
+
+  test('PreparationReminderTask round-trips JSON', () {
+    final task = PreparationReminderTask(
+      taskId: 't1',
+      title: '刷题',
+      dueIsoDay: '2026-07-02',
+      sortOrder: 0,
+    );
+    final json = task.toJson();
+    final back = PreparationReminderTask.fromJson(json);
+    expect(back, task);
+    expect(json, {
+      'taskId': 't1',
+      'title': '刷题',
+      'dueIsoDay': '2026-07-02',
+      'sortOrder': 0,
+    });
+  });
+
+  test('DeadlineAlert round-trips JSON', () {
+    final alert = DeadlineAlert(
+      planId: 'p1',
+      competitionName: '竞赛 X',
+      alertIsoDay: '2026-07-05',
+      daysBefore: 7,
+      deadlineIsoDay: '2026-07-12',
+    );
+    final json = alert.toJson();
+    final back = DeadlineAlert.fromJson(json);
+    expect(back, alert);
+    expect(json, {
+      'planId': 'p1',
+      'competitionName': '竞赛 X',
+      'alertIsoDay': '2026-07-05',
+      'daysBefore': 7,
+      'deadlineIsoDay': '2026-07-12',
+    });
+  });
+
+  test('Snapshot v3 serializes deadlineAlerts and pendingTasks', () {
+    final snapshot = PreparationReminderSnapshot(
+      generatedAt: DateTime(2026, 7, 2),
+      currentStreak: 1,
+      preparedToday: true,
+      lastActivityDay: '2026-07-01',
+      plans: const [],
+      deadlineAlerts: const [
+        DeadlineAlert(
+          planId: 'p1',
+          competitionName: '竞赛 X',
+          alertIsoDay: '2026-07-05',
+          daysBefore: 7,
+          deadlineIsoDay: '2026-07-12',
+        ),
+      ],
+    );
+    final json = snapshot.toJson();
+    expect(json['schemaVersion'], 3);
+    expect((json['deadlineAlerts'] as List).length, 1);
+  });
 }
