@@ -22,9 +22,9 @@ Primary app entry points:
 - `lib/shared` — reusable UI components.
 - `assets` — fonts, icons, and preparation-template JSON assets.
 - `test` — Flutter unit/widget tests mirroring `lib` structure.
-- `web/backend` — FastAPI adapter layer for recommendation backend work.
-- `web/backend_agent` — Python recommendation-agent implementation and related data/index workflows.
 - `docs/superpowers` — existing design specs and implementation plans.
+
+Backend lives in a separate repository (deployed at `8.156.88.100`, FastAPI). It is **not** under this Flutter repo — the former `web/backend` / `web/backend_agent` layout is an abandoned plan; do not reintroduce a `web/` backend here. The authoritative API contract is `docs/api-contract.md` + `docs/openapi.yaml`; deployment details are in `DEPLOYMENT.md`.
 
 Ignore `.claude/worktrees/**` unless explicitly instructed to work in one of those worktrees; they are generated working copies.
 
@@ -41,7 +41,7 @@ Ignore `.claude/worktrees/**` unless explicitly instructed to work in one of tho
 
 ## Flutter Conventions
 
-- Current app stack: Flutter/Dart, `flutter_riverpod`, `go_router`, `dio`, `shared_preferences`, `drift`, `flutter_secure_storage`, `gpt_markdown`, and `flutter_svg`.
+- Current app stack: Flutter/Dart, `flutter_riverpod`, `go_router`, `dio`, `shared_preferences`, `flutter_secure_storage`, `gpt_markdown`, and `flutter_svg`.
 - Prefer small, feature-local widgets and providers that follow existing feature directory patterns.
 - Preserve Chinese product copy style unless the touched screen already uses English.
 - For UI changes, run the app and manually verify the changed screen when feasible; tests alone are not enough for visual behavior.
@@ -80,20 +80,20 @@ For release-tag Android artifact parity with CI:
 flutter build apk --release
 ```
 
-For backend-agent tests, work inside `web/backend_agent` and prefer isolated tests by default:
+For backend-agent tests, work in the separate backend repo (not in this Flutter repo) and prefer isolated tests by default:
 
 ```bash
 uv run python -m pytest -m "not realdata" -q
 ```
 
-Only run real-data backend-agent tests after the user confirms local data/indexes are prepared.
+Only run real-data backend tests after the user confirms local data/indexes are prepared.
 
 ## Verification Expectations
 
 - Before reporting a code change complete, run the smallest relevant test first, then broader checks when practical.
 - For Flutter code, at minimum consider `flutter analyze` plus targeted `flutter test` files for touched behavior.
 - For UI changes, start the app or preview target and exercise the golden path and likely edge cases. If local device/emulator/browser verification is not possible, say so explicitly.
-- For backend-agent changes, avoid tests marked `realdata` unless explicitly requested or required data is confirmed available.
+- For backend-agent changes (in the separate backend repo), avoid tests marked `realdata` unless explicitly requested or required data is confirmed available.
 - Do not bypass failing hooks, analyzers, or tests with `--no-verify` or equivalent flags.
 
 ## Git and Working Tree Safety

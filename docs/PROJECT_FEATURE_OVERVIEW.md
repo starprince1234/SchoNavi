@@ -9,7 +9,7 @@ SchoNavi 是一款面向高校学生的 **AI 辅助学业与竞赛导航** Flutt
 - 输入研究兴趣 / 目标 → 对话式追问 → 推荐导师卡片 → 生成套磁邮件 / 对比 / 匹配分析
 - 输入竞赛意向 → 推荐竞赛 → 生成个性化备赛计划 → 智能日历 + AI 助手按需调整日历
 
-技术栈：Flutter + Riverpod 3 + GoRouter + Drift（本地数据库）+ Dio + DeepSeek/OpenAI 兼容 LLM 客户端。架构分层清晰：`features`（UI）→ `domain`（实体与 repository 接口）→ `data`（mock / 本地 / HTTP / LLM 四套实现）→ `core`（配置、DI、路由、主题、AI 客户端）。
+技术栈：Flutter + Riverpod 3 + GoRouter + SharedPreferences（本地持久化）+ Dio + DeepSeek/OpenAI 兼容 LLM 客户端。架构分层清晰：`features`（UI）→ `domain`（实体与 repository 接口）→ `data`（mock / 本地 / HTTP / LLM 四套实现）→ `core`（配置、DI、路由、主题、AI 客户端）。
 
 ## 二、功能全景
 
@@ -108,7 +108,7 @@ SchoNavi 是一款面向高校学生的 **AI 辅助学业与竞赛导航** Flutt
 ### 数据源切换（同一套接口，四套实现）
 每个领域 repository 都有 `mock / local / http / ai` 四套实现，由 `appConfigProvider.dataSource` 在运行时切换：
 - **mock**：固定假数据，离线演示与测试用。
-- **local**：Drift 本地数据库 + SharedPreferences / SecureStorage 持久化。
+- **local**：基于 LocalStore 的 SharedPreferences 持久化，敏感配置使用 SecureStorage。
 - **http**：调 FastAPI 后端（`lib/data/http/`）。
 - **ai**：本地直连 LLM（`lib/data/ai/`）。
 
@@ -121,8 +121,8 @@ SchoNavi 是一款面向高校学生的 **AI 辅助学业与竞赛导航** Flutt
 - 配置走 dart-define（`LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`），不落库不入仓。
 
 ### 本地持久化
-- Drift 数据库 `lib/data/local/conversation_database.dart`：会话 / 轮次 / 消息 / fork 关系。
-- `LocalPreparationPlanRepository`、`LevelDiagnosisStore`、`AssistantHistoryStore`、`LocalFavoriteRepository`、`LocalHistoryRepository`、`LocalProfileRepository` 等按域拆分。
+- `LocalStore` 统一抽象本地键值与 JSON 存取，`SharedPreferencesLocalStore` 提供运行时实现。
+- `LocalConversationRepository`、`LocalPreparationPlanRepository`、`LevelDiagnosisStore`、`AssistantHistoryStore`、`LocalFavoriteRepository`、`LocalHistoryRepository`、`LocalProfileRepository` 等按域拆分。
 - `flutter_secure_storage` 存敏感项；`shared_preferences` 存偏好。
 
 ### 后端
@@ -134,7 +134,6 @@ SchoNavi 是一款面向高校学生的 **AI 辅助学业与竞赛导航** Flutt
 
 - **测试规模**：182 个测试文件。按层分布：data 50、core 25、shared 16、domain 14；按功能：chat 14、profile 13、preparation 12、competition_recommendation 11、recommendation 4、match 3、home 3、email 3、compare 3，其余 1-2。
 - **验证约定**：改 UI 必跑相关 widget 测试 + `flutter analyze`；后端 agent 用 `pytest -m "not realdata"`。
-- **已知限制**：全量 `flutter test` 因 Drift 测试 hang 无法跑完（既有问题，非本期引入），改用按文件定向测试。
 
 ## 六、设计文档沉淀
 
