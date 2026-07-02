@@ -1,15 +1,12 @@
 package com.example.scho_navi
 
-import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import java.time.ZonedDateTime
 
 data class Digest(
@@ -82,7 +79,7 @@ class DailyReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         ReminderScheduler.apply(context)
         val schedule = ReminderStorage.loadSchedule(context)
-        if (!schedule.enabled || !canNotify(context)) return
+        if (!schedule.enabled || !ReminderNotificationFactory.canNotify(context)) return
         val snapshot = ReminderStorage.loadSnapshot(context)
         if (snapshot.schemaVersion !in 1..3) return
         ReminderNotificationFactory.ensureChannels(context)
@@ -123,13 +120,6 @@ class DailyReminderReceiver : BroadcastReceiver() {
         )
         context.getSystemService(NotificationManager::class.java)
             .notify("summary:preparation", ReminderNotificationFactory.PREPARATION_SUMMARY_ID, summary)
-    }
-
-    private fun canNotify(context: Context): Boolean {
-        if (!context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()) return false
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
     }
 
     private fun actionPendingIntent(context: Context, action: String, planId: String, taskId: String): PendingIntent {

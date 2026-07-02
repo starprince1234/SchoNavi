@@ -71,6 +71,7 @@ class DeadlineAlarmReceiver : BroadcastReceiver() {
         val alertIsoDay = intent.getStringExtra("alertIsoDay") ?: return
         val snapshot = ReminderStorage.loadSnapshot(context)
         if (snapshot.schemaVersion !in 1..3) return
+        if (!ReminderNotificationFactory.canNotify(context)) return
         ReminderNotificationFactory.ensureChannels(context)
         val manager = context.getSystemService(android.app.NotificationManager::class.java)
 

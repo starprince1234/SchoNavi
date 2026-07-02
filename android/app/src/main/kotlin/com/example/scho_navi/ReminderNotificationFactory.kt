@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 
 object ReminderNotificationFactory {
@@ -23,6 +24,13 @@ object ReminderNotificationFactory {
 
     fun taskTag(planId: String, taskId: String) = "task:$planId:$taskId"
     fun deadlineTag(planId: String, daysBefore: Int) = "deadline:$planId:$daysBefore"
+
+    fun canNotify(context: Context): Boolean {
+        if (!context.getSystemService(NotificationManager::class.java).areNotificationsEnabled()) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
