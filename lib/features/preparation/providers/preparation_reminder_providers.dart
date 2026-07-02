@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
@@ -8,7 +10,60 @@ import '../../../data/local/preparation_reminder_store.dart';
 import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/preparation_reminder.dart';
 import '../../../domain/services/preparation_reminder_builder.dart';
+import '../services/complete_notification_task_use_case.dart';
 import 'preparation_providers.dart';
+
+const MethodChannel notificationActionChannel =
+    MethodChannel('com.example.scho_navi/notification_actions');
+
+typedef NotificationActionHandler = Future<dynamic> Function(MethodCall call);
+
+NotificationActionHandler buildNotificationActionHandler(
+  CompleteNotificationTaskUseCase useCase,
+) {
+  return (MethodCall call) async {
+    if (call.method != 'completeNotificationTask') {
+      throw PlatformException(
+        code: 'unimplemented',
+        message: 'unknown method ${call.method}',
+      );
+    }
+    final args = (call.arguments as Map?) ?? const <String, dynamic>{};
+    final planId = args['planId'] as String?;
+    final taskId = args['taskId'] as String?;
+    if (planId == null || taskId == null) {
+      throw PlatformException(
+        code: 'invalid_arguments',
+        message: 'planId/taskId required',
+      );
+    }
+    final outcome = await useCase.call(planId: planId, taskId: taskId);
+    switch (outcome.result) {
+      case CompleteTaskResult.completed:
+        return {
+          'status': 'completed',
+          'snapshotJson': jsonEncode(outcome.snapshot!.toJson()),
+        };
+      case CompleteTaskResult.alreadyCompleted:
+        return {
+          'status': 'already_completed',
+          'snapshotJson': jsonEncode(outcome.snapshot!.toJson()),
+        };
+      case CompleteTaskResult.notFound:
+        throw PlatformException(
+          code: 'not_found',
+          message: 'plan or task not found',
+        );
+      case CompleteTaskResult.conflict:
+        throw PlatformException(code: 'conflict', message: 'CAS retry exhausted');
+      case CompleteTaskResult.persistenceFailed:
+        throw PlatformException(
+          code: 'persistence_failed',
+          message: 'save failed',
+        );
+    }
+  };
+}
 
 final preparationReminderPlatformProvider =
     Provider<PreparationReminderPlatform>(
@@ -68,6 +123,19 @@ final preparationReminderSyncProvider = Provider<void>((ref) {
 
   final subscription = repository.watch().listen(sync);
   ref.onDispose(subscription.cancel);
+
+  final actionUseCase = CompleteNotificationTaskUseCase(
+    repository: repository,
+    builder: builder,
+    activityDays: store.loadActivityDays(),
+    now: DateTime.now,
+  );
+  notificationActionChannel.setMethodCallHandler(
+    buildNotificationActionHandler(actionUseCase),
+  );
+  ref.onDispose(() {
+    notificationActionChannel.setMethodCallHandler(null);
+  });
 
   ref.listen<ReminderPreferences>(reminderPreferencesProvider, (_, next) {
     unawaited(platform.updateSchedule(next));
