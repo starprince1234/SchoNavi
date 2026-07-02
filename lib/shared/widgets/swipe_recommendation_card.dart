@@ -19,6 +19,7 @@ class SwipeRecommendationCard extends StatefulWidget {
     this.isFavorite = false,
     this.onFavoritePressed,
     this.onOpenUrlPressed,
+    this.onLongPress,
   });
 
   final RecommendationCardData data;
@@ -26,6 +27,7 @@ class SwipeRecommendationCard extends StatefulWidget {
   final bool isFavorite;
   final VoidCallback? onFavoritePressed;
   final VoidCallback? onOpenUrlPressed;
+  final VoidCallback? onLongPress;
 
   @override
   State<SwipeRecommendationCard> createState() =>
@@ -43,7 +45,7 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
     final isDark = scheme.brightness == Brightness.dark;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final card = BentoTile(
+        final inner = BentoTile(
           onTap: widget.onTap,
           padding: EdgeInsets.zero,
           border: Border.all(color: theme.colorScheme.outline),
@@ -186,6 +188,15 @@ class _SwipeRecommendationCardState extends State<SwipeRecommendationCard> {
             ),
           ),
         );
+        final card = widget.onLongPress == null
+            ? inner
+            : GestureDetector(
+                onLongPress: () {
+                  Haptics.light();
+                  widget.onLongPress!();
+                },
+                child: inner,
+              );
         if (constraints.hasBoundedHeight) return card;
         final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
         return SizedBox(

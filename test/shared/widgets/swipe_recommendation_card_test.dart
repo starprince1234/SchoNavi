@@ -64,4 +64,24 @@ void main() {
     await t.pump();
     expect(tapped, isTrue);
   });
+
+  testWidgets('长按触发 onLongPress 且不触发 onTap', (t) async {
+    var tapped = false;
+    var longPressed = false;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SwipeRecommendationCard(
+            data: _data(RecommendationKind.mentor),
+            onTap: () => tapped = true,
+            onLongPress: () => longPressed = true,
+          ),
+        ),
+      ),
+    );
+    await t.longPress(find.text('标题'));
+    await t.pump();
+    expect(longPressed, isTrue);
+    expect(tapped, isFalse);
+  });
 }
