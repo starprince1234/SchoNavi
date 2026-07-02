@@ -105,8 +105,9 @@ object NotificationActionCoordinator {
         if (existing != null) {
             return MethodChannel(existing.dartExecutor.binaryMessenger, CHANNEL)
         }
+        var engine: FlutterEngine? = null
         return try {
-            val engine = FlutterEngine(context)
+            engine = FlutterEngine(context)
             val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
             engine.dartExecutor.executeDartEntrypoint(
                 DartExecutor.DartEntrypoint(appBundlePath, "notificationActionMain"),
@@ -114,6 +115,7 @@ object NotificationActionCoordinator {
             FlutterEngineCache.getInstance().put(CACHE_ID, engine)
             MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
         } catch (_: Exception) {
+            engine?.destroy()
             null
         }
     }
