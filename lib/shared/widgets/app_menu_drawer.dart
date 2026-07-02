@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/conversation_session.dart';
 import '../../../domain/entities/search_history_item.dart';
 import '../../../features/history/pages/history_page.dart';
+import '../../../features/profile/providers/profile_provider.dart';
 
 /// ChatGPT 风格的综合抽屉菜单。
 ///
@@ -32,7 +33,14 @@ class AppMenuDrawer extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ── 顶部档案入口 ─────────────────────────────────────────────
-            _ProfileHeader(onTap: () => _navigate(context, '/profile')),
+            _ProfileHeader(
+              onTap: () => _navigate(
+                context,
+                ref.read(profileProvider).isEmpty
+                    ? '/profile/intro'
+                    : '/profile',
+              ),
+            ),
             Divider(height: 1, color: scheme.outline),
 
             // ── 功能入口 ─────────────────────────────────────────────────
