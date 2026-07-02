@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/conversation_session.dart';
+import '../../../domain/entities/feedback.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
@@ -20,6 +21,7 @@ import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_quick_actions.dart';
 import '../widgets/professor_anchor_bar.dart';
+import '../../feedback/providers/feedback_provider.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({
@@ -327,6 +329,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   onFeedback: (id, feedback) => ref
                                       .read(_provider.notifier)
                                       .setFeedback(id, feedback),
+                                  onDislikeFeedback: (id, content) =>
+                                      _submitMessageFeedback(id, content, messageIndex),
+                                  onReportRecommendation: (r, reason, note) =>
+                                      _submitRecommendationFeedback(r, reason, note, messageIndex),
                                 ),
                               );
                             },
@@ -427,6 +433,72 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       return null;
     }
     return state.turns[assistantOrdinal].id;
+  }
+
+  String? _userPromptForMessageIndex(ChatState state, int messageIndex) {
+    for (var i = messageIndex; i >= 0; i--) {
+      if (state.messages[i].role == ChatRole.user) {
+        return state.messages[i].content;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _submitMessageFeedback(
+    String messageId,
+    String content,
+    int messageIndex,
+  ) async {
+    final state = ref.read(_provider);
+    final messages = state.messages;
+    final i = messages.indexWhere((m) => m.id == messageId);
+    final type = (i >= 0 && messages[i].kind == ChatMessageKind.recommendation)
+        ? FeedbackType.recommendation
+        : FeedbackType.other;
+    final ctx = FeedbackContext(
+      messageId: messageId,
+      sessionId: state.sessionId,
+      prompt: _userPromptForMessageIndex(state, messageIndex),
+    ).copyWith(
+      appVersion: ref.read(appConfigProvider).appVersion,
+      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+    );
+    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
+      type: type,
+      content: content.isEmpty ? '点踩反馈（无文字）' : content,
+      context: ctx,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
+    );
+  }
+
+  Future<void> _submitRecommendationFeedback(
+    Recommendation r,
+    String reason,
+    String? note,
+    int messageIndex,
+  ) async {
+    final state = ref.read(_provider);
+    final ctx = FeedbackContext(
+      professorId: r.professorId,
+      sessionId: state.sessionId,
+      prompt: _userPromptForMessageIndex(state, messageIndex),
+    ).copyWith(
+      appVersion: ref.read(appConfigProvider).appVersion,
+      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+    );
+    final content = note == null || note.isEmpty ? reason : '$reason：$note';
+    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
+      type: FeedbackType.recommendation,
+      content: content,
+      context: ctx,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
+    );
   }
 }
 
