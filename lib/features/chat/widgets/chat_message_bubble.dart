@@ -11,6 +11,7 @@ import '../../../domain/entities/recommendation.dart';
 import '../../../shared/widgets/thinking_indicator.dart';
 import 'inline_dislike_feedback.dart';
 import 'recommendation_carousel.dart';
+import 'recommendation_feedback_sheet.dart';
 
 /// 单条对话气泡：用户右侧纯文本；助手左侧 Markdown；助手可嵌入横向滑动推荐卡片。
 class ChatMessageBubble extends StatelessWidget {
@@ -19,6 +20,7 @@ class ChatMessageBubble extends StatelessWidget {
     required this.message,
     required this.onTapRecommendation,
     this.onOpenHomepage,
+    this.onReportRecommendation,
     this.onRetryRecommendation,
     this.onRegenerate,
     this.onFeedback,
@@ -31,6 +33,8 @@ class ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
   final void Function(String professorId) onTapRecommendation;
   final void Function(Recommendation recommendation)? onOpenHomepage;
+  final void Function(Recommendation recommendation, String reason, String? note)?
+  onReportRecommendation;
   final void Function(String messageId)? onRetryRecommendation;
   final void Function(String messageId)? onRegenerate;
   final void Function(String messageId, ChatMessageFeedback feedback)?
@@ -145,6 +149,16 @@ class ChatMessageBubble extends StatelessWidget {
               recommendations: message.relatedRecommendations,
               onTap: onTapRecommendation,
               onOpenHomepage: onOpenHomepage,
+              onReportRecommendation: onReportRecommendation == null
+                  ? null
+                  : (r) async {
+                      final res = await showRecommendationFeedbackSheet(
+                        context: context,
+                        professorName: r.name,
+                      );
+                      if (res == null) return;
+                      onReportRecommendation!(r, res.$1, res.$2);
+                    },
             ),
           ),
         if (message.kind == ChatMessageKind.recommendation &&

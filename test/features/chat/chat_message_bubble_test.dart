@@ -435,4 +435,37 @@ void main() {
     await tester.pump();
     expect(find.byType(InlineDislikeFeedback), findsNothing);
   });
+
+  testWidgets('注入 onReportRecommendation 后长按回调', (tester) async {
+    Recommendation? reported;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: _msg(
+                role: ChatRole.assistant,
+                content: '相近导师如下',
+                status: ChatMessageStatus.done,
+                related: const [_rec],
+              ),
+              onTapRecommendation: (_) {},
+              onReportRecommendation: (r, _, _) => reported = r,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byType(SwipeRecommendationCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('推荐不准'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('提交'));
+    await tester.pumpAndSettle();
+    expect(reported?.professorId, _rec.professorId);
+  });
 }
