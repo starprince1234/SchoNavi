@@ -15,12 +15,14 @@ class RecommendationCarousel extends ConsumerWidget {
     required this.recommendations,
     required this.onTap,
     this.onOpenHomepage,
+    this.onReportRecommendation,
     this.height,
   });
 
   final List<Recommendation> recommendations;
   final void Function(String professorId) onTap;
   final void Function(Recommendation recommendation)? onOpenHomepage;
+  final void Function(Recommendation recommendation)? onReportRecommendation;
   final double? height;
 
   @override
@@ -43,6 +45,9 @@ class RecommendationCarousel extends ConsumerWidget {
           onOpenUrlPressed: onOpenHomepage == null
               ? null
               : () => onOpenHomepage!(r),
+          onLongPress: onReportRecommendation == null
+              ? null
+              : () => onReportRecommendation!(r),
         );
       },
     );

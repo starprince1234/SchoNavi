@@ -9,6 +9,7 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/repositories/favorite_repository.dart';
 import 'package:scho_navi/features/chat/widgets/recommendation_carousel.dart';
+import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 
 Recommendation _rec(String id, String name) => Recommendation(
   professorId: id,
@@ -216,5 +217,21 @@ void main() {
 
     expect(find.bySemanticsLabel(RegExp('第 1 张，共 2 张')), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('长按卡片触发 onReportRecommendation 传入对应导师', (tester) async {
+    Recommendation? reported;
+    await tester.pumpWidget(
+      _wrap(
+        RecommendationCarousel(
+          recommendations: [_rec('p_1', '张三')],
+          onTap: (_) {},
+          onReportRecommendation: (r) => reported = r,
+        ),
+      ),
+    );
+    await tester.longPress(find.byType(SwipeRecommendationCard));
+    await tester.pump();
+    expect(reported?.professorId, 'p_1');
   });
 }
