@@ -13,10 +13,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/home_config.dart';
 import '../../../domain/entities/home_prompt.dart';
 import '../../../domain/entities/chat_message.dart';
+import '../../../domain/entities/feedback.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../chat/providers/chat_provider.dart';
 import '../../chat/widgets/chat_message_bubble.dart';
 import '../../chat/widgets/chat_quick_actions.dart';
+import '../../feedback/providers/feedback_provider.dart';
 import '../../competition_recommendation/providers/competition_home_notifier.dart';
 import '../../competition_recommendation/widgets/competition_home_result_view.dart';
 import '../../../shared/widgets/animated_entrance.dart';
@@ -690,6 +692,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                   onFeedback: (id, feedback) => ref
                       .read(_chatProvider.notifier)
                       .setFeedback(id, feedback),
+                  onDislikeFeedback: (id, content) =>
+                      _submitMessageFeedback(id, content, index),
+                  onReportRecommendation: (r, reason, note) =>
+                      _submitRecommendationFeedback(r, reason, note, index),
                   feedbackSessionId: ref.read(_chatProvider).sessionId,
                   feedbackUserPrompt: _userPromptForMessageIndex(state, index),
                 ),
@@ -874,5 +880,62 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     }
     return null;
+  }
+
+  Future<void> _submitMessageFeedback(
+    String messageId,
+    String content,
+    int messageIndex,
+  ) async {
+    final state = ref.read(_chatProvider);
+    final messages = state.messages;
+    final i = messages.indexWhere((m) => m.id == messageId);
+    final type = (i >= 0 && messages[i].kind == ChatMessageKind.recommendation)
+        ? FeedbackType.recommendation
+        : FeedbackType.other;
+    final ctx = FeedbackContext(
+      messageId: messageId,
+      sessionId: state.sessionId,
+      prompt: _userPromptForMessageIndex(state, messageIndex),
+    ).copyWith(
+      appVersion: ref.read(appConfigProvider).appVersion,
+      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+    );
+    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
+      type: type,
+      content: content.isEmpty ? '点踩反馈（无文字）' : content,
+      context: ctx,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
+    );
+  }
+
+  Future<void> _submitRecommendationFeedback(
+    Recommendation r,
+    String reason,
+    String? note,
+    int messageIndex,
+  ) async {
+    final state = ref.read(_chatProvider);
+    final ctx = FeedbackContext(
+      professorId: r.professorId,
+      sessionId: state.sessionId,
+      prompt: _userPromptForMessageIndex(state, messageIndex),
+    ).copyWith(
+      appVersion: ref.read(appConfigProvider).appVersion,
+      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+    );
+    final content = note == null || note.isEmpty ? reason : '$reason：$note';
+    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
+      type: FeedbackType.recommendation,
+      content: content,
+      context: ctx,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
+    );
   }
 }
