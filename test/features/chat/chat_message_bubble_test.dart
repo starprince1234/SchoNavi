@@ -312,13 +312,25 @@ void main() {
   });
 
   testWidgets('推荐卡片 done 态展示统一动作条（复制/赞/踩）无孤立感叹号', (tester) async {
-    await _pump(
-      tester,
-      _msg(
-        role: ChatRole.assistant,
-        content: '推荐如下',
-        status: ChatMessageStatus.done,
-        kind: ChatMessageKind.recommendation,
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: _msg(
+                role: ChatRole.assistant,
+                content: '推荐如下',
+                status: ChatMessageStatus.done,
+                kind: ChatMessageKind.recommendation,
+              ),
+              onTapRecommendation: (_) {},
+              onFeedback: (_, _) {},
+            ),
+          ),
+        ),
       ),
     );
     expect(find.byTooltip('复制'), findsOneWidget);

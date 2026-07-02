@@ -197,7 +197,11 @@ class ChatMessageBubble extends StatelessWidget {
 
   bool get _showActions =>
       message.role == ChatRole.assistant &&
-      message.status == ChatMessageStatus.done;
+      message.status == ChatMessageStatus.done &&
+      (onRegenerate != null ||
+          onFeedback != null ||
+          onRetryRecommendation != null ||
+          onDislikeFeedback != null);
 }
 
 class _MessageActions extends StatefulWidget {
