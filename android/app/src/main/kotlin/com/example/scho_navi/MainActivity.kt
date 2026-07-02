@@ -36,6 +36,10 @@ class MainActivity : FlutterActivity() {
         pendingInitialRoute = intent?.getStringExtra(EXTRA_ROUTE)
         super.onCreate(savedInstanceState)
         WidgetRotationScheduler.apply(this)
+        ReminderNotificationFactory.ensureChannels(this)
+        val snapshot = ReminderStorage.loadSnapshot(this)
+        DeadlineAlarmScheduler.apply(this, snapshot.deadlineAlerts)
+        ReminderScheduler.apply(this)
 
         splashScreen.setOnExitAnimationListener { splashScreenView ->
             splashScreenView.animate()
@@ -51,9 +55,11 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         remindersChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_NAME)
         remindersChannel?.setMethodCallHandler(::handleReminderCall)
+        NotificationActionCoordinator.registerUiChannel(flutterEngine)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        NotificationActionCoordinator.unregisterUiChannel()
         remindersChannel?.setMethodCallHandler(null)
         remindersChannel = null
         super.cleanUpFlutterEngine(flutterEngine)
@@ -104,6 +110,8 @@ class MainActivity : FlutterActivity() {
                     ReminderStorage.saveSnapshot(this, json)
                     PreparationWidgetProvider.refreshAll(this)
                     WidgetRotationScheduler.apply(this)
+                    val snapshot = ReminderStorage.loadSnapshot(this)
+                    DeadlineAlarmScheduler.apply(this, snapshot.deadlineAlerts)
                     result.success(null)
                 }
                 "updateSchedule" -> {

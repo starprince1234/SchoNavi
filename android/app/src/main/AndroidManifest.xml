@@ -55,6 +55,15 @@
         <receiver
             android:name=".DailyReminderReceiver"
             android:exported="false"/>
+        <receiver
+            android:name=".DeadlineAlarmReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name=".ReminderActionReceiver"
+            android:exported="false"/>
+        <receiver
+            android:name=".SnoozedTaskReceiver"
+            android:exported="false"/>
 
         <receiver
             android:name=".ReminderRescheduleReceiver"

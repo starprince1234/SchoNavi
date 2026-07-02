@@ -155,6 +155,18 @@ class DailyReminderReceiver : BroadcastReceiver() {
 class ReminderRescheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         ReminderScheduler.apply(context)
+        val snapshot = ReminderStorage.loadSnapshot(context)
+        DeadlineAlarmScheduler.apply(context, snapshot.deadlineAlerts)
+        val now = System.currentTimeMillis()
+        val snoozes = ReminderAlarmRegistry.loadSnooze(context).filter { it.triggerAtEpochMs > now }
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        for (s in snoozes) {
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                s.triggerAtEpochMs,
+                ReminderActionReceiver.snoozePendingIntent(context, s.planId, s.taskId),
+            )
+        }
         PreparationWidgetProvider.refreshAll(context)
     }
 }
