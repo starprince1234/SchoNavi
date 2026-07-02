@@ -1,8 +1,28 @@
 package com.example.scho_navi
 
 import android.content.Context
+import io.flutter.FlutterInjector
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
+import io.flutter.embedding.engine.dart.DartExecutor
+import io.flutter.plugin.common.MethodChannel
 
 object NotificationActionCoordinator {
+    private const val CACHE_ID = "notification_action_engine"
+    private const val CHANNEL = "com.example.scho_navi/notification_actions"
+    private const val TIMEOUT_MS = 8000L
+    private val inFlight = mutableSetOf<String>() // planId|taskId
+
+    private var uiChannel: MethodChannel? = null
+
+    fun registerUiChannel(engine: io.flutter.embedding.engine.FlutterEngine) {
+        uiChannel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+    }
+
+    fun unregisterUiChannel() {
+        uiChannel = null
+    }
+
     fun complete(
         context: Context,
         planId: String,
@@ -10,16 +30,91 @@ object NotificationActionCoordinator {
         onSuccess: () -> Unit,
         onFailure: () -> Unit,
     ) {
-        // Task 11 will implement: try UI engine action channel, else headless engine, single-flight, 8s timeout.
-        // For now, call onFailure so the notification is preserved (safe default).
-        onFailure()
+        val key = "$planId|$taskId"
+        if (!inFlight.add(key)) {
+            onFailure()
+            return
+        }
+
+        val channel = uiChannel ?: ensureHeadlessEngine(context)
+        if (channel == null) {
+            inFlight.remove(key)
+            onFailure()
+            return
+        }
+
+        val handler = object : MethodChannel.Result {
+            override fun success(result: Any?) {
+                if (result is Map<*, *>) {
+                    val status = result["status"] as? String
+                    if (status == "completed" || status == "already_completed") {
+                        val snapshotJson = result["snapshotJson"] as? String
+                        if (snapshotJson != null) {
+                            ReminderStorage.saveSnapshot(context, snapshotJson)
+                            val snapshot = ReminderStorage.loadSnapshot(context)
+                            DeadlineAlarmScheduler.apply(context, snapshot.deadlineAlerts)
+                            PreparationWidgetProvider.refreshAll(context)
+                        }
+                        if (inFlight.remove(key)) {
+                            onSuccess()
+                        }
+                    } else {
+                        if (inFlight.remove(key)) {
+                            onFailure()
+                        }
+                    }
+                } else {
+                    if (inFlight.remove(key)) {
+                        onFailure()
+                    }
+                }
+            }
+
+            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                if (inFlight.remove(key)) {
+                    onFailure()
+                }
+            }
+
+            override fun notImplemented() {
+                if (inFlight.remove(key)) {
+                    onFailure()
+                }
+            }
+        }
+
+        channel.invokeMethod(
+            "completeNotificationTask",
+            mapOf("planId" to planId, "taskId" to taskId),
+            handler,
+        )
+
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (inFlight.remove(key)) {
+                onFailure()
+                FlutterEngineCache.getInstance().get(CACHE_ID)?.let {
+                    it.destroy()
+                    FlutterEngineCache.getInstance().remove(CACHE_ID)
+                }
+            }
+        }, TIMEOUT_MS)
     }
 
-    fun registerUiChannel(engine: io.flutter.embedding.engine.FlutterEngine) {
-        // Task 11 will register the MethodChannel.
-    }
-
-    fun unregisterUiChannel() {
-        // Task 11 will unregister.
+    private fun ensureHeadlessEngine(context: Context): MethodChannel? {
+        val existing = FlutterEngineCache.getInstance().get(CACHE_ID)
+        if (existing != null) {
+            return MethodChannel(existing.dartExecutor.binaryMessenger, CHANNEL)
+        }
+        return try {
+            val engine = FlutterEngine(context)
+            val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
+            engine.dartExecutor.executeDartEntrypoint(
+                DartExecutor.DartEntrypoint(appBundlePath, "notificationActionMain"),
+            )
+            FlutterEngineCache.getInstance().put(CACHE_ID, engine)
+            MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        } catch (_: Exception) {
+            null
+        }
     }
 }
