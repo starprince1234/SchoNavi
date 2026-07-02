@@ -20,14 +20,11 @@ class CompleteTaskOutcome {
 
 class CompleteNotificationTaskUseCase {
   CompleteNotificationTaskUseCase({
-    required PreparationPlanRepository repository,
-    required PreparationReminderBuilder builder,
-    required Set<String> activityDays,
-    required DateTime Function() now,
-  })  : _repository = repository,
-        _builder = builder,
-        _activityDays = activityDays,
-        _now = now;
+    required this._repository,
+    required this._builder,
+    required this._activityDays,
+    required this._now,
+  });
 
   final PreparationPlanRepository _repository;
   final PreparationReminderBuilder _builder;
