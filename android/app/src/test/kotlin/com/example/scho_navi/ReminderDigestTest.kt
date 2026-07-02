@@ -14,7 +14,7 @@ class ReminderDigestTest {
         val snapshot = ReminderSnapshot(
             currentStreak = 1, lastActivityDay = "2026-07-01",
             plans = listOf(
-                plan("p1", "2026-08-15", listOf(task("t1", "2026-07-02"), task("t2", "2026-07-03"))),
+                plan("p1", "2026-07-31", listOf(task("t1", "2026-07-02"), task("t2", "2026-07-03"))),
                 plan("p2", "2026-07-20", listOf(task("t3", "2026-07-02"))),
                 plan("p3", "2026-06-30", emptyList()), // 过期，不计入 upcoming
             ),

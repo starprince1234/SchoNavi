@@ -29,7 +29,7 @@ object ReminderDigest {
             remaining += plan.pendingTasks.count { it.dueIsoDay == todayStr }
             val target = runCatching { java.time.LocalDate.parse(plan.targetDate) }.getOrNull()
             if (target != null && !target.isBefore(today)) {
-                upcoming++
+                if (target.isBefore(today.plusDays(31))) upcoming++
                 val nearestTarget = nearest?.let {
                     runCatching { java.time.LocalDate.parse(it.targetDate) }.getOrNull()
                 }
