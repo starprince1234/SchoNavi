@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../../shared/widgets/thinking_indicator.dart';
+import 'inline_dislike_feedback.dart';
 import 'recommendation_carousel.dart';
 
 /// 单条对话气泡：用户右侧纯文本；助手左侧 Markdown；助手可嵌入横向滑动推荐卡片。
@@ -22,6 +22,7 @@ class ChatMessageBubble extends StatelessWidget {
     this.onRetryRecommendation,
     this.onRegenerate,
     this.onFeedback,
+    this.onDislikeFeedback,
     this.onRerouteHome,
     this.feedbackSessionId,
     this.feedbackUserPrompt,
@@ -34,6 +35,7 @@ class ChatMessageBubble extends StatelessWidget {
   final void Function(String messageId)? onRegenerate;
   final void Function(String messageId, ChatMessageFeedback feedback)?
   onFeedback;
+  final void Function(String messageId, String content)? onDislikeFeedback;
   final VoidCallback? onRerouteHome;
   final String? feedbackSessionId;
   final String? feedbackUserPrompt;
@@ -156,35 +158,13 @@ class ChatMessageBubble extends StatelessWidget {
               label: const Text('重试推荐'),
             ),
           ),
-        if (message.kind == ChatMessageKind.recommendation &&
-            message.status == ChatMessageStatus.done)
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 2, bottom: 6),
-            child: _ActionButton(
-              tooltip: '反馈这条推荐',
-              icon: Icons.report_gmailerrorred_outlined,
-              onPressed: () => context.push(
-                Uri(
-                  path: '/feedback',
-                  queryParameters: <String, String>{
-                    'type': 'recommendation',
-                    if (message.id.isNotEmpty) 'mid': message.id,
-                    if (feedbackSessionId != null &&
-                        feedbackSessionId!.isNotEmpty)
-                      'sid': feedbackSessionId!,
-                    if (feedbackUserPrompt != null &&
-                        feedbackUserPrompt!.isNotEmpty)
-                      'prompt': feedbackUserPrompt!,
-                  },
-                ).toString(),
-              ),
-            ),
-          ),
         if (_showActions)
           _MessageActions(
             message: message,
             onRegenerate: onRegenerate,
             onFeedback: onFeedback,
+            onDislikeFeedback: onDislikeFeedback,
+            onRetryRecommendation: onRetryRecommendation,
             feedbackSessionId: feedbackSessionId,
             feedbackUserPrompt: feedbackUserPrompt,
           ),
@@ -217,16 +197,16 @@ class ChatMessageBubble extends StatelessWidget {
 
   bool get _showActions =>
       message.role == ChatRole.assistant &&
-      message.kind == ChatMessageKind.conversation &&
-      message.status == ChatMessageStatus.done &&
-      (onRegenerate != null || onFeedback != null);
+      message.status == ChatMessageStatus.done;
 }
 
-class _MessageActions extends StatelessWidget {
+class _MessageActions extends StatefulWidget {
   const _MessageActions({
     required this.message,
     this.onRegenerate,
     this.onFeedback,
+    this.onDislikeFeedback,
+    this.onRetryRecommendation,
     this.feedbackSessionId,
     this.feedbackUserPrompt,
   });
@@ -235,99 +215,110 @@ class _MessageActions extends StatelessWidget {
   final void Function(String messageId)? onRegenerate;
   final void Function(String messageId, ChatMessageFeedback feedback)?
   onFeedback;
+  final void Function(String messageId, String content)? onDislikeFeedback;
+  final void Function(String messageId)? onRetryRecommendation;
   final String? feedbackSessionId;
   final String? feedbackUserPrompt;
+
+  @override
+  State<_MessageActions> createState() => _MessageActionsState();
+}
+
+class _MessageActionsState extends State<_MessageActions> {
+  bool _dislikeExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     final inactiveColor = AppColors.inkSoft;
     final activeColor = AppColors.indigo;
+    final m = widget.message;
+    final isRecommendation = m.kind == ChatMessageKind.recommendation;
 
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 2, bottom: 6),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _ActionButton(
-            tooltip: '复制',
-            icon: Icons.copy_outlined,
-            onPressed: () async {
-              try {
-                await Clipboard.setData(ClipboardData(text: message.content));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('已复制')));
-                }
-              } catch (_) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('复制失败')));
-                }
-              }
-            },
-          ),
-          _ActionButton(
-            tooltip: '重新生成',
-            icon: Icons.refresh,
-            onPressed: onRegenerate == null
-                ? null
-                : () => onRegenerate!(message.id),
-          ),
-          _ActionButton(
-            tooltip: '有用',
-            icon: message.feedback == ChatMessageFeedback.like
-                ? Icons.thumb_up
-                : Icons.thumb_up_outlined,
-            color: message.feedback == ChatMessageFeedback.like
-                ? activeColor
-                : inactiveColor,
-            onPressed: onFeedback == null
-                ? null
-                : () => onFeedback!(
-                    message.id,
-                    message.feedback == ChatMessageFeedback.like
-                        ? ChatMessageFeedback.none
-                        : ChatMessageFeedback.like,
-                  ),
-          ),
-          _ActionButton(
-            tooltip: '没用',
-            icon: message.feedback == ChatMessageFeedback.dislike
-                ? Icons.thumb_down
-                : Icons.thumb_down_outlined,
-            color: message.feedback == ChatMessageFeedback.dislike
-                ? activeColor
-                : inactiveColor,
-            onPressed: onFeedback == null
-                ? null
-                : () => onFeedback!(
-                    message.id,
-                    message.feedback == ChatMessageFeedback.dislike
-                        ? ChatMessageFeedback.none
-                        : ChatMessageFeedback.dislike,
-                  ),
-          ),
-          _ActionButton(
-            tooltip: '反馈这条推荐',
-            icon: Icons.report_gmailerrorred_outlined,
-            onPressed: () => context.push(
-              Uri(
-                path: '/feedback',
-                queryParameters: <String, String>{
-                  'type': 'recommendation',
-                  'mid': message.id,
-                  if (feedbackSessionId != null &&
-                      feedbackSessionId!.isNotEmpty)
-                    'sid': feedbackSessionId!,
-                  if (feedbackUserPrompt != null &&
-                      feedbackUserPrompt!.isNotEmpty)
-                    'prompt': feedbackUserPrompt!,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ActionButton(
+                tooltip: '复制',
+                icon: Icons.copy_outlined,
+                onPressed: () async {
+                  try {
+                    await Clipboard.setData(ClipboardData(text: m.content));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(const SnackBar(content: Text('已复制')));
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(const SnackBar(content: Text('复制失败')));
+                    }
+                  }
                 },
-              ).toString(),
-            ),
+              ),
+              if (isRecommendation && widget.onRetryRecommendation != null)
+                _ActionButton(
+                  tooltip: '重新生成推荐',
+                  icon: Icons.refresh,
+                  onPressed: () => widget.onRetryRecommendation!(m.id),
+                )
+              else if (!isRecommendation && widget.onRegenerate != null)
+                _ActionButton(
+                  tooltip: '重新生成',
+                  icon: Icons.refresh,
+                  onPressed: () => widget.onRegenerate!(m.id),
+                ),
+              _ActionButton(
+                tooltip: '有用',
+                icon: m.feedback == ChatMessageFeedback.like
+                    ? Icons.thumb_up
+                    : Icons.thumb_up_outlined,
+                color: m.feedback == ChatMessageFeedback.like
+                    ? activeColor
+                    : inactiveColor,
+                onPressed: widget.onFeedback == null
+                    ? null
+                    : () => widget.onFeedback!(
+                          m.id,
+                          m.feedback == ChatMessageFeedback.like
+                              ? ChatMessageFeedback.none
+                              : ChatMessageFeedback.like,
+                        ),
+              ),
+              _ActionButton(
+                tooltip: '没用',
+                icon: m.feedback == ChatMessageFeedback.dislike
+                    ? Icons.thumb_down
+                    : Icons.thumb_down_outlined,
+                color: m.feedback == ChatMessageFeedback.dislike
+                    ? activeColor
+                    : inactiveColor,
+                onPressed: widget.onFeedback == null
+                    ? null
+                    : () {
+                        final willDislike = !_dislikeExpanded;
+                        widget.onFeedback!(
+                          m.id,
+                          willDislike
+                              ? ChatMessageFeedback.dislike
+                              : ChatMessageFeedback.none,
+                        );
+                        setState(() => _dislikeExpanded = willDislike);
+                      },
+              ),
+            ],
           ),
+          if (_dislikeExpanded && widget.onDislikeFeedback != null)
+            InlineDislikeFeedback(
+              onSubmit: (content) =>
+                  widget.onDislikeFeedback!(m.id, content),
+              onCollapse: () => setState(() => _dislikeExpanded = false),
+            ),
         ],
       ),
     );

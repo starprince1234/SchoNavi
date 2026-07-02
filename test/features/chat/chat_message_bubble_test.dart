@@ -11,6 +11,7 @@ import 'package:scho_navi/domain/entities/match_level.dart';
 import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/domain/repositories/favorite_repository.dart';
 import 'package:scho_navi/features/chat/widgets/chat_message_bubble.dart';
+import 'package:scho_navi/features/chat/widgets/inline_dislike_feedback.dart';
 import 'package:scho_navi/shared/widgets/swipe_recommendation_card.dart';
 import 'package:scho_navi/shared/widgets/thinking_indicator.dart';
 
@@ -310,7 +311,7 @@ void main() {
     expect(ChatMessageBubble.assistantLineHeight, greaterThan(0));
   });
 
-  testWidgets('推荐卡片 done 态展示反馈按钮', (tester) async {
+  testWidgets('推荐卡片 done 态展示统一动作条（复制/赞/踩）无孤立感叹号', (tester) async {
     await _pump(
       tester,
       _msg(
@@ -320,7 +321,106 @@ void main() {
         kind: ChatMessageKind.recommendation,
       ),
     );
+    expect(find.byTooltip('复制'), findsOneWidget);
+    expect(find.byTooltip('有用'), findsOneWidget);
+    expect(find.byTooltip('没用'), findsOneWidget);
+    expect(find.byTooltip('反馈这条推荐'), findsNothing);
+  });
 
-    expect(find.byTooltip('反馈这条推荐'), findsOneWidget);
+  testWidgets('点踩展开内联输入框并提交调 onDislikeFeedback', (tester) async {
+    String? dislikedId;
+    String? dislikedContent;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: _msg(
+                role: ChatRole.assistant,
+                content: '推荐如下',
+                status: ChatMessageStatus.done,
+              ),
+              onTapRecommendation: (_) {},
+              onFeedback: (_, _) {},
+              onDislikeFeedback: (id, content) {
+                dislikedId = id;
+                dislikedContent = content;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('没用'));
+    await tester.pump();
+    expect(find.byType(InlineDislikeFeedback), findsOneWidget);
+    await tester.enterText(find.byType(InlineDislikeFeedback), '推荐得不对');
+    await tester.tap(find.text('提交'));
+    expect(dislikedId, 'm_0');
+    expect(dislikedContent, '推荐得不对');
+  });
+
+  testWidgets('赞调 onFeedback 置 like', (tester) async {
+    String? fbId;
+    ChatMessageFeedback? fb;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: _msg(
+                role: ChatRole.assistant,
+                content: '好的',
+                status: ChatMessageStatus.done,
+              ),
+              onTapRecommendation: (_) {},
+              onFeedback: (id, f) {
+                fbId = id;
+                fb = f;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('有用'));
+    expect(fbId, 'm_0');
+    expect(fb, ChatMessageFeedback.like);
+  });
+
+  testWidgets('再次点踩收起内联输入框', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          favoriteRepositoryProvider.overrideWithValue(_FakeFavoriteRepo()),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: _msg(
+                role: ChatRole.assistant,
+                content: '推荐如下',
+                status: ChatMessageStatus.done,
+              ),
+              onTapRecommendation: (_) {},
+              onFeedback: (_, _) {},
+              onDislikeFeedback: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('没用'));
+    await tester.pump();
+    expect(find.byType(InlineDislikeFeedback), findsOneWidget);
+    await tester.tap(find.byTooltip('没用'));
+    await tester.pump();
+    expect(find.byType(InlineDislikeFeedback), findsNothing);
   });
 }
