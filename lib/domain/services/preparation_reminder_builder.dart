@@ -40,12 +40,38 @@ class PreparationReminderBuilder {
       }
     }
 
+    final deadlineAlerts = <DeadlineAlert>[];
+    for (final plan in activePlans) {
+      final deadline = _isoDay(plan.targetDate);
+      final target = plan.targetDate;
+      for (final days in const [7, 3, 0]) {
+        final alertDay = days == 0 ? target : target.subtract(Duration(days: days));
+        deadlineAlerts.add(DeadlineAlert(
+          planId: plan.id,
+          competitionName: plan.competition.name,
+          alertIsoDay: _isoDay(alertDay),
+          daysBefore: days,
+          deadlineIsoDay: deadline,
+        ));
+      }
+    }
+    deadlineAlerts.sort((a, b) {
+      final byAlert = a.alertIsoDay.compareTo(b.alertIsoDay);
+      if (byAlert != 0) return byAlert;
+      final byDeadline = a.deadlineIsoDay.compareTo(b.deadlineIsoDay);
+      if (byDeadline != 0) return byDeadline;
+      final byPlan = a.planId.compareTo(b.planId);
+      if (byPlan != 0) return byPlan;
+      return a.daysBefore.compareTo(b.daysBefore);
+    });
+
     return PreparationReminderSnapshot(
       generatedAt: now,
       currentStreak: streak,
       preparedToday: preparedToday,
       lastActivityDay: normalizedDays.isEmpty ? null : normalizedDays.last,
       plans: summaries,
+      deadlineAlerts: deadlineAlerts,
     );
   }
 
@@ -68,6 +94,20 @@ class PreparationReminderBuilder {
         return byKind != 0 ? byKind : a.order.compareTo(b.order);
       });
     final currentPhase = _currentPhase(plan.phases, today);
+
+    final pendingTasks = [
+      for (final entry in incomplete)
+        PreparationReminderTask(
+          taskId: entry.task.id,
+          title: entry.task.title,
+          dueIsoDay: _isoDay(entry.task.dueDate),
+          sortOrder: 0,
+        ),
+    ];
+    final pendingTasksWithOrder = [
+      for (var i = 0; i < pendingTasks.length; i++)
+        pendingTasks[i].copyWith(sortOrder: i),
+    ];
 
     final phaseSummaries = plan.phases
         .take(5)
@@ -103,6 +143,7 @@ class PreparationReminderBuilder {
           ? null
           : incomplete.first.task.dueDate,
       phases: phaseSummaries,
+      pendingTasks: pendingTasksWithOrder,
     );
   }
 
