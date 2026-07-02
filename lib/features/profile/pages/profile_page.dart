@@ -15,19 +15,24 @@ import '../widgets/profile_summary_header.dart';
 import '../widgets/score_and_interests_form.dart';
 
 /// 档案中心：完成度头 + 分区卡（点开聚焦编辑，复用向导 organism）。
-class ProfilePage extends ConsumerWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(profileProvider);
-    final isHttp = ref.watch(
-      appConfigProvider.select((cfg) => cfg.dataSource == DataSource.http),
-    );
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
 
+class _ProfilePageState extends ConsumerState<ProfilePage> {
+  bool _redirected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(profileProvider);
     if (profile.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
+        if (!mounted || _redirected) return;
+        _redirected = true;
         final store = ref.read(localStoreProvider);
         final agreed = store.getBool('privacy_agreed') ?? false;
         if (!agreed) {
@@ -37,6 +42,14 @@ class ProfilePage extends ConsumerWidget {
         }
       });
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = ref.watch(profileProvider);
+    final isHttp = ref.watch(
+      appConfigProvider.select((cfg) => cfg.dataSource == DataSource.http),
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('我的档案')),
@@ -58,7 +71,7 @@ class ProfilePage extends ConsumerWidget {
               title: '基本信息',
               summary: profile.name ?? '待填写',
               done: profile.name != null && profile.gender != null,
-              onTap: () => _editBasic(context, ref, profile),
+              onTap: () => _editBasic(context, profile),
             ),
           ),
           AnimatedEntrance(
@@ -69,7 +82,7 @@ class ProfilePage extends ConsumerWidget {
                   ? 'GPA ${profile.score!.gpa}'
                   : '待填写',
               done: profile.score?.gpa != null,
-              onTap: () => _editScore(context, ref, profile),
+              onTap: () => _editScore(context, profile),
             ),
           ),
           AnimatedEntrance(
@@ -78,7 +91,7 @@ class ProfilePage extends ConsumerWidget {
               title: '竞赛成果',
               summary: '${profile.competitions.length} 项',
               done: profile.competitions.isNotEmpty,
-              onTap: () => _editAchievements(context, ref, profile),
+              onTap: () => _editAchievements(context, profile),
             ),
           ),
           AnimatedEntrance(
@@ -87,7 +100,7 @@ class ProfilePage extends ConsumerWidget {
               title: '科研成果',
               summary: '${profile.research.length} 项',
               done: profile.research.isNotEmpty,
-              onTap: () => _editAchievements(context, ref, profile),
+              onTap: () => _editAchievements(context, profile),
             ),
           ),
           const SizedBox(height: 24),
@@ -132,41 +145,33 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Future<void> _editBasic(BuildContext context, WidgetRef ref, UserProfile p) =>
+  Future<void> _editBasic(BuildContext context, UserProfile p) =>
       _editSheet(
         context,
-        ref,
         p,
         (draft, onChanged) => BasicInfoForm(value: draft, onChanged: onChanged),
       );
 
-  Future<void> _editScore(BuildContext context, WidgetRef ref, UserProfile p) =>
-      _editSheet(
+  Future<void> _editScore(BuildContext context, UserProfile p) => _editSheet(
         context,
-        ref,
         p,
         (draft, onChanged) =>
             ScoreAndInterestsForm(value: draft, onChanged: onChanged),
       );
 
-  Future<void> _editAchievements(
-    BuildContext context,
-    WidgetRef ref,
-    UserProfile p,
-  ) => _editSheet(
-    context,
-    ref,
-    p,
-    (draft, onChanged) =>
-        AchievementsEditor(value: draft, onChanged: onChanged),
-  );
+  Future<void> _editAchievements(BuildContext context, UserProfile p) =>
+      _editSheet(
+        context,
+        p,
+        (draft, onChanged) =>
+            AchievementsEditor(value: draft, onChanged: onChanged),
+      );
 
   Future<void> _editSheet(
     BuildContext context,
-    WidgetRef ref,
     UserProfile initial,
     Widget Function(UserProfile draft, ValueChanged<UserProfile> onChanged)
-    builder,
+        builder,
   ) async {
     var draft = initial;
     await showAppBottomSheet(

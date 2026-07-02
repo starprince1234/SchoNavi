@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
+import 'package:scho_navi/core/storage/local_store.dart';
 import 'package:scho_navi/domain/entities/user_profile.dart';
 import 'package:scho_navi/domain/repositories/profile_repository.dart';
 import 'package:scho_navi/features/profile/pages/profile_page.dart';
@@ -16,6 +18,33 @@ class _Repo implements ProfileRepository {
   Future<UserProfile> refresh() async => load();
   @override
   Future<void> save(UserProfile profile) async => _p = profile;
+  @override
+  Future<void> clear() async {}
+}
+
+class _AgreedStore implements LocalStore {
+  _AgreedStore({required this.agreed});
+  final bool agreed;
+  @override
+  bool? getBool(String key) => key == 'privacy_agreed' ? agreed : null;
+  @override
+  Future<void> setBool(String key, bool value) async {}
+  @override
+  String? getString(String key) => null;
+  @override
+  Future<void> setString(String key, String value) async {}
+  @override
+  Map<String, dynamic>? getJson(String key) => null;
+  @override
+  Future<void> setJson(String key, Map<String, dynamic> value) async {}
+  @override
+  List<dynamic>? getJsonList(String key) => null;
+  @override
+  Future<void> setJsonList(String key, List<dynamic> value) async {}
+  @override
+  bool containsKey(String key) => false;
+  @override
+  Future<void> remove(String key) async {}
   @override
   Future<void> clear() async {}
 }
@@ -41,5 +70,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('基本信息'), findsOneWidget);
     expect(find.text('竞赛成果'), findsOneWidget);
+  });
+
+  testWidgets('空 profile 只触发一次引导 push', (tester) async {
+    final pushed = <String>[];
+    final container = ProviderContainer(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(_Repo(const UserProfile())),
+        localStoreProvider.overrideWithValue(_AgreedStore(agreed: true)),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      initialLocation: '/profile',
+      routes: [
+        GoRoute(
+          path: '/profile',
+          builder: (_, _) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: '/profile/intro',
+          builder: (_, _) => const Scaffold(body: Center(child: Text('intro'))),
+        ),
+        GoRoute(
+          path: '/profile/privacy',
+          builder: (_, _) =>
+              const Scaffold(body: Center(child: Text('privacy'))),
+        ),
+      ],
+    );
+    router.routerDelegate.addListener(() {});
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('intro'), findsOneWidget);
+    // 回退到 profile
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('我的档案'), findsOneWidget);
+    // 触发 ProfilePage 重建（切换数据源），build 副作用不应再次 push intro
+    container.read(appConfigProvider.notifier).setDataSource(DataSource.http);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('intro'), findsNothing);
+    pushed; // 保留以备调试
   });
 }
