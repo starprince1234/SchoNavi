@@ -10,6 +10,13 @@ data class ReminderPhase(
     val status: String,
 )
 
+data class ReminderTask(
+    val taskId: String,
+    val title: String,
+    val dueIsoDay: String,
+    val sortOrder: Int,
+)
+
 data class ReminderPlan(
     val planId: String,
     val competitionName: String,
@@ -20,15 +27,35 @@ data class ReminderPlan(
     val nextTaskTitle: String?,
     val nextTaskDueDate: String?,
     val phases: List<ReminderPhase> = emptyList(),
+    val pendingTasks: List<ReminderTask> = emptyList(),
+)
+
+data class DeadlineAlert(
+    val planId: String,
+    val competitionName: String,
+    val alertIsoDay: String,
+    val daysBefore: Int,
+    val deadlineIsoDay: String,
 )
 
 data class ReminderSnapshot(
     val currentStreak: Int,
     val lastActivityDay: String?,
     val plans: List<ReminderPlan>,
+    val deadlineAlerts: List<DeadlineAlert> = emptyList(),
+    val schemaVersion: Int = 0,
 )
 
 data class ReminderSchedule(val enabled: Boolean, val hour: Int, val minute: Int)
+
+data class AlarmRegistryEntry(val isoDay: String, val dataUri: String)
+
+data class SnoozeRegistryEntry(
+    val planId: String,
+    val taskId: String,
+    val triggerAtEpochMs: Long,
+    val dataUri: String,
+)
 
 object ReminderStorage {
     private const val PREFS = "scho_navi_preparation_reminders"
@@ -47,10 +74,14 @@ object ReminderStorage {
     fun loadSnapshot(context: Context): ReminderSnapshot {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(SNAPSHOT, null) ?: return ReminderSnapshot(0, null, emptyList())
+        return parseSnapshotJson(raw)
+    }
+
+    fun parseSnapshotJson(raw: String): ReminderSnapshot {
         return try {
             val root = JSONObject(raw)
             val schema = root.optInt("schemaVersion", 0)
-            if (schema !in 1..2) return ReminderSnapshot(0, null, emptyList())
+            if (schema !in 1..3) return ReminderSnapshot(0, null, emptyList())
             val plansJson = root.optJSONArray("plans")
             val plans = buildList {
                 if (plansJson != null) {
@@ -72,6 +103,22 @@ object ReminderStorage {
                                 }
                             }
                         }
+                        val pendingJson = item.optJSONArray("pendingTasks")
+                        val pending = buildList {
+                            if (pendingJson != null) {
+                                for (ti in 0 until pendingJson.length()) {
+                                    val t = pendingJson.optJSONObject(ti) ?: continue
+                                    add(
+                                        ReminderTask(
+                                            taskId = t.optString("taskId"),
+                                            title = t.optString("title"),
+                                            dueIsoDay = t.optString("dueIsoDay"),
+                                            sortOrder = t.optInt("sortOrder"),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
                         add(
                             ReminderPlan(
                                 planId = item.optString("planId"),
@@ -83,6 +130,24 @@ object ReminderStorage {
                                 nextTaskTitle = item.optString("nextTaskTitle").ifBlank { null },
                                 nextTaskDueDate = item.optString("nextTaskDueDate").ifBlank { null },
                                 phases = phases,
+                                pendingTasks = pending,
+                            ),
+                        )
+                    }
+                }
+            }
+            val alertsJson = root.optJSONArray("deadlineAlerts")
+            val alerts = buildList {
+                if (alertsJson != null) {
+                    for (ai in 0 until alertsJson.length()) {
+                        val a = alertsJson.optJSONObject(ai) ?: continue
+                        add(
+                            DeadlineAlert(
+                                planId = a.optString("planId"),
+                                competitionName = a.optString("competitionName"),
+                                alertIsoDay = a.optString("alertIsoDay"),
+                                daysBefore = a.optInt("daysBefore"),
+                                deadlineIsoDay = a.optString("deadlineIsoDay"),
                             ),
                         )
                     }
@@ -92,6 +157,8 @@ object ReminderStorage {
                 currentStreak = root.optInt("currentStreak"),
                 lastActivityDay = root.optString("lastActivityDay").ifBlank { null },
                 plans = plans,
+                deadlineAlerts = alerts,
+                schemaVersion = schema,
             )
         } catch (_: Exception) {
             ReminderSnapshot(0, null, emptyList())
@@ -132,5 +199,45 @@ object ReminderStorage {
             .edit()
             .remove("widget_index_$appWidgetId")
             .apply()
+    }
+}
+
+object ReminderAlarmRegistry {
+    private const val KEY = "alarm_registry"
+    private const val DEADLINE = "deadline_entries"
+    private const val SNOOZE = "snooze_entries"
+
+    fun loadDeadline(context: Context): List<AlarmRegistryEntry> =
+        loadList(context, DEADLINE, ::parseDeadline)
+
+    fun loadSnooze(context: Context): List<SnoozeRegistryEntry> =
+        loadList(context, SNOOZE, ::parseSnooze)
+
+    fun save(context: Context, deadline: List<AlarmRegistryEntry>, snooze: List<SnoozeRegistryEntry>) {
+        val prefs = context.getSharedPreferences(KEY, Context.MODE_PRIVATE).edit()
+        prefs.putString(DEADLINE, deadline.joinToString("|") { "${it.isoDay}\t${it.dataUri}" })
+        prefs.putString(SNOOZE, snooze.joinToString("|") { "${it.planId}\t${it.taskId}\t${it.triggerAtEpochMs}\t${it.dataUri}" })
+        prefs.apply()
+    }
+
+    fun clearAll(context: Context) {
+        context.getSharedPreferences(KEY, Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    private fun parseDeadline(s: String): AlarmRegistryEntry? {
+        val parts = s.split("\t")
+        if (parts.size != 2) return null
+        return AlarmRegistryEntry(parts[0], parts[1])
+    }
+
+    private fun parseSnooze(s: String): SnoozeRegistryEntry? {
+        val parts = s.split("\t")
+        if (parts.size != 4) return null
+        return SnoozeRegistryEntry(parts[0], parts[1], parts[2].toLongOrNull() ?: return null, parts[3])
+    }
+
+    private fun <T> loadList(context: Context, key: String, parse: (String) -> T?): List<T> {
+        val raw = context.getSharedPreferences(KEY, Context.MODE_PRIVATE).getString(key, null) ?: return emptyList()
+        return raw.split("|").mapNotNull(parse)
     }
 }
