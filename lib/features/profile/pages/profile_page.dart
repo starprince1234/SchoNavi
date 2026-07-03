@@ -145,19 +145,18 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     );
   }
 
-  Future<void> _editBasic(BuildContext context, UserProfile p) =>
-      _editSheet(
-        context,
-        p,
-        (draft, onChanged) => BasicInfoForm(value: draft, onChanged: onChanged),
-      );
+  Future<void> _editBasic(BuildContext context, UserProfile p) => _editSheet(
+    context,
+    p,
+    (draft, onChanged) => BasicInfoForm(value: draft, onChanged: onChanged),
+  );
 
   Future<void> _editScore(BuildContext context, UserProfile p) => _editSheet(
-        context,
-        p,
-        (draft, onChanged) =>
-            ScoreAndInterestsForm(value: draft, onChanged: onChanged),
-      );
+    context,
+    p,
+    (draft, onChanged) =>
+        ScoreAndInterestsForm(value: draft, onChanged: onChanged),
+  );
 
   Future<void> _editAchievements(BuildContext context, UserProfile p) =>
       _editSheet(
@@ -171,7 +170,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     BuildContext context,
     UserProfile initial,
     Widget Function(UserProfile draft, ValueChanged<UserProfile> onChanged)
-        builder,
+    builder,
   ) async {
     var draft = initial;
     await showAppBottomSheet(

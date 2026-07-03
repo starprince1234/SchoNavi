@@ -46,13 +46,13 @@ class AchievementItemCard extends StatelessWidget {
                 if (subtitle != null && subtitle!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-	                    child: Text(
-	                      subtitle!,
-	                      style: TextStyle(
-	                        fontSize: 12,
-	                        color: scheme.onSurfaceVariant,
-	                      ),
-	                    ),
+                    child: Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
               ],
             ),

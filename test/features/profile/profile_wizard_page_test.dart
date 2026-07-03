@@ -111,13 +111,15 @@ void main() {
     await tester.tap(find.text('下一步'));
     await tester.pumpAndSettle();
 
-    // 模拟系统返回：PopScope 拦截后调 onSystemBack
-    final popScope = tester.widget<PopScope>(find.byType(PopScope));
-    expect(popScope.canPop, isFalse);
-    expect(find.text('成绩 & 方向'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('基本信息'), findsOneWidget);
+    expect(find.text('成绩 & 方向'), findsNothing);
+    expect(find.text('hub-marker'), findsNothing);
   });
 
-  testWidgets('step 0 顶栏默认返回箭头 pop 整页', (tester) async {
+  testWidgets('step 0 不显示自定义上一步入口', (tester) async {
     final repo = _MemProfileRepo();
     final router = GoRouter(
       initialLocation: '/profile/wizard',
@@ -137,8 +139,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // step 0：无「上一步」tooltip 的自定义箭头，用默认 BackButton
-    final popScope = tester.widget<PopScope>(find.byType(PopScope));
-    expect(popScope.canPop, isTrue);
+    expect(find.text('基本信息'), findsOneWidget);
+    expect(find.byTooltip('上一步'), findsNothing);
+    expect(find.byType(BackButton), findsNothing);
   });
 }

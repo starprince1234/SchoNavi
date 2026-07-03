@@ -71,10 +71,10 @@ class _ScoreAndInterestsFormState extends State<ScoreAndInterestsForm> {
           key: const Key('interest-input'),
           controller: _interest,
           decoration: InputDecoration(
-	            hintText: '输入后回车添加，如 计算机视觉',
-	            isDense: true,
-	            filled: true,
-	            fillColor: scheme.surface,
+            hintText: '输入后回车添加，如 计算机视觉',
+            isDense: true,
+            filled: true,
+            fillColor: scheme.surface,
             suffixIcon: IconButton(
               icon: const Icon(Icons.add),
               onPressed: _addInterest,
@@ -90,10 +90,10 @@ class _ScoreAndInterestsFormState extends State<ScoreAndInterestsForm> {
           children: [
             for (final tag in widget.value.researchInterests)
               Chip(
-	                label: Text(tag),
-	                onDeleted: () => _removeInterest(tag),
-	                backgroundColor: scheme.surfaceContainer,
-	              ),
+                label: Text(tag),
+                onDeleted: () => _removeInterest(tag),
+                backgroundColor: scheme.surfaceContainer,
+              ),
           ],
         ),
       ],

@@ -144,6 +144,6 @@ void main() {
     await tester.tap(find.text('清除'));
     await tester.pumpAndSettle();
 
-    expect(find.text('远端删除失败'), findsOneWidget);
+    expect(find.textContaining('远端删除失败'), findsOneWidget);
   });
 }

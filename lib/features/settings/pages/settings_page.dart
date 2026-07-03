@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/error/app_exception.dart';
+import '../../../core/error/api_error_reporter.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../profile/providers/profile_provider.dart';
+import '../../../shared/widgets/api_error_banner_listener.dart';
 import '../../../shared/widgets/section_header.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -17,89 +18,93 @@ class SettingsPage extends ConsumerWidget {
     final cfg = ref.watch(appConfigProvider);
     final themeMode = ref.watch(appThemeModeProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('个人'),
+    return Builder(
+      builder: (context) => ApiErrorBannerListener(
+        child: Scaffold(
+          appBar: AppBar(title: const Text('设置')),
+          body: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: SectionHeader('个人'),
+              ),
+              ListTile(
+                key: const Key('settings-profile-entry'),
+                leading: const Icon(Icons.person_outline),
+                title: const Text('我的背景档案'),
+                subtitle: const Text('用于让推荐结合你的成绩 / 竞赛 / 科研'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Haptics.light();
+                  context.push('/profile');
+                },
+              ),
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: SectionHeader('外观'),
+              ),
+              ListTile(
+                key: const Key('settings-theme-mode-entry'),
+                leading: const Icon(Icons.brightness_auto_outlined),
+                title: const Text('主题模式'),
+                subtitle: Text(_themeModeSubtitle(themeMode)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_themeModeLabel(themeMode)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () {
+                  Haptics.light();
+                  _showThemeModeSheet(context, ref, themeMode);
+                },
+              ),
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: SectionHeader('隐私'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text(
+                  cfg.dataSource == DataSource.http ? '删除远端资料' : '清除本地数据',
+                ),
+                subtitle: Text(
+                  cfg.dataSource == DataSource.http
+                      ? '请求后端删除收藏 / 历史 / 个人背景，并清除本机匿名凭证'
+                      : '收藏 / 历史 / 个人背景（仅本机）',
+                ),
+                onTap: () {
+                  Haptics.light();
+                  _confirmClear(context, ref);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('数据如何使用'),
+                subtitle: Text(
+                  cfg.dataSource == DataSource.http
+                      ? '真实后端模式下，档案 / 收藏 / 历史会同步到后端；推荐、匹配和套磁请求会发送必要资料。'
+                      : '资料仅保存在本机；LLM 模式下会随请求发送给大模型用于解析与推荐。',
+                ),
+              ),
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: SectionHeader('关于'),
+              ),
+              ListTile(title: const Text('版本'), subtitle: Text(cfg.appVersion)),
+              const ListTile(
+                title: Text('SchoNavi'),
+                subtitle: Text('用自然语言找到适合你的导师（AIGC 选导师助手）'),
+              ),
+            ],
           ),
-          ListTile(
-            key: const Key('settings-profile-entry'),
-            leading: const Icon(Icons.person_outline),
-            title: const Text('我的背景档案'),
-            subtitle: const Text('用于让推荐结合你的成绩 / 竞赛 / 科研'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Haptics.light();
-              context.push('/profile');
-            },
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('外观'),
-          ),
-          ListTile(
-            key: const Key('settings-theme-mode-entry'),
-            leading: const Icon(Icons.brightness_auto_outlined),
-            title: const Text('主题模式'),
-            subtitle: Text(_themeModeSubtitle(themeMode)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_themeModeLabel(themeMode)),
-                const SizedBox(width: 4),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-            onTap: () {
-              Haptics.light();
-              _showThemeModeSheet(context, ref, themeMode);
-            },
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('隐私'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_outline),
-            title: Text(
-              cfg.dataSource == DataSource.http ? '删除远端资料' : '清除本地数据',
-            ),
-            subtitle: Text(
-              cfg.dataSource == DataSource.http
-                  ? '请求后端删除收藏 / 历史 / 个人背景，并清除本机匿名凭证'
-                  : '收藏 / 历史 / 个人背景（仅本机）',
-            ),
-            onTap: () {
-              Haptics.light();
-              _confirmClear(context, ref);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('数据如何使用'),
-            subtitle: Text(
-              cfg.dataSource == DataSource.http
-                  ? '真实后端模式下，档案 / 收藏 / 历史会同步到后端；推荐、匹配和套磁请求会发送必要资料。'
-                  : '资料仅保存在本机；LLM 模式下会随请求发送给大模型用于解析与推荐。',
-            ),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SectionHeader('关于'),
-          ),
-          ListTile(title: const Text('版本'), subtitle: Text(cfg.appVersion)),
-          const ListTile(
-            title: Text('SchoNavi'),
-            subtitle: Text('用自然语言找到适合你的导师（AIGC 选导师助手）'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -190,9 +195,10 @@ class SettingsPage extends ConsumerWidget {
       messenger.showSnackBar(
         SnackBar(content: Text(remote ? '已删除远端资料' : '已清除本地数据')),
       );
-    } catch (error) {
-      final message = error is AppException ? error.message : '清除失败，请稍后重试';
-      messenger.showSnackBar(SnackBar(content: Text(message)));
+    } catch (error, stackTrace) {
+      ref
+          .read(apiErrorReporterProvider.notifier)
+          .report('清除远端数据失败', error, stackTrace);
     }
   }
 
