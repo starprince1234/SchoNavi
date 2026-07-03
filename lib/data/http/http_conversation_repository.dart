@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/error/app_exception.dart';
+import '../../core/error/error_diagnostics.dart';
 import '../../core/ids/uuid_v7.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_message.dart';
@@ -258,6 +259,8 @@ class HttpConversationRepository implements ConversationRepository {
             revision: revision,
             message: json['message']?.toString() ?? '服务异常，请稍后重试',
             code: json['code']?.toString(),
+            requestId: requestId,
+            path: path,
           ),
           _ => null,
         };
@@ -286,9 +289,26 @@ class HttpConversationRepository implements ConversationRepository {
       throw mapDioException(error);
     } on FormatException catch (error) {
       final detail = error.message.isEmpty ? '响应结构不符合契约' : error.message;
-      throw ValidationException('服务返回格式异常：$detail');
-    } catch (_) {
-      throw const ServerException();
+      throw ValidationException(
+        '服务返回格式异常：$detail',
+        diagnostics: ErrorDiagnostics(
+          requestId: requestId,
+          method: 'POST',
+          path: path,
+          exceptionType: error.runtimeType.toString(),
+          cause: detail,
+          occurredAt: DateTime.now(),
+        ),
+      );
+    } catch (error, stackTrace) {
+      throw normalizeAppException(error, stackTrace).withDiagnostics(
+        ErrorDiagnostics(
+          requestId: requestId,
+          method: 'POST',
+          path: path,
+          occurredAt: DateTime.now(),
+        ),
+      );
     }
   }
 

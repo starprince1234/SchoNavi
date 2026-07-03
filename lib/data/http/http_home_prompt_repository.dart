@@ -29,7 +29,7 @@ class HttpHomePromptRepository implements HomePromptRepository {
 
     return switch (result) {
       Success(:final data) => data,
-      Failure() => const <HomePrompt>[],
+      Failure(:final error) => throw error,
     };
   }
 }

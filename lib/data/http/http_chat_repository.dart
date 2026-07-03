@@ -4,20 +4,24 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../core/error/app_exception.dart';
+import '../../core/error/error_diagnostics.dart';
+import '../../core/ids/uuid_v7.dart';
 import '../../core/result/result.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/entities/chat_result.dart';
 import '../../domain/entities/fork_ref.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/repositories/chat_repository.dart';
+import 'api_request_id_interceptor.dart';
 import '../dto/api_envelope.dart';
 import '../dto/chat_dto.dart';
 import '../dto/chat_message_dto.dart';
 
 class HttpChatRepository implements ChatRepository {
-  const HttpChatRepository(this._dio);
+  HttpChatRepository(this._dio, {UuidV7? ids}) : _ids = ids ?? UuidV7();
 
   final Dio _dio;
+  final UuidV7 _ids;
 
   @override
   Future<Result<ChatResult>> sendMessage({
@@ -62,18 +66,34 @@ class HttpChatRepository implements ChatRepository {
     required String message,
     String? professorId,
   }) async* {
+    const path = '/api/v1/chat/stream';
+    final requestId = _ids.generate();
     try {
       final response = await _dio.get<ResponseBody>(
-        '/api/v1/chat/stream',
+        path,
         queryParameters: <String, dynamic>{
           'session_id': sessionId,
           'message': message,
           'professor_id': ?professorId,
         },
-        options: Options(responseType: ResponseType.stream),
+        options: Options(
+          responseType: ResponseType.stream,
+          headers: {apiRequestIdHeader: requestId},
+        ),
       );
+      final resolvedRequestId =
+          response.headers.value('x-request-id') ?? requestId;
       final body = response.data;
-      if (body == null) throw const ServerException();
+      if (body == null) {
+        throw ServerException(
+          diagnostics: _streamDiagnostics(
+            requestId: resolvedRequestId,
+            path: path,
+            exceptionType: 'EmptyStreamResponse',
+            cause: '响应流为空',
+          ),
+        );
+      }
 
       var event = 'message';
       final dataLines = <String>[];
@@ -92,16 +112,28 @@ class HttpChatRepository implements ChatRepository {
           continue;
         }
         if (line.isEmpty && dataLines.isNotEmpty) {
-          final payload = jsonDecode(dataLines.join('\n'));
+          final rawData = dataLines.join('\n');
+          final payload = jsonDecode(rawData);
           dataLines.clear();
-          if (payload is! Map<String, dynamic>) continue;
+          if (payload is! Map) {
+            throw const FormatException('SSE data is not a JSON object');
+          }
+          final json = Map<String, dynamic>.from(payload);
           switch (event) {
             case 'delta':
-              yield payload['text']?.toString() ?? '';
+              yield json['text']?.toString() ?? '';
               break;
             case 'error':
               throw ValidationException(
-                payload['message']?.toString() ?? '服务异常，请稍后重试',
+                json['message']?.toString() ?? '服务异常，请稍后重试',
+                diagnostics: _streamDiagnostics(
+                  requestId: resolvedRequestId,
+                  path: path,
+                  backendCode: json['code']?.toString(),
+                  backendMessage: json['message']?.toString(),
+                  exceptionType: 'ChatStreamException',
+                  responsePreview: sanitizedResponsePreview(json),
+                ),
               );
             case 'done':
             case 'related_recommendations':
@@ -115,8 +147,25 @@ class HttpChatRepository implements ChatRepository {
       rethrow;
     } on DioException catch (error) {
       throw mapDioException(error);
-    } catch (_) {
-      throw const ServerException();
+    } on FormatException catch (error) {
+      throw ValidationException(
+        '服务返回格式异常：${error.message.isEmpty ? 'SSE 数据解析失败' : error.message}',
+        diagnostics: _streamDiagnostics(
+          requestId: requestId,
+          path: path,
+          exceptionType: error.runtimeType.toString(),
+          cause: error.message,
+        ),
+      );
+    } catch (error, stackTrace) {
+      throw normalizeAppException(error, stackTrace).withDiagnostics(
+        ErrorDiagnostics(
+          requestId: requestId,
+          method: 'GET',
+          path: path,
+          occurredAt: DateTime.now(),
+        ),
+      );
     }
   }
 
@@ -199,6 +248,28 @@ class HttpChatRepository implements ChatRepository {
   Future<Result<void>> deleteFork({required String forkId}) => guardApi(
     () => _dio.delete<dynamic>('/api/v1/chat/sessions/$forkId'),
     (_) {},
+  );
+}
+
+ErrorDiagnostics _streamDiagnostics({
+  required String requestId,
+  required String path,
+  String? backendCode,
+  String? backendMessage,
+  String? exceptionType,
+  String? cause,
+  String? responsePreview,
+}) {
+  return ErrorDiagnostics(
+    requestId: requestId,
+    method: 'GET',
+    path: path,
+    backendCode: backendCode,
+    backendMessage: backendMessage,
+    exceptionType: exceptionType,
+    cause: cause,
+    responsePreview: responsePreview,
+    occurredAt: DateTime.now(),
   );
 }
 

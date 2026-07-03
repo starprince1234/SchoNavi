@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import '../../core/result/result.dart';
+import '../../core/error/app_exception.dart';
 import '../../domain/entities/competition_recommendation_result.dart';
 import '../../domain/entities/recommendation_result.dart';
 import '../../domain/entities/search_history_item.dart';
@@ -11,11 +12,12 @@ import '../dto/api_envelope.dart';
 import '../dto/history_dto.dart';
 
 class HttpHistoryRepository implements HistoryRepository {
-  HttpHistoryRepository(this._dio, {DateTime Function()? now})
+  HttpHistoryRepository(this._dio, {DateTime Function()? now, this.onSyncError})
     : _now = now ?? DateTime.now;
 
   final Dio _dio;
   final DateTime Function() _now;
+  final void Function(AppException)? onSyncError;
   final StreamController<List<SearchHistoryItem>> _controller =
       StreamController<List<SearchHistoryItem>>.broadcast();
   List<SearchHistoryItem> _snapshot = const [];
@@ -131,6 +133,8 @@ class HttpHistoryRepository implements HistoryRepository {
     );
     if (result is Success<List<SearchHistoryItem>>) {
       _setSnapshot(result.data..sort(_byNewest));
+    } else if (result case Failure<List<SearchHistoryItem>>(:final error)) {
+      onSyncError?.call(error);
     }
   }
 

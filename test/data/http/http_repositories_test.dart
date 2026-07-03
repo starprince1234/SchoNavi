@@ -149,7 +149,124 @@ void main() {
 
     expect(captured!.path, '/api/v1/chat/stream');
     expect(captured!.queryParameters['professor_id'], 'p_001');
+    expect(captured!.headers['X-Request-ID'], isNotEmpty);
     expect(deltas, ['你', '好']);
+  });
+
+  test('HttpChatRepository keeps SSE error diagnostics', () async {
+    RequestOptions? captured;
+    final repo = HttpChatRepository(
+      _dio((options) async {
+        captured = options;
+        return _sseBody(
+          [
+            'event: error\n'
+                'data: {"code":"CHAT_BLOCKED","message":"输入内容不合法"}\n\n',
+          ],
+          requestId: 'server-request-id',
+        );
+      }),
+    );
+
+    await expectLater(
+      repo.streamReply(sessionId: 's_123', message: 'bad').toList(),
+      throwsA(
+        isA<ValidationException>()
+            .having((error) => error.message, 'message', '输入内容不合法')
+            .having(
+              (error) => error.diagnostics?.requestId,
+              'requestId',
+              'server-request-id',
+            )
+            .having(
+              (error) => error.diagnostics?.method,
+              'method',
+              'GET',
+            )
+            .having(
+              (error) => error.diagnostics?.path,
+              'path',
+              '/api/v1/chat/stream',
+            )
+            .having(
+              (error) => error.diagnostics?.backendCode,
+              'backendCode',
+              'CHAT_BLOCKED',
+            )
+            .having(
+              (error) => error.diagnostics?.backendMessage,
+              'backendMessage',
+              '输入内容不合法',
+            )
+            .having(
+              (error) => error.diagnostics?.exceptionType,
+              'exceptionType',
+              'ChatStreamException',
+            ),
+      ),
+    );
+    expect(captured!.headers['X-Request-ID'], isNotEmpty);
+  });
+
+  test('HttpChatRepository keeps malformed SSE diagnostics', () async {
+    final repo = HttpChatRepository(
+      _dio((_) async => _sseBody(['event: delta\ndata: not-json\n\n'])),
+    );
+
+    await expectLater(
+      repo.streamReply(sessionId: 's_123', message: 'hi').toList(),
+      throwsA(
+        isA<ValidationException>()
+            .having(
+              (error) => error.message,
+              'message',
+              contains('服务返回格式异常'),
+            )
+            .having(
+              (error) => error.diagnostics?.requestId,
+              'requestId',
+              isNotEmpty,
+            )
+            .having(
+              (error) => error.diagnostics?.path,
+              'path',
+              '/api/v1/chat/stream',
+            )
+            .having(
+              (error) => error.diagnostics?.cause,
+              'cause',
+              contains('Unexpected character'),
+            ),
+      ),
+    );
+  });
+
+  test('HttpChatRepository maps SSE Dio timeout with request diagnostics', () async {
+    final repo = HttpChatRepository(
+      _dio((options) async {
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.receiveTimeout,
+        );
+      }),
+    );
+
+    await expectLater(
+      repo.streamReply(sessionId: 's_123', message: 'hi').toList(),
+      throwsA(
+        isA<TimeoutException>()
+            .having(
+              (error) => error.diagnostics?.requestId,
+              'requestId',
+              isNotEmpty,
+            )
+            .having(
+              (error) => error.diagnostics?.path,
+              'path',
+              '/api/v1/chat/stream',
+            ),
+      ),
+    );
   });
 
   test(
@@ -501,19 +618,21 @@ ResponseBody _jsonString(String text) {
   );
 }
 
-ResponseBody _sseBody(List<String> events) {
+ResponseBody _sseBody(List<String> events, {String? requestId}) {
   Stream<Uint8List> chunks() async* {
     for (final event in events) {
       yield Uint8List.fromList(utf8.encode(event));
     }
   }
 
+  final headers = <String, List<String>>{
+    Headers.contentTypeHeader: ['text/event-stream'],
+    if (requestId != null) 'x-request-id': [requestId],
+  };
   return ResponseBody(
     chunks(),
     200,
-    headers: {
-      Headers.contentTypeHeader: ['text/event-stream'],
-    },
+    headers: headers,
   );
 }
 

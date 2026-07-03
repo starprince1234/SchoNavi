@@ -73,6 +73,8 @@ class ApiAuthInterceptor extends QueuedInterceptor {
     try {
       await _authenticator.authenticate(options);
       handler.next(options);
+    } on DioException catch (error) {
+      handler.reject(error);
     } catch (error) {
       handler.reject(
         DioException(

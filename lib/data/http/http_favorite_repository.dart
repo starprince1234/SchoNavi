@@ -3,15 +3,17 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import '../../core/result/result.dart';
+import '../../core/error/app_exception.dart';
 import '../../domain/entities/favorite_item.dart';
 import '../../domain/repositories/favorite_repository.dart';
 import '../dto/api_envelope.dart';
 import '../dto/favorite_dto.dart';
 
 class HttpFavoriteRepository implements FavoriteRepository {
-  HttpFavoriteRepository(this._dio);
+  HttpFavoriteRepository(this._dio, {this.onSyncError});
 
   final Dio _dio;
+  final void Function(AppException)? onSyncError;
   final StreamController<List<FavoriteItem>> _controller =
       StreamController<List<FavoriteItem>>.broadcast();
   List<FavoriteItem> _snapshot = const [];
@@ -94,6 +96,8 @@ class HttpFavoriteRepository implements FavoriteRepository {
     );
     if (result is Success<List<FavoriteItem>>) {
       _setSnapshot(result.data..sort(_byNewest));
+    } else if (result case Failure<List<FavoriteItem>>(:final error)) {
+      onSyncError?.call(error);
     }
   }
 
