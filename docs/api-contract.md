@@ -13,6 +13,11 @@ must return these shapes through `/api/v1` endpoints.
 - Content type: `application/json; charset=utf-8`
 - Field names: `snake_case`
 - Time fields: ISO-8601 strings
+- Every first-party request sends `X-Request-ID: <uuid-v7>`. The backend must
+  echo the same value in the `X-Request-ID` response header for successful,
+  business-error, and HTTP-error responses so client diagnostics can be
+  correlated with backend logs. Browser deployments must include
+  `X-Request-ID` in `Access-Control-Expose-Headers`.
 - Success envelope:
 
 ```json
@@ -67,7 +72,8 @@ independent UUIDv7 values. Their strings carry no parent/child semantics.
 Conversation mutations use `expected_revision`; a mismatch fails rather than
 silently overwriting newer state. Creating a turn or attempt also requires
 `Idempotency-Key: <request_id>`, and the header must equal the JSON
-`request_id`.
+`request_id`. For those mutations, `X-Request-ID`, `Idempotency-Key`, and the
+JSON `request_id` must carry the same UUIDv7 value.
 
 ## Shared Models
 
@@ -83,7 +89,7 @@ silently overwriting newer state. Creating a turn or attempt also requires
   "major": "计算机科学与技术",
   "research_interests": ["计算机视觉", "医学影像"],
   "highlights": "有一段医学影像项目经历",
-  "score": { "gpa": 3.8, "scale": 4.0, "rank": "前 10%" },
+  "score": { "gpa": 3.8, "scale": 4.0, "rank_mode": "percent", "percent": 10 },
   "competitions": [
     { "name": "中国大学生计算机设计大赛", "level": "国家级", "award": "二等奖", "year": "2025" }
   ],
@@ -97,6 +103,10 @@ Enums:
 
 - `gender`: `male`, `female`, `other`, `undisclosed`
 - `research.type`: `paper`, `project`, `patent`, `other`
+- `score.rank_mode`: `none`, `percent`, `ordinal`. Current clients serialize
+  structured rank fields only: use `percent` for percentage rank, or
+  `rank_position` + `rank_total` for ordinal rank. Do not use the legacy
+  display-only `rank` string in API payloads.
 
 ### Recommendation
 
@@ -173,6 +183,9 @@ fork.
   is never projected into the fork's visible history.
 - `GET /chat/sessions/{rootId}/forks` returns
   `{ "items": ConversationSession[] }`.
+  Current Flutter clients also tolerate a legacy raw array for session and fork
+  list responses, but new backend responses should use the `{ "items": [...] }`
+  shape above.
 - `DELETE /chat/sessions/{id}` transactionally deletes the session. Deleting a
   root also deletes its forks, turns, attempts, messages, summaries, and cache;
   deleting a fork does not affect the root.
@@ -670,9 +683,9 @@ Request:
   it does not replace it with a server timezone.
 - `target_date`, `event_end_date`, `defense_date` are all `YYYY-MM-DD`
   (`format: date`).
-- `event_end_date` is required for `eventWindow` and must be null for
+- `event_end_date` is required for `eventWindow` and must be null or omitted for
   `submission`. `defense_date` is only meaningful for `submission` and may be
-  null.
+  null or omitted. Current Flutter clients omit these fields when they are null.
 - `phase_keys` is the client-side allowed phase key set. The server must only
   return phases whose `key` is in this set; `defense_prep` appears only when
   `defense_date` is present.
@@ -807,7 +820,7 @@ Request:
     "id": "pp_1",
     "revision": 3,
     "competition": {},
-    "target_date": "2026-05-30",
+    "target_date": "2026-05-30T00:00:00.000",
     "timeline_type": "submission",
     "event_end_date": null,
     "defense_date": "2026-06-10",
@@ -817,15 +830,17 @@ Request:
     "phases": [
       {
         "key": "proposal_writing",
-        "start_date": "2026-05-10",
-        "end_date": "2026-05-22",
+        "title": "方案撰写",
+        "start_date": "2026-05-10T00:00:00.000",
+        "end_date": "2026-05-22T00:00:00.000",
         "tasks": [
           {
             "id": "task_core_algo",
+            "template_key": "core_algorithm",
             "title": "核心算法实现",
             "kind": "required",
             "estimated_hours": 16,
-            "due_date": "2026-05-15",
+            "due_date": "2026-05-15T00:00:00.000",
             "completed_at": null
           }
         ]
@@ -848,10 +863,13 @@ Request:
 
 - `calendar_today` is `YYYY-MM-DD` (`format: date`).
 - `base_plan_revision` is the plan `revision` the suggestion is based on.
-- `plan_snapshot` is the full plan JSON. Anchor dates (`target_date`,
-  `event_end_date`, `defense_date`) and phase/task dates are `YYYY-MM-DD`
-  (`format: date`); audit times (`created_at`, `updated_at`, `completed_at`)
-  are RFC 3339 `date-time`.
+- `plan_snapshot` is the full `PreparationPlan.toJson()` shape sent by the
+  Flutter client. `target_date`, phase `start_date` / `end_date`, and task
+  `due_date` are ISO-8601 strings; current clients send `DateTime.toIso8601String()`
+  for these fields. `event_end_date`, `defense_date`, and
+  `registration_deadline` are `YYYY-MM-DD` when present. Server validation should
+  compare these values by calendar day after parsing.
+- `plan_snapshot.status` values: `active`, `archived`.
 - `user_message` is the user's free-text adjustment request.
 - `history` is optional; each turn carries `role` (`user` or `assistant`),
   `content`, and an optional `card_results` list of `{ card_id, status }`.
@@ -958,9 +976,10 @@ is the authoritative validation layer, but the client must not trust it alone).
 
 ### History
 
-These legacy history endpoints now store competition searches only. Mentor
-conversation history is derived exclusively from `/chat/sessions`; clients
-must not write a second mentor-session index through `/history`.
+These history endpoints store generated recommendation searches. Current HTTP
+clients write both mentor searches (`type = mentor`) and competition searches
+(`type = competition`) to `/history`; conversation transcript history remains
+under `/chat/sessions`.
 
 `SearchHistoryItem`:
 
@@ -977,8 +996,8 @@ must not write a second mentor-session index through `/history`.
 }
 ```
 
-New writes use `type = competition`. `mentor` is accepted only while reading or
-migrating old data.
+Writes may use either `mentor` or `competition`; the backend may normalize or
+de-duplicate entries by `session_id`.
 
 #### GET `/history`
 
@@ -1020,7 +1039,7 @@ Response data:
 { "cleared": true }
 ```
 
-### POST `/api/v1/feedback`
+### POST `/feedback`
 
 提交用户反馈(bug / 推荐不准 / 导师未收录 / 其他)。请求体:
 
@@ -1040,7 +1059,8 @@ Response data:
 }
 ```
 
-响应遵循统一信封 `{ code, message, data }`,`data`:
+响应遵循统一信封 `{ code, message, data }`。Current Flutter clients only depend on
+`code == 0` and ignore `data`; backends may return `null` or this receipt object:
 
 ```json
 { "id": "...", "status": "received", "received_at": "2026-06-30T12:00:01Z" }

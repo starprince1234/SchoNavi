@@ -25,6 +25,7 @@ void main() {
       '/profile',
       '/favorites',
       '/history',
+      '/feedback',
       '/preparation/config',
       '/preparation-templates',
       '/preparation-plans/generate',
@@ -55,9 +56,39 @@ void main() {
       '/preparation-templates',
       '/preparation-plans/generate',
       '/preparation-plans/diagnose',
+      '/feedback',
     ]) {
       expect(text, contains('  $path:'), reason: '$path missing from OpenAPI');
     }
+  });
+
+  test('API contract requires echoed request correlation IDs', () {
+    final openApiText = openApi.readAsStringSync();
+    final contractText = File('docs/api-contract.md').readAsStringSync();
+
+    expect(openApiText, contains('Every request sends X-Request-ID'));
+    expect(openApiText, contains('RequestId:'));
+    expect(openApiText, contains('RequestIdHeader:'));
+    expect(openApiText, contains('format: uuid'));
+    expect(contractText, contains('X-Request-ID: <uuid-v7>'));
+    expect(contractText, contains('Access-Control-Expose-Headers'));
+
+    final pathCount = RegExp(r'^  /', multiLine: true)
+        .allMatches(openApiText)
+        .length;
+    final requestHeaderCount = RegExp(
+      r"\$ref: '#/components/parameters/RequestIdHeader'",
+    ).allMatches(openApiText).length;
+    final successCount = RegExp(r"^        '200':$", multiLine: true)
+        .allMatches(openApiText)
+        .length;
+    final responseHeaderCount = RegExp(
+      r'^\s+X-Request-ID:$',
+      multiLine: true,
+    ).allMatches(openApiText).length;
+
+    expect(requestHeaderCount, pathCount);
+    expect(responseHeaderCount, successCount);
   });
 
   test('OpenAPI uses Dart timeline enum names', () {
@@ -70,7 +101,8 @@ void main() {
   test('OpenAPI documents user feedback endpoint', () {
     final text = openApi.readAsStringSync();
 
-    expect(text, contains('  /api/v1/feedback:'));
+    expect(text, contains('  /feedback:'));
+    expect(text, isNot(contains('  /api/v1/feedback:')));
     expect(text, contains(r"$ref: '#/components/schemas/UserFeedbackRequest'"));
     expect(
       text,

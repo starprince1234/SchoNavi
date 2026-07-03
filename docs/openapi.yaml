@@ -2,11 +2,16 @@ openapi: 3.1.0
 info:
   title: SchoNavi API
   version: 1.0.0
-  description: Contract-first API for the Flutter client.
+  description: |
+    Contract-first API for the Flutter client.
+    Every request sends X-Request-ID and every response echoes it. Browser
+    deployments expose X-Request-ID through Access-Control-Expose-Headers.
 servers:
   - url: /api/v1
 paths:
   /home/prompts:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Fetch suggested home prompts.
       parameters:
@@ -18,12 +23,17 @@ paths:
             enum: [mentor, competition]
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Prompt list.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HomePromptsEnvelope'
   /home/config:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Fetch server-managed home screen copy and prompt chips.
       parameters:
@@ -35,22 +45,32 @@ paths:
             enum: [mentor, competition]
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Home config.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HomeConfigEnvelope'
   /competitions:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: List competition catalog snapshots.
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Competition catalog.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompetitionCatalogEnvelope'
   /competitions/{competition_id}:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Get one competition catalog snapshot.
       parameters:
@@ -60,12 +80,17 @@ paths:
           schema: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Competition snapshot.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RecommendedCompetitionEnvelope'
   /recommendations/mentors:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Get mentor recommendations.
       security:
@@ -79,12 +104,17 @@ paths:
               $ref: '#/components/schemas/MentorRecommendationRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Recommendation result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MentorRecommendationEnvelope'
   /recommendations/competitions:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Get competition recommendations.
       security:
@@ -98,34 +128,49 @@ paths:
               $ref: '#/components/schemas/CompetitionRecommendationRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Competition recommendation result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CompetitionRecommendationEnvelope'
   /professors/{professor_id}:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Get professor detail.
       parameters:
         - $ref: '#/components/parameters/ProfessorId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Professor detail.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProfessorEnvelope'
   /identity/anonymous:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Create an installation-level anonymous identity.
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Anonymous bearer credential; also sets the secure Web cookie.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnonymousIdentityEnvelope'
   /chat/sessions:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Create a general or professor-anchored conversation.
       security:
@@ -139,6 +184,9 @@ paths:
               $ref: '#/components/schemas/SessionCreateRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Created session descriptor.
           content:
             application/json:
@@ -151,12 +199,17 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Active root conversations.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionListEnvelope'
   /chat/sessions/{session_id}:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Load the persisted aggregate for one conversation.
       security:
@@ -166,6 +219,9 @@ paths:
         - $ref: '#/components/parameters/SessionId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Session, projected turns, and messages. Fork responses contain only fork-owned turns and messages; inherited source context is not exposed.
           content:
             application/json:
@@ -180,12 +236,17 @@ paths:
         - $ref: '#/components/parameters/SessionId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Deletion result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeletedEnvelope'
   /chat/sessions/{session_id}/turns:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Load projected turns and messages for a conversation. Fork responses contain only fork-owned history.
       security:
@@ -195,6 +256,9 @@ paths:
         - $ref: '#/components/parameters/SessionId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Turn and message projection.
           content:
             application/json:
@@ -216,11 +280,16 @@ paths:
               $ref: '#/components/schemas/TurnCreateRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: SSE ack, route, delta, completed, and error events. Every event includes session_id, turn_id, attempt_id, and revision.
           content:
             text/event-stream:
               schema: { type: string }
   /chat/sessions/{session_id}/forks:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: List forks below a root conversation.
       security:
@@ -230,6 +299,9 @@ paths:
         - $ref: '#/components/parameters/SessionId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Fork descriptors.
           content:
             application/json:
@@ -250,12 +322,17 @@ paths:
               $ref: '#/components/schemas/ForkCreateRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Created or reused fork descriptor.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SessionEnvelope'
   /chat/turns/{turn_id}/attempts:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Regenerate an existing turn without adding a user message.
       security:
@@ -272,11 +349,16 @@ paths:
               $ref: '#/components/schemas/AttemptCreateRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: SSE events with the same grammar as turn submission.
           content:
             text/event-stream:
               schema: { type: string }
   /chat/attempts/{attempt_id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Persist an active attempt as interrupted.
       security:
@@ -286,12 +368,17 @@ paths:
         - $ref: '#/components/parameters/AttemptId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Interruption result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/InterruptedEnvelope'
   /chat/messages/{message_id}/feedback:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     patch:
       summary: Persist assistant-message feedback.
       security:
@@ -307,12 +394,17 @@ paths:
               $ref: '#/components/schemas/FeedbackRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Feedback update result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UpdatedEnvelope'
   /chat/messages:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       deprecated: true
       summary: Send a legacy non-streaming chat message.
@@ -327,12 +419,17 @@ paths:
               $ref: '#/components/schemas/ChatMessageRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Chat response.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatMessageEnvelope'
   /chat/stream:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Stream chat reply through Server-Sent Events.
       security:
@@ -353,12 +450,17 @@ paths:
           schema: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: SSE stream with delta, related_recommendations, done, and error events.
           content:
             text/event-stream:
               schema:
                 type: string
   /chat/route:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Decide whether a follow-up needs a new round of recommendations.
       security:
@@ -372,12 +474,17 @@ paths:
               $ref: '#/components/schemas/ChatRouteRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Routing decision.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChatRouteEnvelope'
   /chat/quick-actions:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Generate short quick-action labels for the chat composer.
       security:
@@ -391,12 +498,17 @@ paths:
               $ref: '#/components/schemas/QuickActionsRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Quick action labels.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/QuickActionsEnvelope'
   /professors/compare:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Compare professors.
       security:
@@ -417,12 +529,17 @@ paths:
                   items: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Comparison report.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ComparisonEnvelope'
   /professors/{professor_id}/match-analysis:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Analyze profile-professor match.
       security:
@@ -442,12 +559,17 @@ paths:
                   $ref: '#/components/schemas/UserProfile'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Match analysis.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MatchAnalysisEnvelope'
   /professors/{professor_id}/outreach-email:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Generate outreach email.
       security:
@@ -467,12 +589,17 @@ paths:
                   $ref: '#/components/schemas/UserProfile'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Email draft.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/EmailDraftEnvelope'
   /profile/achievements/extract:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Extract structured achievements.
       security:
@@ -489,12 +616,17 @@ paths:
                 raw_text: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Achievement draft.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AchievementDraftEnvelope'
   /preparation-plans/generate:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Generate personalized optional tasks and advice for a preparation plan.
       security:
@@ -508,12 +640,17 @@ paths:
               $ref: '#/components/schemas/PreparationPlanGenerateRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Personalized preparation plan augmentation.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationPlanGenerateEnvelope'
   /preparation/config:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Fetch server-managed preparation lightweight configuration.
       security:
@@ -521,12 +658,17 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Preparation config.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationConfigEnvelope'
   /preparation-templates:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Fetch merged preparation template for a competition context.
       security:
@@ -552,12 +694,17 @@ paths:
           schema: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Merged template.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationTemplateEnvelope'
   /preparation-plans/diagnose:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Diagnose the user's experience level for a competition category.
       security:
@@ -571,12 +718,17 @@ paths:
               $ref: '#/components/schemas/PreparationDiagnoseRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: AI-suggested experience level with rationale.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationDiagnoseEnvelope'
   /preparation-plans/{plan_id}/assistant:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Suggest structured plan-change cards for a preparation plan.
       security:
@@ -592,12 +744,17 @@ paths:
               $ref: '#/components/schemas/PreparationAssistantRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Natural-language reply and at most five change cards.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PreparationAssistantEnvelope'
   /profile:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: Load current profile.
       security:
@@ -605,6 +762,9 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: User profile.
           content:
             application/json:
@@ -623,6 +783,9 @@ paths:
               $ref: '#/components/schemas/UserProfile'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Saved profile.
           content:
             application/json:
@@ -635,12 +798,17 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Clear result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClearedEnvelope'
   /favorites:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: List favorites.
       security:
@@ -648,12 +816,17 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Favorites.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FavoritesEnvelope'
   /favorites/{professor_id}:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     put:
       summary: Add favorite professor snapshot.
       security:
@@ -669,6 +842,9 @@ paths:
               $ref: '#/components/schemas/FavoriteItem'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Favorite status.
           content:
             application/json:
@@ -683,12 +859,17 @@ paths:
         - $ref: '#/components/parameters/ProfessorId'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Favorite status.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FavoriteRemovedEnvelope'
   /history:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     get:
       summary: List search history.
       security:
@@ -696,6 +877,9 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: History.
           content:
             application/json:
@@ -714,6 +898,9 @@ paths:
               $ref: '#/components/schemas/SearchHistoryItem'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Saved history item.
           content:
             application/json:
@@ -726,12 +913,17 @@ paths:
         - cookieAuth: []
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Clear result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClearedEnvelope'
   /history/{session_id}:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     delete:
       summary: Remove one search history item.
       security:
@@ -744,12 +936,17 @@ paths:
           schema: { type: string }
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Remove result.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemovedEnvelope'
-  /api/v1/feedback:
+  /feedback:
+    parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
     post:
       summary: Submit user feedback (bug / recommendation / missing professor / other).
       security:
@@ -763,13 +960,28 @@ paths:
               $ref: '#/components/schemas/UserFeedbackRequest'
       responses:
         '200':
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
           description: Feedback received.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserFeedbackEnvelope'
 components:
+  headers:
+    RequestId:
+      description: UUIDv7 correlation identifier echoed from X-Request-ID.
+      required: true
+      schema:
+        type: string
+        format: uuid
   parameters:
+    RequestIdHeader:
+      name: X-Request-ID
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
     ProfessorId:
       name: professor_id
       in: path
@@ -953,11 +1165,11 @@ components:
         event_end_date:
           type: [string, 'null']
           format: date
-          description: Event window end (eventWindow only); null for submission.
+          description: Event window end (eventWindow only); null or absent for submission. Flutter omits this field when null.
         defense_date:
           type: [string, 'null']
           format: date
-          description: Defense/final date (submission only); null when absent.
+          description: Defense/final date (submission only); null or absent when unavailable. Flutter omits this field when null.
         weekly_commitment:
           $ref: '#/components/schemas/WeeklyCommitment'
         experience_level:
@@ -1061,11 +1273,14 @@ components:
         id: { type: string }
         competition:
           $ref: '#/components/schemas/CompetitionSnapshot'
-        target_date: { type: string, format: date }
+        target_date:
+          type: string
+          description: ISO-8601 string from PreparationPlan.toJson(); current Flutter sends a date-time string.
         timeline_type:
           $ref: '#/components/schemas/CompetitionTimelineType'
         event_end_date: { type: [string, 'null'], format: date }
         defense_date: { type: [string, 'null'], format: date }
+        registration_deadline: { type: [string, 'null'], format: date }
         revision: { type: integer, minimum: 0 }
         weekly_commitment:
           $ref: '#/components/schemas/WeeklyCommitment'
@@ -1073,7 +1288,7 @@ components:
           $ref: '#/components/schemas/ExperienceLevel'
         status:
           type: string
-          enum: [draft, active, completed, archived]
+          enum: [active, archived]
         phases:
           type: array
           items:
@@ -1085,26 +1300,36 @@ components:
         overload: { type: boolean }
     PreparationPhaseSnapshot:
       type: object
-      required: [key, start_date, end_date, tasks]
+      required: [key, title, start_date, end_date, tasks]
       properties:
         key: { type: string }
-        start_date: { type: string, format: date }
-        end_date: { type: string, format: date }
+        title: { type: string }
+        start_date:
+          type: string
+          description: ISO-8601 string from PreparationPlan.toJson(); current Flutter sends a date-time string.
+        end_date:
+          type: string
+          description: ISO-8601 string from PreparationPlan.toJson(); current Flutter sends a date-time string.
         tasks:
           type: array
           items:
             $ref: '#/components/schemas/PreparationTaskSnapshot'
+        personalized_advice: { type: string }
     PreparationTaskSnapshot:
       type: object
       required: [id, title, kind, estimated_hours, due_date]
       properties:
         id: { type: string }
+        template_key: { type: string }
         title: { type: string }
         kind:
           type: string
           enum: [required, optional, userAdded]
-        estimated_hours: { type: number }
-        due_date: { type: string, format: date }
+        estimated_hours: { type: integer }
+        due_date:
+          type: string
+          description: ISO-8601 string from PreparationPlan.toJson(); current Flutter sends a date-time string.
+        note: { type: string }
         completed_at: { type: [string, 'null'], format: date-time }
     PreparationAssistantRequest:
       type: object
@@ -1275,7 +1500,9 @@ components:
         code: { type: integer }
         message: { type: string }
         data:
-          $ref: '#/components/schemas/UserFeedbackData'
+          oneOf:
+            - $ref: '#/components/schemas/UserFeedbackData'
+            - type: 'null'
     UserFeedbackData:
       type: object
       required: [id, status, received_at]
@@ -1308,7 +1535,7 @@ components:
         ordinal: { type: integer, minimum: 0 }
         status:
           type: string
-          enum: [queued, classifying, connecting, streaming, recommending, committing, completed, failed, interrupted]
+          enum: [queued, classifying, connecting, streaming, recommending, completed, failed, interrupted]
         route: { type: [string, 'null'], enum: [recommendation, conversation, forkReroute, null] }
         user_message_id: { type: string, format: uuid }
         active_attempt_id: { type: [string, 'null'], format: uuid }
@@ -1320,11 +1547,11 @@ components:
       properties:
         id: { type: string, format: uuid }
         turn_id: { type: string, format: uuid }
-        role: { type: string, enum: [user, assistant, system] }
+        role: { type: string, enum: [user, assistant] }
         content: { type: string }
         created_at: { type: string, format: date-time }
         status: { type: string, enum: [sending, streaming, done, error, interrupted] }
-        kind: { type: string }
+        kind: { type: string, enum: [conversation, recommendation, forkReroute] }
         feedback: { type: string, enum: [none, like, dislike] }
         related_recommendations:
           type: array
@@ -1389,7 +1616,12 @@ components:
       properties:
         gpa: { type: number }
         scale: { type: number }
-        rank: { type: string }
+        rank_mode:
+          type: string
+          enum: [none, percent, ordinal]
+        percent: { type: integer, minimum: 1, maximum: 100 }
+        rank_position: { type: integer, minimum: 1 }
+        rank_total: { type: integer, minimum: 1 }
     Competition:
       type: object
       required: [name]
