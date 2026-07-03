@@ -28,6 +28,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="全国大学生数学建模竞赛"
                 android:textColor="@color/widget_text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -41,6 +42,7 @@
                 android:fontFamily="sans"
                 android:paddingHorizontal="7dp"
                 android:paddingVertical="2dp"
+                android:text="备赛中"
                 android:textColor="@color/widget_primary"
                 android:textSize="9sp"
                 android:textStyle="bold" />
@@ -56,6 +58,7 @@
             android:ellipsize="end"
             android:fontFamily="sans"
             android:maxLines="1"
+            android:text="连续 3 天 · 今天已推进"
             android:textColor="@color/widget_accent"
             android:textSize="10sp"
             android:textStyle="bold" />
@@ -66,6 +69,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:fontFamily="sans"
+            android:text="D-63"
             android:textColor="@color/widget_primary"
             android:textSize="42sp"
             android:textStyle="bold" />
@@ -83,6 +87,8 @@
                 android:layout_width="0dp"
                 android:layout_height="6dp"
                 android:layout_weight="1"
+                android:max="100"
+                android:progress="42"
                 android:progressDrawable="@drawable/preparation_widget_progress" />
 
             <TextView
@@ -91,12 +97,13 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:fontFamily="sans"
+                android:text="8/18 · 42%"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <View
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />
@@ -107,14 +114,14 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <View
+            <TextView
                 android:id="@+id/widget_phase_0"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
                 android:layout_weight="1"
                 android:background="@drawable/preparation_widget_phase_upcoming" />
 
-            <View
+            <TextView
                 android:id="@+id/widget_phase_1"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
@@ -122,7 +129,7 @@
                 android:layout_marginStart="4dp"
                 android:background="@drawable/preparation_widget_phase_upcoming" />
 
-            <View
+            <TextView
                 android:id="@+id/widget_phase_2"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
@@ -130,7 +137,7 @@
                 android:layout_marginStart="4dp"
                 android:background="@drawable/preparation_widget_phase_upcoming" />
 
-            <View
+            <TextView
                 android:id="@+id/widget_phase_3"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
@@ -138,7 +145,7 @@
                 android:layout_marginStart="4dp"
                 android:background="@drawable/preparation_widget_phase_upcoming" />
 
-            <View
+            <TextView
                 android:id="@+id/widget_phase_4"
                 android:layout_width="0dp"
                 android:layout_height="5dp"
@@ -162,6 +169,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="报名"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="8sp" />
 
@@ -173,6 +181,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="学习"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="8sp" />
 
@@ -184,6 +193,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="训练"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="8sp" />
 
@@ -195,6 +205,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="冲刺"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="8sp" />
 
@@ -206,6 +217,7 @@
                 android:ellipsize="end"
                 android:fontFamily="sans"
                 android:maxLines="1"
+                android:text="参赛"
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="8sp" />
         </LinearLayout>
@@ -218,6 +230,7 @@
             android:ellipsize="end"
             android:fontFamily="sans"
             android:maxLines="1"
+            android:text="下一项 · 完成论文模板整理"
             android:textColor="@color/widget_text_primary"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -227,6 +240,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans"
+            android:text="明天截止"
             android:textColor="@color/widget_text_secondary"
             android:textSize="9sp" />
     </LinearLayout>

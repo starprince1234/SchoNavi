@@ -72,7 +72,7 @@
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="10sp" />
 
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1" />
@@ -91,7 +91,7 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <View
+        <TextView
             android:layout_width="1dp"
             android:layout_height="match_parent"
             android:layout_marginStart="12dp"
@@ -132,7 +132,7 @@
                 android:textColor="@color/widget_text_secondary"
                 android:textSize="9sp" />
 
-            <View
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1" />

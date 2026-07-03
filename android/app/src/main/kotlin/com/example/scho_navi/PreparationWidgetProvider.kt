@@ -68,14 +68,51 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         if (remaining.isEmpty()) WidgetRotationScheduler.stop(context)
     }
 
-    private fun layoutFor(options: Bundle): Int {
+    private data class WidgetLayout(
+        val resourceId: Int,
+        val hasPosition: Boolean,
+        val hasPhaseText: Boolean,
+        val hasStreak: Boolean,
+        val hasTaskDetails: Boolean,
+        val hasPhaseRow: Boolean,
+    )
+
+    private fun layoutFor(options: Bundle): WidgetLayout {
         val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
         return when {
-            minWidth < 180 || minHeight < 110 -> R.layout.preparation_widget_micro
-            minWidth < 250 -> R.layout.preparation_widget_small
-            minHeight < 180 -> R.layout.preparation_widget_wide
-            else -> R.layout.preparation_widget_hero
+            minWidth < 180 || minHeight < 110 -> WidgetLayout(
+                resourceId = R.layout.preparation_widget_micro,
+                hasPosition = false,
+                hasPhaseText = false,
+                hasStreak = false,
+                hasTaskDetails = false,
+                hasPhaseRow = false,
+            )
+            minWidth < 250 -> WidgetLayout(
+                resourceId = R.layout.preparation_widget_small,
+                hasPosition = true,
+                hasPhaseText = true,
+                hasStreak = true,
+                hasTaskDetails = true,
+                hasPhaseRow = false,
+            )
+            minHeight < 180 -> WidgetLayout(
+                resourceId = R.layout.preparation_widget_wide,
+                hasPosition = true,
+                hasPhaseText = true,
+                hasStreak = true,
+                hasTaskDetails = true,
+                hasPhaseRow = false,
+            )
+            else -> WidgetLayout(
+                resourceId = R.layout.preparation_widget_hero,
+                hasPosition = true,
+                hasPhaseText = false,
+                hasStreak = true,
+                hasTaskDetails = true,
+                hasPhaseRow = true,
+            )
         }
     }
 
@@ -87,7 +124,8 @@ class PreparationWidgetProvider : AppWidgetProvider() {
     ) {
         val snapshot = ReminderStorage.loadSnapshot(context)
         val options = manager.getAppWidgetOptions(appWidgetId)
-        val views = RemoteViews(context.packageName, layoutFor(options))
+        val layout = layoutFor(options)
+        val views = RemoteViews(context.packageName, layout.resourceId)
         if (snapshot.plans.isEmpty()) {
             renderEmpty(context, views, appWidgetId)
             manager.updateAppWidget(appWidgetId, views)
@@ -115,10 +153,12 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         views.setViewVisibility(R.id.widget_empty_group, View.GONE)
         views.setViewVisibility(R.id.widget_content_group, View.VISIBLE)
         views.setTextViewText(R.id.widget_competition, plan.competitionName)
-        views.setTextViewText(
-            R.id.widget_position,
-            if (snapshot.plans.size > 1) "${index + 1}/${snapshot.plans.size}" else "备赛中",
-        )
+        if (layout.hasPosition) {
+            views.setTextViewText(
+                R.id.widget_position,
+                if (snapshot.plans.size > 1) "${index + 1}/${snapshot.plans.size}" else "备赛中",
+            )
+        }
         views.setTextViewText(
             R.id.widget_countdown,
             when {
@@ -127,23 +167,29 @@ class PreparationWidgetProvider : AppWidgetProvider() {
                 else -> "已过 ${-days} 天"
             },
         )
-        views.setTextViewText(R.id.widget_phase, "当前阶段 · ${plan.currentPhase}")
-        views.setTextViewText(
-            R.id.widget_streak,
-            when {
-                preparedToday && streak > 0 -> "连续 $streak 天 · 今天已推进"
-                streak > 0 -> "连续 $streak 天 · 完成 1 项续上"
-                else -> "从今天开始推进一小步"
-            },
-        )
-        views.setTextViewText(
-            R.id.widget_next_task,
-            plan.nextTaskTitle?.let { "下一项 · $it" } ?: "当前任务已全部完成",
-        )
-        views.setTextViewText(
-            R.id.widget_due,
-            plan.nextTaskDueDate?.let { dueLabel(it, today) } ?: "去计划中查看下一阶段",
-        )
+        if (layout.hasPhaseText) {
+            views.setTextViewText(R.id.widget_phase, "当前阶段 · ${plan.currentPhase}")
+        }
+        if (layout.hasStreak) {
+            views.setTextViewText(
+                R.id.widget_streak,
+                when {
+                    preparedToday && streak > 0 -> "连续 $streak 天 · 今天已推进"
+                    streak > 0 -> "连续 $streak 天 · 完成 1 项续上"
+                    else -> "从今天开始推进一小步"
+                },
+            )
+        }
+        if (layout.hasTaskDetails) {
+            views.setTextViewText(
+                R.id.widget_next_task,
+                plan.nextTaskTitle?.let { "下一项 · $it" } ?: "当前任务已全部完成",
+            )
+            views.setTextViewText(
+                R.id.widget_due,
+                plan.nextTaskDueDate?.let { dueLabel(it, today) } ?: "去计划中查看下一阶段",
+            )
+        }
         views.setProgressBar(R.id.widget_progress, 100, progress, false)
         views.setTextViewText(
             R.id.widget_progress_text,
@@ -155,7 +201,9 @@ class PreparationWidgetProvider : AppWidgetProvider() {
             R.id.widget_root,
             "${plan.competitionName}，${viewsCountdown(days)}，下一项${plan.nextTaskTitle ?: "任务已完成"}",
         )
-        bindPhaseRow(context, views, plan)
+        if (layout.hasPhaseRow) {
+            bindPhaseRow(context, views, plan)
+        }
         manager.updateAppWidget(appWidgetId, views)
     }
 
