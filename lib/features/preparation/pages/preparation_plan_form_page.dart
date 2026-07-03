@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/calendar_date.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/error/api_error_reporter.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/preparation_config.dart';
@@ -12,6 +14,7 @@ import '../../../domain/entities/preparation_plan.dart';
 import '../../../domain/entities/user_profile.dart';
 import '../../../domain/repositories/preparation_level_diagnoser.dart';
 import '../../../shared/widgets/bento_tile.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../../profile/providers/profile_provider.dart';
 import '../providers/preparation_providers.dart';
 import '../widgets/preparation_date_picker.dart';
@@ -74,6 +77,7 @@ class _PreparationPlanFormPageState
   String? _priorExperience;
   String? _domainFamiliarity;
   bool _diagLoading = false;
+  AppException? _diagError;
   PreparationConfig? _config;
   bool _initializedFromConfig = false;
 
@@ -265,9 +269,11 @@ class _PreparationPlanFormPageState
       switch (result) {
         case Success(:final data):
           _suggestion = data;
+          _diagError = null;
           _diagPhase = _DiagPhase.result;
-        case Failure():
+        case Failure(:final error):
           _suggestion = null;
+          _diagError = error;
           _diagPhase = _DiagPhase.error;
       }
     });
@@ -343,12 +349,12 @@ class _PreparationPlanFormPageState
       await ref.read(preparationPlanRepositoryProvider).save(plan);
       if (!mounted) return;
       context.pushReplacement('/preparation-plans/${plan.id}');
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('生成失败，请重试')));
+      ref
+          .read(apiErrorReporterProvider.notifier)
+          .report('生成备赛计划失败', error, stackTrace);
     }
   }
 
@@ -359,11 +365,15 @@ class _PreparationPlanFormPageState
     if (config == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('创建备赛计划')),
-        body: Center(
-          child: configAsync.hasError
-              ? const Text('备赛配置加载失败，请稍后重试')
-              : const CircularProgressIndicator(),
-        ),
+        body: configAsync.hasError
+            ? ErrorView(
+                error: normalizeAppException(
+                  configAsync.error!,
+                  configAsync.stackTrace,
+                ),
+                onRetry: () => ref.invalidate(preparationConfigProvider),
+              )
+            : const Center(child: CircularProgressIndicator()),
       );
     }
     if (!_initializedFromConfig) {
@@ -678,6 +688,8 @@ class _PreparationPlanFormPageState
             ],
           ),
           const SizedBox(height: 8),
+          if (_diagError != null) ErrorView(error: _diagError),
+          if (_diagError != null) const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,

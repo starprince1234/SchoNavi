@@ -26,6 +26,7 @@ class PreparationAssistantControllerState {
     required this.applying,
     required this.cardErrors,
     this.pendingUserMessage,
+    this.lastError,
   });
 
   final PreparationPlan? currentPlan;
@@ -36,6 +37,7 @@ class PreparationAssistantControllerState {
   final Set<String> applying;
   final Map<String, String> cardErrors;
   final String? pendingUserMessage;
+  final AppException? lastError;
 
   static const empty = PreparationAssistantControllerState(
     currentPlan: null,
@@ -46,6 +48,7 @@ class PreparationAssistantControllerState {
     applying: {},
     cardErrors: {},
     pendingUserMessage: null,
+    lastError: null,
   );
 
   PreparationAssistantControllerState copyWith({
@@ -57,6 +60,8 @@ class PreparationAssistantControllerState {
     Set<String>? applying,
     Map<String, String>? cardErrors,
     String? pendingUserMessage,
+    AppException? lastError,
+    bool clearLastError = false,
   }) => PreparationAssistantControllerState(
     currentPlan: currentPlan ?? this.currentPlan,
     turns: turns ?? this.turns,
@@ -66,6 +71,7 @@ class PreparationAssistantControllerState {
     applying: applying ?? this.applying,
     cardErrors: cardErrors ?? this.cardErrors,
     pendingUserMessage: pendingUserMessage,
+    lastError: clearLastError ? null : lastError ?? this.lastError,
   );
 }
 
@@ -128,7 +134,11 @@ class PreparationAssistantController
         )
         .toList();
     final requestId = 'req_${DateTime.now().millisecondsSinceEpoch}';
-    state = state.copyWith(sending: true, pendingUserMessage: trimmed);
+    state = state.copyWith(
+      sending: true,
+      pendingUserMessage: trimmed,
+      clearLastError: true,
+    );
     final request = PlanAssistantRequest(
       planId: planId,
       calendarToday: CalendarDate.normalize(DateTime.now()),
@@ -167,7 +177,7 @@ class PreparationAssistantController
           },
           pendingUserMessage: null,
         );
-      case Failure():
+      case Failure(:final error):
         final turn = AssistantTurn(
           id: 'turn_${DateTime.now().millisecondsSinceEpoch}_err',
           planId: planId,
@@ -183,6 +193,7 @@ class PreparationAssistantController
           sending: false,
           turns: [...state.turns, turn],
           pendingUserMessage: null,
+          lastError: error,
         );
     }
   }

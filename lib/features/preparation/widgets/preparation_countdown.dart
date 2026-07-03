@@ -83,9 +83,9 @@ class PreparationCountdown extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-	              value: progress,
-	              minHeight: 6,
-	              backgroundColor: scheme.outline,
+              value: progress,
+              minHeight: 6,
+              backgroundColor: scheme.outline,
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.cyan),
             ),
           ),
@@ -101,23 +101,20 @@ class PreparationCountdown extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-	                    '当前阶段：${currentPhase.title}',
-	                    style: TextStyle(
-	                      color: scheme.onSurfaceVariant,
-	                      fontSize: 12,
-	                    ),
+                    '当前阶段：${currentPhase.title}',
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
             )
-	          else
-	            Text(
-	              '当前阶段：—',
-	              style: TextStyle(
-	                color: AppColors.faintOf(isDark),
-	                fontSize: 12,
-	              ),
-	            ),
+          else
+            Text(
+              '当前阶段：—',
+              style: TextStyle(color: AppColors.faintOf(isDark), fontSize: 12),
+            ),
         ],
       ),
     );

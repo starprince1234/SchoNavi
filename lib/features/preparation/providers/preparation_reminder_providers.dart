@@ -13,8 +13,9 @@ import '../../../domain/services/preparation_reminder_builder.dart';
 import '../services/complete_notification_task_use_case.dart';
 import 'preparation_providers.dart';
 
-const MethodChannel notificationActionChannel =
-    MethodChannel('com.example.scho_navi/notification_actions');
+const MethodChannel notificationActionChannel = MethodChannel(
+  'com.example.scho_navi/notification_actions',
+);
 
 typedef NotificationActionHandler = Future<dynamic> Function(MethodCall call);
 
@@ -55,7 +56,10 @@ NotificationActionHandler buildNotificationActionHandler(
           message: 'plan or task not found',
         );
       case CompleteTaskResult.conflict:
-        throw PlatformException(code: 'conflict', message: 'CAS retry exhausted');
+        throw PlatformException(
+          code: 'conflict',
+          message: 'CAS retry exhausted',
+        );
       case CompleteTaskResult.persistenceFailed:
         throw PlatformException(
           code: 'persistence_failed',

@@ -71,11 +71,11 @@ class _PhaseHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 12, 0, 8),
       child: Text(
         '$title · $taskCount 项任务',
-	        style: TextStyle(
-	          fontSize: 14,
-	          fontWeight: FontWeight.w700,
-	          color: scheme.onSurface,
-	        ),
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: scheme.onSurface,
+        ),
       ),
     );
   }
@@ -124,12 +124,12 @@ class _TaskTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           task.title,
-	                          style: TextStyle(
-	                            fontSize: 14,
-	                            fontWeight: FontWeight.w600,
-	                            color: task.completed
-	                                ? AppColors.faintOf(isDark)
-	                                : scheme.onSurface,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: task.completed
+                                ? AppColors.faintOf(isDark)
+                                : scheme.onSurface,
                             decoration: task.completed
                                 ? TextDecoration.lineThrough
                                 : TextDecoration.none,
@@ -142,18 +142,18 @@ class _TaskTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-	                      Icon(
-	                        Icons.event_outlined,
-	                        size: 13,
-	                        color: AppColors.faintOf(isDark),
-	                      ),
+                      Icon(
+                        Icons.event_outlined,
+                        size: 13,
+                        color: AppColors.faintOf(isDark),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _fmt(task.dueDate),
-	                        style: TextStyle(
-	                          fontSize: 11,
-	                          color: AppColors.faintOf(isDark),
-	                        ),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.faintOf(isDark),
+                        ),
                       ),
                     ],
                   ),
@@ -161,21 +161,21 @@ class _TaskTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       task.note!,
-	                      style: TextStyle(
-	                        fontSize: 12,
-	                        color: scheme.onSurfaceVariant,
-	                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-	            IconButton(
-	              icon: Icon(
-	                Icons.edit_outlined,
-	                size: 18,
-	                color: AppColors.faintOf(isDark),
-	              ),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.faintOf(isDark),
+              ),
               tooltip: '编辑',
               onPressed: onEdit,
               visualDensity: VisualDensity.compact,
@@ -253,10 +253,10 @@ class _AddTaskButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-	          decoration: BoxDecoration(
-	            borderRadius: BorderRadius.circular(12),
-	            border: Border.all(color: scheme.outline, width: 1),
-	          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.outline, width: 1),
+          ),
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

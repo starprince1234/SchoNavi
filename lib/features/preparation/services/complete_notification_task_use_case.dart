@@ -50,7 +50,11 @@ class CompleteNotificationTaskUseCase {
       );
     }
 
-    final updatedPlan = _replaceTask(plan, task.id, task.copyWith(completedAt: _now()));
+    final updatedPlan = _replaceTask(
+      plan,
+      task.id,
+      task.copyWith(completedAt: _now()),
+    );
     try {
       await _repository.save(updatedPlan);
     } on ConflictException {
@@ -90,10 +94,7 @@ class CompleteNotificationTaskUseCase {
       );
     }
 
-    return CompleteTaskOutcome(
-      CompleteTaskResult.completed,
-      _buildSnapshot(),
-    );
+    return CompleteTaskOutcome(CompleteTaskResult.completed, _buildSnapshot());
   }
 
   PreparationTask? _findTask(PreparationPlan plan, String taskId) {
@@ -112,11 +113,13 @@ class CompleteNotificationTaskUseCase {
   ) {
     return plan.copyWith(
       phases: plan.phases
-          .map((phase) => phase.copyWith(
-                tasks: phase.tasks
-                    .map((t) => t.id == taskId ? updated : t)
-                    .toList(growable: false),
-              ))
+          .map(
+            (phase) => phase.copyWith(
+              tasks: phase.tasks
+                  .map((t) => t.id == taskId ? updated : t)
+                  .toList(growable: false),
+            ),
+          )
           .toList(growable: false),
     );
   }

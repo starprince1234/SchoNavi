@@ -112,6 +112,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
   }
 
   testWidgets('渲染时间模型 + 每周投入 + 当前水平 + 创建按钮', (tester) async {

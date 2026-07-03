@@ -69,7 +69,7 @@ void main() {
     expect(days, contains('2026-06-29'));
   });
 
-  test('snapshot toJson 含 phases 与 schemaVersion=2', () {
+  test('snapshot toJson 含 phases 与当前 schemaVersion', () {
     final plan = PreparationReminderPlanSummary(
       planId: 'p1',
       competitionName: '蓝桥杯',
@@ -104,7 +104,7 @@ void main() {
 
     final json = snapshot.toJson();
 
-    expect(json['schemaVersion'], 2);
+    expect(json['schemaVersion'], PreparationReminderSnapshot.schemaVersion);
     final planJson = (json['plans'] as List).single as Map<String, dynamic>;
     expect(planJson.containsKey('phases'), isTrue);
     final phases = planJson['phases'] as List;

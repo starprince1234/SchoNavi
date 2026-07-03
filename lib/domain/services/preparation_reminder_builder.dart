@@ -45,14 +45,18 @@ class PreparationReminderBuilder {
       final deadline = _isoDay(plan.targetDate);
       final target = plan.targetDate;
       for (final days in const [7, 3, 0]) {
-        final alertDay = days == 0 ? target : target.subtract(Duration(days: days));
-        deadlineAlerts.add(DeadlineAlert(
-          planId: plan.id,
-          competitionName: plan.competition.name,
-          alertIsoDay: _isoDay(alertDay),
-          daysBefore: days,
-          deadlineIsoDay: deadline,
-        ));
+        final alertDay = days == 0
+            ? target
+            : target.subtract(Duration(days: days));
+        deadlineAlerts.add(
+          DeadlineAlert(
+            planId: plan.id,
+            competitionName: plan.competition.name,
+            alertIsoDay: _isoDay(alertDay),
+            daysBefore: days,
+            deadlineIsoDay: deadline,
+          ),
+        );
       }
     }
     deadlineAlerts.sort((a, b) {

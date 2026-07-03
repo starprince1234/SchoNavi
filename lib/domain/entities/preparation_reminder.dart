@@ -53,13 +53,12 @@ class PreparationReminderTask {
     String? title,
     String? dueIsoDay,
     int? sortOrder,
-  }) =>
-      PreparationReminderTask(
-        taskId: taskId ?? this.taskId,
-        title: title ?? this.title,
-        dueIsoDay: dueIsoDay ?? this.dueIsoDay,
-        sortOrder: sortOrder ?? this.sortOrder,
-      );
+  }) => PreparationReminderTask(
+    taskId: taskId ?? this.taskId,
+    title: title ?? this.title,
+    dueIsoDay: dueIsoDay ?? this.dueIsoDay,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
 
   Map<String, dynamic> toJson() => {
     'taskId': taskId,
@@ -148,7 +147,9 @@ class PreparationReminderPlanSummary {
     if (nextTaskDueDate != null) 'nextTaskDueDate': _isoDay(nextTaskDueDate!),
     'phases': phases.map((p) => p.toJson()).toList(growable: false),
     if (pendingTasks.isNotEmpty)
-      'pendingTasks': pendingTasks.map((t) => t.toJson()).toList(growable: false),
+      'pendingTasks': pendingTasks
+          .map((t) => t.toJson())
+          .toList(growable: false),
   };
 }
 
@@ -178,7 +179,9 @@ class PreparationReminderSnapshot {
     'preparedToday': preparedToday,
     if (lastActivityDay != null) 'lastActivityDay': lastActivityDay,
     'plans': plans.map((plan) => plan.toJson()).toList(growable: false),
-    'deadlineAlerts': deadlineAlerts.map((a) => a.toJson()).toList(growable: false),
+    'deadlineAlerts': deadlineAlerts
+        .map((a) => a.toJson())
+        .toList(growable: false),
   };
 }
 

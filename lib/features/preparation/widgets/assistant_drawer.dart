@@ -121,6 +121,12 @@ class _PreparationAssistantDrawerState
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: ChatMessageBubble(
             message: pair[1],
+            error:
+                turn.error &&
+                    state.turns.isNotEmpty &&
+                    turn.id == state.turns.last.id
+                ? state.lastError
+                : null,
             onTapRecommendation: (_) {},
           ),
         ),

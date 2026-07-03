@@ -121,6 +121,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.textContaining('剩余'), findsOneWidget);
     expect(find.text('阶段时间轴'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('组建队伍'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('组建队伍'), findsOneWidget);
   });
 }
