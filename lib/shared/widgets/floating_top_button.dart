@@ -35,9 +35,7 @@ class FloatingTopButton extends StatelessWidget {
         frosted: true,
         radius: 22, // 直径 44 / 2
         padding: EdgeInsets.zero,
-        border: Border.all(
-          color: scheme.outline.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
         child: Material(
           color: Colors.transparent,
           child: InkWell(

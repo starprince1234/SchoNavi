@@ -36,9 +36,8 @@ class AppMenuDrawer extends ConsumerWidget {
             _ProfileHeader(
               onTap: () {
                 final profile = ref.read(profileProvider);
-                final agreed = ref.read(localStoreProvider).getBool(
-                  'privacy_agreed',
-                ) ??
+                final agreed =
+                    ref.read(localStoreProvider).getBool('privacy_agreed') ??
                     false;
                 final target = profile.isEmpty
                     ? (agreed ? '/profile/intro' : '/profile/privacy')

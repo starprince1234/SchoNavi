@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class FieldChips extends StatelessWidget {
   const FieldChips({super.key, required this.fields});
 
