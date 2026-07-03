@@ -131,7 +131,8 @@ class AppColors {
   static Color indigoSoftOf(bool isDark) =>
       isDark ? indigoSoftDark : indigoSoft;
   static Color cyanSoftOf(bool isDark) => isDark ? cyanSoftDark : cyanSoft;
-  static Color matchSoftOf(bool isDark) => isDark ? const Color(0xFF134E4A) : matchSoft;
+  static Color matchSoftOf(bool isDark) =>
+      isDark ? const Color(0xFF134E4A) : matchSoft;
   static Color dangerSoftOf(bool isDark) =>
       isDark ? const Color(0xFF4C0519) : dangerSoft;
   static Color faintOf(bool isDark) =>

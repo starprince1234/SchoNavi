@@ -7,6 +7,7 @@ import 'core/platform/preparation_reminder_platform.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/preparation/providers/preparation_reminder_providers.dart';
+import 'shared/widgets/api_error_banner_listener.dart';
 
 class SchoNaviApp extends ConsumerStatefulWidget {
   const SchoNaviApp({super.key});
@@ -18,6 +19,7 @@ class SchoNaviApp extends ConsumerStatefulWidget {
 class _SchoNaviAppState extends ConsumerState<SchoNaviApp> {
   var _initialRouteHandled = false;
   PreparationReminderPlatform? _reminderPlatform;
+  final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void dispose() {
@@ -31,14 +33,18 @@ class _SchoNaviAppState extends ConsumerState<SchoNaviApp> {
     final themeMode = ref.watch(appThemeModeProvider);
     ref.watch(preparationReminderSyncProvider);
     _bindPreparationReminderRoutes(router);
-    return MaterialApp.router(
-      title: 'SchoNavi',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: themeMode,
-      routerConfig: router,
-      scrollBehavior: const MaterialScrollBehavior().copyWith(
-        physics: const BouncingScrollPhysics(),
+    return ApiErrorBannerListener(
+      scaffoldMessengerKey: _scaffoldMessengerKey,
+      child: MaterialApp.router(
+        title: 'SchoNavi',
+        scaffoldMessengerKey: _scaffoldMessengerKey,
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: themeMode,
+        routerConfig: router,
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          physics: const BouncingScrollPhysics(),
+        ),
       ),
     );
   }

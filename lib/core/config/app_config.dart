@@ -3,16 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 enum DataSource { llm, http }
 
 class FeatureFlags {
-  const FeatureFlags({this.showMatchScore = false, this.showAiTrace = false});
+  const FeatureFlags({
+    this.showMatchScore = false,
+    this.showAiTrace = false,
+    this.showApiErrorDetails = false,
+  });
 
   final bool showMatchScore;
   final bool showAiTrace; // 演示模式：记录并展示 AI 调用快照
+  final bool showApiErrorDetails;
 
-  FeatureFlags copyWith({bool? showMatchScore, bool? showAiTrace}) =>
-      FeatureFlags(
-        showMatchScore: showMatchScore ?? this.showMatchScore,
-        showAiTrace: showAiTrace ?? this.showAiTrace,
-      );
+  FeatureFlags copyWith({
+    bool? showMatchScore,
+    bool? showAiTrace,
+    bool? showApiErrorDetails,
+  }) => FeatureFlags(
+    showMatchScore: showMatchScore ?? this.showMatchScore,
+    showAiTrace: showAiTrace ?? this.showAiTrace,
+    showApiErrorDetails: showApiErrorDetails ?? this.showApiErrorDetails,
+  );
 }
 
 class LlmConfig {
@@ -72,12 +81,14 @@ class AppConfig {
     String baseUrl = 'https://api.deepseek.com',
     String model = 'deepseek-chat',
     String appVersion = '0.1.0',
+    bool showApiErrorDetails = false,
   }) {
     final llm = LlmConfig(apiKey: apiKey, baseUrl: baseUrl, model: model);
     final api = ApiConfig(baseUrl: _normalizeApiBaseUrl(apiBaseUrl));
     return AppConfig(
       dataSource: api.isConfigured ? DataSource.http : DataSource.llm,
       appVersion: appVersion,
+      featureFlags: FeatureFlags(showApiErrorDetails: showApiErrorDetails),
       llm: llm,
       api: api,
     );

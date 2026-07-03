@@ -20,6 +20,7 @@ const _model = String.fromEnvironment(
   defaultValue: 'deepseek-chat',
 );
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+const _showApiErrorDetails = bool.fromEnvironment('API_SHOW_ERROR_DETAILS');
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,7 @@ void main() {
         apiBaseUrl: _apiBaseUrl,
         baseUrl: _baseUrl,
         model: _model,
+        showApiErrorDetails: _showApiErrorDetails,
       ),
     ),
   );

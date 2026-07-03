@@ -42,7 +42,10 @@ void main() {
       manifest,
       contains('android:resource="@xml/preparation_widget_info"'),
     );
-    expect(manifest, contains('android:name=".ReminderReceiver"'));
+    expect(manifest, contains('android:name=".DailyReminderReceiver"'));
+    expect(manifest, contains('android:name=".DeadlineAlarmReceiver"'));
+    expect(manifest, contains('android:name=".ReminderActionReceiver"'));
+    expect(manifest, contains('android:name=".SnoozedTaskReceiver"'));
     expect(manifest, contains('android:name=".ReminderRescheduleReceiver"'));
     expect(
       manifest,

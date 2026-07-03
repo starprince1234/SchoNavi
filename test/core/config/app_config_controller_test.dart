@@ -37,4 +37,18 @@ void main() {
     c.read(appConfigProvider.notifier).setShowAiTrace(true);
     expect(c.read(appConfigProvider).featureFlags.showAiTrace, isTrue);
   });
+
+  test('API error details are opt-in through resolved config', () {
+    expect(
+      AppConfig.resolve(apiKey: '').featureFlags.showApiErrorDetails,
+      isFalse,
+    );
+    expect(
+      AppConfig.resolve(
+        apiKey: '',
+        showApiErrorDetails: true,
+      ).featureFlags.showApiErrorDetails,
+      isTrue,
+    );
+  });
 }

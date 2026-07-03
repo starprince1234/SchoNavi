@@ -26,7 +26,9 @@ import '../../domain/entities/feedback.dart';
 import '../../domain/entities/preparation_plan.dart';
 
 import '../di/providers.dart';
+import '../error/app_exception.dart';
 import '../motion/page_transition.dart';
+import '../../shared/widgets/error_view.dart';
 
 FeedbackType? _parseFeedbackType(String? raw) {
   switch (raw) {
@@ -247,9 +249,12 @@ class _PreparationPlanFormRoute extends ConsumerWidget {
         appBar: AppBar(title: const Text('创建备赛计划')),
         body: const Center(child: CircularProgressIndicator()),
       ),
-      error: (_, _) => Scaffold(
+      error: (error, stackTrace) => Scaffold(
         appBar: AppBar(title: const Text('创建备赛计划')),
-        body: const Center(child: Text('竞赛信息加载失败，请稍后重试')),
+        body: ErrorView(
+          error: normalizeAppException(error, stackTrace),
+          onRetry: () => ref.invalidate(competitionByIdProvider(competitionId)),
+        ),
       ),
     );
   }

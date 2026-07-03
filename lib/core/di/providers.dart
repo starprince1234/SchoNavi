@@ -18,6 +18,7 @@ import '../../data/ai/professor_candidate_source.dart';
 import '../../data/fixtures/competition_catalog.dart';
 import '../../data/fixtures/competition_catalog_repository_impl.dart';
 import '../../data/http/api_auth.dart';
+import '../../data/http/api_request_id_interceptor.dart';
 import '../../data/http/http_chat_repository.dart';
 import '../../data/http/http_conversation_repository.dart';
 import '../../data/http/http_competition_catalog_repository.dart';
@@ -77,6 +78,7 @@ import '../ai/llm_client.dart';
 import '../ai/llm_trace.dart';
 import '../ai/missing_llm_client.dart';
 import '../config/app_config.dart';
+import '../error/api_error_reporter.dart';
 import '../launcher/link_launcher.dart';
 import '../launcher/url_launcher_link_launcher.dart';
 import '../storage/local_store.dart';
@@ -99,7 +101,7 @@ BaseOptions _apiBaseOptions(AppConfig cfg) {
 
 final apiIdentityDioProvider = Provider<Dio>((ref) {
   final cfg = ref.watch(appConfigProvider);
-  return Dio(_apiBaseOptions(cfg));
+  return Dio(_apiBaseOptions(cfg))..interceptors.add(ApiRequestIdInterceptor());
 });
 
 final anonymousCredentialStoreProvider = Provider<AnonymousCredentialStore>(
@@ -118,6 +120,7 @@ final apiAuthenticatorProvider = Provider<ApiAuthenticator>((ref) {
 final dioProvider = Provider<Dio>((ref) {
   final cfg = ref.watch(appConfigProvider);
   return Dio(_apiBaseOptions(cfg))
+    ..interceptors.add(ApiRequestIdInterceptor())
     ..interceptors.add(ApiAuthInterceptor(ref.watch(apiAuthenticatorProvider)));
 });
 
@@ -431,7 +434,12 @@ final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
     case DataSource.llm:
     case DataSource.http:
       repo = cfg.dataSource == DataSource.http
-          ? HttpFavoriteRepository(ref.watch(apiDioProvider))
+          ? HttpFavoriteRepository(
+              ref.watch(apiDioProvider),
+              onSyncError: (error) => ref
+                  .read(apiErrorReporterProvider.notifier)
+                  .report('收藏同步失败', error),
+            )
           : LocalFavoriteRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
@@ -465,7 +473,12 @@ final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
     case DataSource.llm:
     case DataSource.http:
       repo = cfg.dataSource == DataSource.http
-          ? HttpHistoryRepository(ref.watch(apiDioProvider))
+          ? HttpHistoryRepository(
+              ref.watch(apiDioProvider),
+              onSyncError: (error) => ref
+                  .read(apiErrorReporterProvider.notifier)
+                  .report('历史同步失败', error),
+            )
           : LocalHistoryRepository(ref.watch(localStoreProvider));
   }
   ref.onDispose(() {
