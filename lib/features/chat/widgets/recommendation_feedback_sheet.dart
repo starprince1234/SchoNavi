@@ -12,7 +12,8 @@ Future<(String, String?)?> showRecommendationFeedbackSheet({
 }) async {
   return showAppBottomSheet<(String, String?)?>(
     context: context,
-    builder: (ctx) => _RecommendationFeedbackSheet(professorName: professorName),
+    builder: (ctx) =>
+        _RecommendationFeedbackSheet(professorName: professorName),
   );
 }
 
@@ -49,8 +50,10 @@ class _RecommendationFeedbackSheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('反馈「${widget.professorName}」的推荐',
-              style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            '反馈「${widget.professorName}」的推荐',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -84,7 +87,9 @@ class _RecommendationFeedbackSheetState
                 ? () {
                     Haptics.medium();
                     final note = _note.text.trim();
-                    Navigator.of(context).pop((_reason!, note.isEmpty ? null : note));
+                    Navigator.of(
+                      context,
+                    ).pop((_reason!, note.isEmpty ? null : note));
                   }
                 : null,
             child: const Text('提交'),

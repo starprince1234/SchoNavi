@@ -12,6 +12,7 @@ import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/conversation_session.dart';
 import '../../../domain/entities/feedback.dart';
 import '../../../shared/widgets/animated_entrance.dart';
+import '../../../shared/widgets/api_error_notice.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
 import '../../../shared/widgets/error_view.dart';
@@ -202,12 +203,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           children: [
             const Positioned.fill(child: CoolScaffoldBackground()),
             blocked
-                ? ErrorView(
-                    message: const MissingLlmConfigurationException().message,
-                  )
+                ? ErrorView(error: const MissingLlmConfigurationException())
                 : state.activity == ChatActivity.loadFailed
                 ? ErrorView(
-                    message: state.errorMessage ?? '会话加载失败',
+                    error:
+                        state.error ??
+                        const UnknownException(message: '会话加载失败'),
                     onRetry: () {
                       final sid = widget.sessionId ?? widget.forkId;
                       if (sid != null && sid.isNotEmpty) {
@@ -242,6 +243,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                 (state.activity == ChatActivity.interrupted
                                     ? '上次生成已中断，部分内容已保存。'
                                     : '本轮处理失败，可以重试同一轮。'),
+                            error: state.error,
                             primaryLabel: state.canRegenerate ? '重试本轮' : null,
                             onPrimary: state.canRegenerate
                                 ? () =>
@@ -295,6 +297,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                     state.messages[messageIndex].id,
                                   ),
                                   message: state.messages[messageIndex],
+                                  error:
+                                      state.messages[messageIndex].status ==
+                                          ChatMessageStatus.error
+                                      ? state.error
+                                      : null,
                                   onTapRecommendation: (id) {
                                     final sid =
                                         state.kind ==
@@ -330,9 +337,18 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                       .read(_provider.notifier)
                                       .setFeedback(id, feedback),
                                   onDislikeFeedback: (id, content) =>
-                                      _submitMessageFeedback(id, content, messageIndex),
+                                      _submitMessageFeedback(
+                                        id,
+                                        content,
+                                        messageIndex,
+                                      ),
                                   onReportRecommendation: (r, reason, note) =>
-                                      _submitRecommendationFeedback(r, reason, note, messageIndex),
+                                      _submitRecommendationFeedback(
+                                        r,
+                                        reason,
+                                        note,
+                                        messageIndex,
+                                      ),
                                 ),
                               );
                             },
@@ -455,23 +471,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final type = (i >= 0 && messages[i].kind == ChatMessageKind.recommendation)
         ? FeedbackType.recommendation
         : FeedbackType.other;
-    final ctx = FeedbackContext(
-      messageId: messageId,
-      sessionId: state.sessionId,
-      prompt: _userPromptForMessageIndex(state, messageIndex),
-    ).copyWith(
-      appVersion: ref.read(appConfigProvider).appVersion,
-      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
-    );
-    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
-      type: type,
-      content: content.isEmpty ? '点踩反馈（无文字）' : content,
-      context: ctx,
-    );
+    final ctx =
+        FeedbackContext(
+          messageId: messageId,
+          sessionId: state.sessionId,
+          prompt: _userPromptForMessageIndex(state, messageIndex),
+        ).copyWith(
+          appVersion: ref.read(appConfigProvider).appVersion,
+          dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+        );
+    final ok = await ref
+        .read(feedbackSubmitProvider.notifier)
+        .submit(
+          type: type,
+          content: content.isEmpty ? '点踩反馈（无文字）' : content,
+          context: ctx,
+        );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')));
   }
 
   Future<void> _submitRecommendationFeedback(
@@ -481,30 +500,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     int messageIndex,
   ) async {
     final state = ref.read(_provider);
-    final ctx = FeedbackContext(
-      professorId: r.professorId,
-      sessionId: state.sessionId,
-      prompt: _userPromptForMessageIndex(state, messageIndex),
-    ).copyWith(
-      appVersion: ref.read(appConfigProvider).appVersion,
-      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
-    );
+    final ctx =
+        FeedbackContext(
+          professorId: r.professorId,
+          sessionId: state.sessionId,
+          prompt: _userPromptForMessageIndex(state, messageIndex),
+        ).copyWith(
+          appVersion: ref.read(appConfigProvider).appVersion,
+          dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+        );
     final content = note == null || note.isEmpty ? reason : '$reason：$note';
-    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
-      type: FeedbackType.recommendation,
-      content: content,
-      context: ctx,
-    );
+    final ok = await ref
+        .read(feedbackSubmitProvider.notifier)
+        .submit(
+          type: FeedbackType.recommendation,
+          content: content,
+          context: ctx,
+        );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')));
   }
 }
 
 class _ChatStateNotice extends StatelessWidget {
   const _ChatStateNotice({
     required this.message,
+    this.error,
     this.showProgress = false,
     this.primaryLabel,
     this.onPrimary,
@@ -513,6 +536,7 @@ class _ChatStateNotice extends StatelessWidget {
   });
 
   final String message;
+  final AppException? error;
   final bool showProgress;
   final String? primaryLabel;
   final VoidCallback? onPrimary;
@@ -521,31 +545,14 @@ class _ChatStateNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            if (showProgress) ...[
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 10),
-            ],
-            Expanded(child: Text(message)),
-            if (secondaryLabel != null)
-              TextButton(onPressed: onSecondary, child: Text(secondaryLabel!)),
-            if (primaryLabel != null)
-              FilledButton.tonal(
-                onPressed: onPrimary,
-                child: Text(primaryLabel!),
-              ),
-          ],
-        ),
-      ),
+    return ApiErrorNotice(
+      message: message,
+      error: error,
+      showProgress: showProgress,
+      primaryLabel: primaryLabel,
+      onPrimary: onPrimary,
+      secondaryLabel: secondaryLabel,
+      onSecondary: onSecondary,
     );
   }
 }

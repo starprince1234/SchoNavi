@@ -126,7 +126,8 @@ void main() {
 
     final system = llm.calls.last.first;
     expect(system.role, 'system');
-    expect(system.content, contains('张三'));
+    expect(system.content, contains('范登平'));
+    expect(system.content, contains('南开大学'));
   });
 
   test('regenerate does not duplicate repeated last user message', () async {
@@ -210,7 +211,8 @@ void main() {
 
       final system = llm.calls.last.first;
       expect(system.role, 'system');
-      expect(system.content, contains('张三'));
+      expect(system.content, contains('范登平'));
+      expect(system.content, contains('南开大学'));
     });
 
     test(

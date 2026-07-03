@@ -4,91 +4,100 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scho_navi/core/config/app_config.dart';
 import 'package:scho_navi/core/di/providers.dart';
-import 'package:scho_navi/core/storage/local_store.dart';
-import 'package:scho_navi/data/local/local_chat_history_store.dart';
-import 'package:scho_navi/data/mock/mock_chat_repository.dart';
 import 'package:scho_navi/data/mock/mock_db.dart';
-import 'package:scho_navi/domain/entities/query_understanding.dart';
-import 'package:scho_navi/domain/entities/recommendation_result.dart';
+import 'package:scho_navi/domain/entities/chat_message.dart';
+import 'package:scho_navi/domain/entities/conversation_aggregate.dart';
+import 'package:scho_navi/domain/entities/conversation_session.dart';
+import 'package:scho_navi/domain/entities/conversation_turn.dart';
+import 'package:scho_navi/domain/entities/match_level.dart';
+import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/features/chat/pages/chat_page.dart';
 import 'package:scho_navi/features/chat/widgets/professor_anchor_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _MemStore implements LocalStore {
-  final Map<String, dynamic> _m = {};
+import '../../helpers/fake_conversation_repository.dart';
 
-  @override
-  String? getString(String key) => _m[key] as String?;
-
-  @override
-  Future<void> setString(String key, String value) async => _m[key] = value;
-
-  @override
-  bool? getBool(String key) => _m[key] as bool?;
-
-  @override
-  Future<void> setBool(String key, bool value) async => _m[key] = value;
-
-  @override
-  Map<String, dynamic>? getJson(String key) => _m[key] as Map<String, dynamic>?;
-
-  @override
-  Future<void> setJson(String key, Map<String, dynamic> value) async =>
-      _m[key] = value;
-
-  @override
-  List<dynamic>? getJsonList(String key) => _m[key] as List<dynamic>?;
-
-  @override
-  Future<void> setJsonList(String key, List<dynamic> value) async =>
-      _m[key] = value;
-
-  @override
-  bool containsKey(String key) => _m.containsKey(key);
-
-  @override
-  Future<void> remove(String key) async => _m.remove(key);
-
-  @override
-  Future<void> clear() async => _m.clear();
+ConversationAggregate _sourceAggregate({
+  required String sessionId,
+  required String professorId,
+}) {
+  final user = fakeUserMessage(id: 'user-rec', content: '想做CV');
+  final assistant = fakeAssistantMessage(
+    id: 'assistant-rec',
+    content: '为你挑了合适的导师',
+    kind: ChatMessageKind.recommendation,
+    relatedRecommendations: [
+      Recommendation(
+        professorId: professorId,
+        name: '导师',
+        university: '大学',
+        college: '学院',
+        title: '教授',
+        researchFields: const ['计算机视觉'],
+        matchLevel: MatchLevel.high,
+        reason: '方向契合',
+        limitations: const [],
+      ),
+    ],
+  );
+  return fakeAggregate(
+    session: fakeSession(id: sessionId, revision: 1),
+    turns: [
+      fakeTurn(
+        id: 'turn-rec',
+        sessionId: sessionId,
+        status: ConversationTurnStatus.completed,
+        route: ConversationRoute.recommendation,
+        userMessage: user,
+      ),
+    ],
+    messages: [user, assistant],
+  );
 }
 
-RecommendationResult _recResult(String sid) => RecommendationResult(
-  sessionId: sid,
-  queryUnderstanding: const QueryUnderstanding(
-    researchInterests: [],
-    preferredLocations: [],
-    preferredUniversities: [],
-    uncertainties: [],
-  ),
-  recommendations: const [],
-  followUpQuestions: const [],
-);
+ControllableConversationRepository _forkRepo({
+  required String sessionId,
+  required String professorId,
+}) {
+  final repo = ControllableConversationRepository(
+    initialAggregate: _sourceAggregate(sessionId: sessionId, professorId: professorId),
+  );
+  final source = _sourceAggregate(sessionId: sessionId, professorId: professorId);
+  repo.setAggregate(
+    fakeAggregate(
+      session: fakeSession(
+        id: 'fork-$sessionId-$professorId',
+        kind: ConversationSessionKind.fork,
+        rootSessionId: sessionId,
+        sourceSessionId: sessionId,
+        sourceTurnId: 'turn-rec',
+        professorId: professorId,
+        revision: 1,
+      ),
+      turns: source.turns,
+      messages: source.messages,
+    ),
+  );
+  return repo;
+}
+
+Future<void> _pumpFrames(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump();
+}
 
 void main() {
   testWidgets('fork 模式渲染锚点条', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final repo = MockChatRepository(
-      MockDb(),
-      historyStore: LocalChatHistoryStore(_MemStore()),
-      streamChunkDelay: Duration.zero,
-    );
     const sessionId = 's1';
     final professorId = MockDb().allProfessors.first.id;
-
-    await repo.seedRecommendationTurn(
-      sessionId: sessionId,
-      userPrompt: '想做CV',
-      result: _recResult(sessionId),
-    );
-    await repo.forkSession(
-      sourceSessionId: sessionId,
-      professorId: professorId,
-    );
+    final repo = _forkRepo(sessionId: sessionId, professorId: professorId);
+    addTearDown(repo.dispose);
 
     final container = ProviderContainer(
       overrides: [
-        chatRepositoryProvider.overrideWithValue(repo),
+        conversationRepositoryProvider.overrideWithValue(repo),
         initialAppConfigProvider.overrideWithValue(
           const AppConfig(dataSource: DataSource.http),
         ),
@@ -120,33 +129,20 @@ void main() {
       ],
     );
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
     expect(find.byType(ProfessorAnchorBar), findsOneWidget);
   });
 
   testWidgets('锚点条点击携带 mainSessionId 作为 msid 跳转到教授详情', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final repo = MockChatRepository(
-      MockDb(),
-      historyStore: LocalChatHistoryStore(_MemStore()),
-      streamChunkDelay: Duration.zero,
-    );
     const sessionId = 's_main_42';
     final professorId = MockDb().allProfessors.first.id;
-
-    await repo.seedRecommendationTurn(
-      sessionId: sessionId,
-      userPrompt: '想做CV',
-      result: _recResult(sessionId),
-    );
-    await repo.forkSession(
-      sourceSessionId: sessionId,
-      professorId: professorId,
-    );
+    final repo = _forkRepo(sessionId: sessionId, professorId: professorId);
+    addTearDown(repo.dispose);
 
     final container = ProviderContainer(
       overrides: [
-        chatRepositoryProvider.overrideWithValue(repo),
+        conversationRepositoryProvider.overrideWithValue(repo),
         initialAppConfigProvider.overrideWithValue(
           const AppConfig(dataSource: DataSource.http),
         ),
@@ -179,11 +175,11 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
     expect(find.byType(ProfessorAnchorBar), findsOneWidget);
 
     await tester.tap(find.byType(ProfessorAnchorBar));
-    await tester.pumpAndSettle();
+    await _pumpFrames(tester);
 
     expect(find.text('msid=$sessionId'), findsOneWidget);
   });

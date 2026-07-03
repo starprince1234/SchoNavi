@@ -5,10 +5,12 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'package:flutter/services.dart';
 
+import '../../../core/error/app_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/chat_message.dart';
 import '../../../domain/entities/recommendation.dart';
 import '../../../shared/widgets/thinking_indicator.dart';
+import '../../../shared/widgets/error_details_sheet.dart';
 import 'inline_dislike_feedback.dart';
 import 'recommendation_carousel.dart';
 import 'recommendation_feedback_sheet.dart';
@@ -28,12 +30,17 @@ class ChatMessageBubble extends StatelessWidget {
     this.onRerouteHome,
     this.feedbackSessionId,
     this.feedbackUserPrompt,
+    this.error,
   });
 
   final ChatMessage message;
   final void Function(String professorId) onTapRecommendation;
   final void Function(Recommendation recommendation)? onOpenHomepage;
-  final void Function(Recommendation recommendation, String reason, String? note)?
+  final void Function(
+    Recommendation recommendation,
+    String reason,
+    String? note,
+  )?
   onReportRecommendation;
   final void Function(String messageId)? onRetryRecommendation;
   final void Function(String messageId)? onRegenerate;
@@ -43,6 +50,7 @@ class ChatMessageBubble extends StatelessWidget {
   final VoidCallback? onRerouteHome;
   final String? feedbackSessionId;
   final String? feedbackUserPrompt;
+  final AppException? error;
 
   /// AI 回复正文统一行高（spec §4.6 可测试常量），上机后微调。
   ///
@@ -78,6 +86,7 @@ class ChatMessageBubble extends StatelessWidget {
     if (isError && !isRecommendationError) {
       body = _AssistantErrorView(
         message: message,
+        error: error,
         onRetry: onRegenerate == null ? null : () => onRegenerate!(message.id),
       );
     } else if (isUser) {
@@ -269,13 +278,15 @@ class _MessageActionsState extends State<_MessageActions> {
                   try {
                     await Clipboard.setData(ClipboardData(text: m.content));
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(const SnackBar(content: Text('已复制')));
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('已复制')));
                     }
                   } catch (_) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(const SnackBar(content: Text('复制失败')));
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('复制失败')));
                     }
                   }
                 },
@@ -303,11 +314,11 @@ class _MessageActionsState extends State<_MessageActions> {
                 onPressed: widget.onFeedback == null
                     ? null
                     : () => widget.onFeedback!(
-                          m.id,
-                          m.feedback == ChatMessageFeedback.like
-                              ? ChatMessageFeedback.none
-                              : ChatMessageFeedback.like,
-                        ),
+                        m.id,
+                        m.feedback == ChatMessageFeedback.like
+                            ? ChatMessageFeedback.none
+                            : ChatMessageFeedback.like,
+                      ),
               ),
               _ActionButton(
                 tooltip: '没用',
@@ -334,8 +345,7 @@ class _MessageActionsState extends State<_MessageActions> {
           ),
           if (_dislikeExpanded && widget.onDislikeFeedback != null)
             InlineDislikeFeedback(
-              onSubmit: (content) =>
-                  widget.onDislikeFeedback!(m.id, content),
+              onSubmit: (content) => widget.onDislikeFeedback!(m.id, content),
               onCollapse: () => setState(() => _dislikeExpanded = false),
             ),
         ],
@@ -372,9 +382,10 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _AssistantErrorView extends StatefulWidget {
-  const _AssistantErrorView({required this.message, this.onRetry});
+  const _AssistantErrorView({required this.message, this.error, this.onRetry});
 
   final ChatMessage message;
+  final AppException? error;
   final VoidCallback? onRetry;
 
   @override
@@ -387,6 +398,7 @@ class _AssistantErrorViewState extends State<_AssistantErrorView> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final showDetails = apiErrorDetailsEnabled(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
@@ -416,6 +428,13 @@ class _AssistantErrorViewState extends State<_AssistantErrorView> {
                 FilledButton.tonal(
                   onPressed: widget.onRetry,
                   child: const Text('重试'),
+                ),
+              if (showDetails && widget.error?.diagnostics?.isEmpty == false)
+                TextButton.icon(
+                  onPressed: () =>
+                      showErrorDetailsSheet(context, widget.error!),
+                  icon: const Icon(Icons.bug_report_outlined, size: 18),
+                  label: const Text('联调详情'),
                 ),
             ],
           ),

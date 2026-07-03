@@ -69,7 +69,7 @@ void main() {
   test('「为什么」意图：给出理由、不附带推荐卡片', () async {
     final data = await ask('为什么推荐他', professorId: 'p_001');
     expect(data.answer, contains('依据'));
-    expect(data.answer, contains('张三'));
+    expect(data.answer, contains(db.getProfessor('p_001')!.name));
     expect(data.relatedRecommendations, isEmpty);
   });
 

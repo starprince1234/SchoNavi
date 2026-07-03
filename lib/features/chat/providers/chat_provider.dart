@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/api_error_reporter.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/error/error_diagnostics.dart';
 import '../../../core/ids/uuid_v7.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/chat_message.dart';
@@ -53,7 +55,7 @@ class ChatState {
     this.turns = const [],
     this.activeTurnId,
     this.activeAttemptId,
-    this.errorMessage,
+    this.error,
     this.legacyContextIncomplete = false,
   });
 
@@ -72,7 +74,7 @@ class ChatState {
       turns = const [],
       activeTurnId = null,
       activeAttemptId = null,
-      errorMessage = null,
+      error = null,
       legacyContextIncomplete = false;
 
   final String? sessionId;
@@ -89,7 +91,8 @@ class ChatState {
   final List<ConversationTurn> turns;
   final String? activeTurnId;
   final String? activeAttemptId;
-  final String? errorMessage;
+  final AppException? error;
+  String? get errorMessage => error?.message;
   final bool legacyContextIncomplete;
 
   bool get isBusy => switch (activity) {
@@ -142,7 +145,7 @@ class ChatState {
     List<ConversationTurn>? turns,
     Object? activeTurnId = _sentinel,
     Object? activeAttemptId = _sentinel,
-    Object? errorMessage = _sentinel,
+    Object? error = _sentinel,
     bool? legacyContextIncomplete,
   }) => ChatState(
     sessionId: identical(sessionId, _sentinel)
@@ -175,9 +178,7 @@ class ChatState {
     activeAttemptId: identical(activeAttemptId, _sentinel)
         ? this.activeAttemptId
         : activeAttemptId as String?,
-    errorMessage: identical(errorMessage, _sentinel)
-        ? this.errorMessage
-        : errorMessage as String?,
+    error: identical(error, _sentinel) ? this.error : error as AppException?,
     legacyContextIncomplete:
         legacyContextIncomplete ?? this.legacyContextIncomplete,
   );
@@ -216,10 +217,7 @@ class ChatNotifier extends Notifier<ChatState> {
       case Success<ConversationSession>(:final data):
         await _hydrate(data.id, token: token);
       case Failure<ConversationSession>(:final error):
-        state = state.copyWith(
-          activity: ChatActivity.loadFailed,
-          errorMessage: error.message,
-        );
+        state = state.copyWith(activity: ChatActivity.loadFailed, error: error);
     }
   }
 
@@ -240,10 +238,7 @@ class ChatNotifier extends Notifier<ChatState> {
       case Success<ConversationAggregate>(:final data):
         _applyAggregate(data);
       case Failure<ConversationAggregate>(:final error):
-        state = state.copyWith(
-          activity: ChatActivity.loadFailed,
-          errorMessage: error.message,
-        );
+        state = state.copyWith(activity: ChatActivity.loadFailed, error: error);
     }
   }
 
@@ -272,9 +267,9 @@ class ChatNotifier extends Notifier<ChatState> {
     if (sourceResult is! Success<ConversationAggregate>) {
       state = state.copyWith(
         activity: ChatActivity.loadFailed,
-        errorMessage: sourceResult is Failure<ConversationAggregate>
-            ? sourceResult.error.message
-            : const UnknownException().message,
+        error: sourceResult is Failure<ConversationAggregate>
+            ? sourceResult.error
+            : const UnknownException(),
       );
       return;
     }
@@ -284,7 +279,7 @@ class ChatNotifier extends Notifier<ChatState> {
     if (resolvedTurnId == null) {
       state = state.copyWith(
         activity: ChatActivity.loadFailed,
-        errorMessage: '所选导师不属于可追问的推荐轮次',
+        error: const ValidationException('所选导师不属于可追问的推荐轮次'),
       );
       return;
     }
@@ -300,10 +295,7 @@ class ChatNotifier extends Notifier<ChatState> {
       case Success<ConversationSession>(:final data):
         await _hydrate(data.id, token: token);
       case Failure<ConversationSession>(:final error):
-        state = state.copyWith(
-          activity: ChatActivity.loadFailed,
-          errorMessage: error.message,
-        );
+        state = state.copyWith(activity: ChatActivity.loadFailed, error: error);
     }
   }
 
@@ -336,7 +328,7 @@ class ChatNotifier extends Notifier<ChatState> {
     state = state.copyWith(
       activity: ChatActivity.classifying,
       messages: [...state.messages, optimisticUser],
-      errorMessage: null,
+      error: null,
     );
     await _runEvents(
       ref
@@ -397,7 +389,7 @@ class ChatNotifier extends Notifier<ChatState> {
         state.activity != ChatActivity.turnFailed) {
       return;
     }
-    state = state.copyWith(activity: ChatActivity.idle, errorMessage: null);
+    state = state.copyWith(activity: ChatActivity.idle, error: null);
   }
 
   Future<void> delete() async {
@@ -420,10 +412,7 @@ class ChatNotifier extends Notifier<ChatState> {
           activeAttemptId: null,
         );
       case Failure<void>(:final error):
-        state = state.copyWith(
-          activity: ChatActivity.turnFailed,
-          errorMessage: error.message,
-        );
+        state = state.copyWith(activity: ChatActivity.turnFailed, error: error);
     }
   }
 
@@ -438,7 +427,12 @@ class ChatNotifier extends Notifier<ChatState> {
     state = state.copyWith(activity: ChatActivity.cancelling);
     await _cancelIterator();
     if (attemptId != null) {
-      await ref.read(conversationRepositoryProvider).cancelAttempt(attemptId);
+      final cancelResult = await ref
+          .read(conversationRepositoryProvider)
+          .cancelAttempt(attemptId);
+      if (cancelResult case Failure<void>(:final error)) {
+        ref.read(apiErrorReporterProvider.notifier).report('停止生成失败', error);
+      }
     }
     final sessionId = state.sessionId;
     if (sessionId != null) {
@@ -465,24 +459,22 @@ class ChatNotifier extends Notifier<ChatState> {
       if (_isCurrent(token) && state.isBusy) {
         await _hydrate(sessionId, token: token);
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!_isCurrent(token)) return;
-      final message = error is AppException
-          ? error.message
-          : const UnknownException().message;
+      final appError = normalizeAppException(error, stackTrace);
       await _hydrate(sessionId, token: token);
       if (!_isCurrent(token) || state.activity == ChatActivity.loadFailed) {
         return;
       }
       state = state.copyWith(
         activity: ChatActivity.turnFailed,
-        errorMessage: message,
+        error: appError,
         messages: [
           ...state.messages,
           ChatMessage(
             id: _ids.generate(),
             role: ChatRole.assistant,
-            content: message,
+            content: appError.message,
             createdAt: DateTime.now(),
             relatedRecommendations: const [],
             status: ChatMessageStatus.error,
@@ -559,6 +551,23 @@ class ChatNotifier extends Notifier<ChatState> {
           _activeEventRevision = null;
         }
       case ConversationFailed(:final message):
+        final appError = ValidationException(
+          message,
+          diagnostics: ErrorDiagnostics(
+            requestId: event.requestId,
+            method: 'POST',
+            path: event.path,
+            backendCode: event.code,
+            backendMessage: message,
+            exceptionType: 'ConversationStreamException',
+            occurredAt: DateTime.now(),
+            context: {
+              '会话 ID': event.sessionId,
+              '轮次 ID': event.turnId,
+              '尝试 ID': event.attemptId,
+            },
+          ),
+        );
         await _hydrate(event.sessionId, token: token);
         if (_isCurrent(token)) {
           final kind = state.turns.isEmpty
@@ -571,7 +580,7 @@ class ChatNotifier extends Notifier<ChatState> {
                 };
           state = state.copyWith(
             activity: ChatActivity.turnFailed,
-            errorMessage: message,
+            error: appError,
             activeTurnId: null,
             activeAttemptId: null,
             messages: [
@@ -603,7 +612,7 @@ class ChatNotifier extends Notifier<ChatState> {
       case Failure<ConversationAggregate>(:final error):
         state = state.copyWith(
           activity: ChatActivity.loadFailed,
-          errorMessage: error.message,
+          error: error,
           messages: const [],
           turns: const [],
         );
@@ -693,11 +702,7 @@ class ChatNotifier extends Notifier<ChatState> {
       ConversationRoute.forkReroute => ChatActivity.committing,
       ConversationRoute.conversation => ChatActivity.connecting,
     };
-    state = state.copyWith(
-      activity: activity,
-      messages: messages,
-      errorMessage: null,
-    );
+    state = state.copyWith(activity: activity, messages: messages, error: null);
     await _runEvents(
       ref
           .read(conversationRepositoryProvider)
@@ -727,10 +732,11 @@ class ChatNotifier extends Notifier<ChatState> {
     messages[index] = messages[index].copyWith(feedback: previous);
     state = state.copyWith(
       messages: messages,
-      errorMessage: result is Failure<void>
-          ? result.error.message
-          : const UnknownException().message,
+      error: result is Failure<void> ? result.error : const UnknownException(),
     );
+    ref
+        .read(apiErrorReporterProvider.notifier)
+        .report('消息反馈同步失败', state.error!);
   }
 
   bool _acceptEvent(ConversationEvent event, String sessionId) {

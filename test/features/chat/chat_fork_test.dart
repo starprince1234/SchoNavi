@@ -1,237 +1,201 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scho_navi/core/ai/llm_client.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
 import 'package:scho_navi/core/result/result.dart';
-import 'package:scho_navi/core/storage/local_store.dart';
-import 'package:scho_navi/data/ai/ai_chat_repository.dart';
-import 'package:scho_navi/data/local/local_chat_history_store.dart';
-import 'package:scho_navi/data/mock/mock_db.dart';
 import 'package:scho_navi/domain/entities/chat_message.dart';
-import 'package:scho_navi/domain/entities/chat_result.dart';
+import 'package:scho_navi/domain/entities/conversation_aggregate.dart';
+import 'package:scho_navi/domain/entities/conversation_session.dart';
+import 'package:scho_navi/domain/entities/conversation_turn.dart';
 import 'package:scho_navi/domain/entities/fork_ref.dart';
-import 'package:scho_navi/domain/entities/recommendation_result.dart';
-import 'package:scho_navi/domain/repositories/chat_repository.dart';
+import 'package:scho_navi/domain/entities/match_level.dart';
+import 'package:scho_navi/domain/entities/recommendation.dart';
 import 'package:scho_navi/features/chat/providers/chat_provider.dart';
-import 'package:scho_navi/shared/utils/recommendation_need_classifier.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class _MemStore implements LocalStore {
-  final Map<String, dynamic> _m = {};
-
-  @override
-  String? getString(String key) => _m[key] as String?;
-
-  @override
-  Future<void> setString(String key, String value) async => _m[key] = value;
-
-  @override
-  bool? getBool(String key) => _m[key] as bool?;
-
-  @override
-  Future<void> setBool(String key, bool value) async => _m[key] = value;
-
-  @override
-  Map<String, dynamic>? getJson(String key) => _m[key] as Map<String, dynamic>?;
-
-  @override
-  Future<void> setJson(String key, Map<String, dynamic> value) async =>
-      _m[key] = value;
-
-  @override
-  List<dynamic>? getJsonList(String key) => _m[key] as List<dynamic>?;
-
-  @override
-  Future<void> setJsonList(String key, List<dynamic> value) async =>
-      _m[key] = value;
-
-  @override
-  bool containsKey(String key) => _m.containsKey(key);
-
-  @override
-  Future<void> remove(String key) async => _m.remove(key);
-
-  @override
-  Future<void> clear() async => _m.clear();
-}
-
-class _StubLlm implements LlmClient {
-  _StubLlm(this.reply);
-
-  final String reply;
-
-  @override
-  Future<Result<String>> complete({
-    required List<LlmMessage> messages,
-    bool jsonMode = false,
-    double temperature = 0.7,
-  }) async => Success(reply);
-
-  @override
-  Stream<String> stream({
-    required List<LlmMessage> messages,
-    double temperature = 0.7,
-  }) async* {
-    yield reply;
-  }
-}
-
-class _AlwaysNeedClassifier implements RecommendationNeedClassifier {
-  @override
-  Future<bool> needRecommendations(
-    String followUp, {
-    RecommendationResult? lastResult,
-  }) async => true;
-}
-
-AiChatRepository _repo() {
-  SharedPreferences.setMockInitialValues({});
-  return AiChatRepository(
-    llm: _StubLlm('回答'),
-    db: MockDb(),
-    historyStore: LocalChatHistoryStore(_MemStore()),
-  );
-}
+import '../../helpers/fake_conversation_repository.dart';
 
 final _chatProvider = chatProvider(Object());
 
-String _firstProfId() => MockDb().allProfessors.first.id;
+const _professorId = 'p_001';
 
-/// 预置主 session 的可见历史（带卡片），供 fork/resume 经 loadHistory 回填。
-/// 取代旧 seedRecommendationTurn 落盘路径（推荐摘要现已不进可见历史）。
-Future<void> _seedVisibleHistory(
-  AiChatRepository repo,
-  String sessionId,
-) async {
-  await repo.persistMessages(sessionId, [
-    ChatMessage(
-      id: 'u1',
-      role: ChatRole.user,
-      content: '想做CV',
-      createdAt: DateTime(2026, 6, 27),
-      relatedRecommendations: const [],
-      status: ChatMessageStatus.done,
-      kind: ChatMessageKind.conversation,
-    ),
-    ChatMessage(
-      id: 'a1',
-      role: ChatRole.assistant,
-      content: '为你挑了合适的导师',
-      createdAt: DateTime(2026, 6, 27),
-      relatedRecommendations: const [],
-      status: ChatMessageStatus.done,
-      kind: ChatMessageKind.recommendation,
-    ),
-  ]);
+const _recommendation = Recommendation(
+  professorId: _professorId,
+  name: '张三',
+  university: '清华大学',
+  college: '计算机系',
+  title: '教授',
+  researchFields: ['计算机视觉'],
+  matchLevel: MatchLevel.high,
+  reason: '方向契合',
+  limitations: [],
+);
+
+ProviderContainer _containerWith(ControllableConversationRepository repo) {
+  final container = ProviderContainer(
+    overrides: [conversationRepositoryProvider.overrideWithValue(repo)],
+  );
+  container.listen(_chatProvider, (_, _) {});
+  return container;
 }
 
+ConversationAggregate _sourceAggregate() {
+  final session = fakeSession(id: 's1', revision: 1);
+  final user = fakeUserMessage(id: 'u1', content: '想做 CV');
+  final assistant = fakeAssistantMessage(
+    id: 'a1',
+    content: '为你挑了合适的导师',
+    kind: ChatMessageKind.recommendation,
+    relatedRecommendations: const [_recommendation],
+  );
+  return fakeAggregate(
+    session: session,
+    turns: [
+      fakeTurn(
+        id: 'turn-rec',
+        sessionId: session.id,
+        status: ConversationTurnStatus.completed,
+        route: ConversationRoute.recommendation,
+        userMessage: user,
+        activeAttemptId: 'attempt-rec',
+      ),
+    ],
+    messages: [user, assistant],
+  );
+}
+
+ConversationAggregate _forkAggregate() {
+  final source = _sourceAggregate();
+  return fakeAggregate(
+    session: fakeSession(
+      id: 'fork-s1-p001',
+      kind: ConversationSessionKind.fork,
+      rootSessionId: 's1',
+      sourceSessionId: 's1',
+      sourceTurnId: 'turn-rec',
+      professorId: _professorId,
+      revision: 1,
+    ),
+    turns: source.turns,
+    messages: source.messages,
+  );
+}
+
+Future<void> _flush() => Future<void>.delayed(Duration.zero);
+
 void main() {
-  test('startFork 回填历史 + 设 forkAnchor', () async {
-    final repo = _repo();
-    // 预置主 session 历史（AiChatRepository.seedRecommendationTurn 持久化到 store）
-    await _seedVisibleHistory(repo, 's1');
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+  test('startFork 通过来源推荐轮次创建 fork 并设置 anchor', () async {
+    final repo = ControllableConversationRepository(
+      initialAggregate: _sourceAggregate(),
     );
+    final container = _containerWith(repo);
+    addTearDown(repo.dispose);
     addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
 
     final notifier = container.read(_chatProvider.notifier);
-    await notifier.startFork(
-      sourceSessionId: 's1',
-      professorId: _firstProfId(),
-    );
-    await Future<void>.delayed(Duration.zero);
+    await notifier.startFork(sourceSessionId: 's1', professorId: _professorId);
     final state = container.read(_chatProvider);
 
+    expect(repo.forkCalls, 1);
+    expect(state.sessionId, 'fork-s1-p_001');
     expect(state.forkAnchor, isNotNull);
-    expect(state.sessionId, startsWith('f_s1_'));
+    expect(state.forkAnchor!.mainSessionId, 's1');
+    expect(state.forkAnchor!.professorId, _professorId);
     expect(state.messages, isNotEmpty);
   });
 
-  test('fork 内 send 触发再推荐意图 → forkReroute 消息', () async {
-    final repo = _repo();
-    await _seedVisibleHistory(repo, 's1');
-    final container = ProviderContainer(
-      overrides: [
-        chatRepositoryProvider.overrideWithValue(repo),
-        recommendationNeedClassifierProvider.overrideWithValue(
-          _AlwaysNeedClassifier(),
-        ),
-      ],
+  test('fork 内后端路由为 forkReroute 时产出不可推荐卡消息', () async {
+    final repo = ControllableConversationRepository(
+      initialAggregate: _forkAggregate(),
     );
+    final container = _containerWith(repo);
+    addTearDown(repo.dispose);
     addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
-
     final notifier = container.read(_chatProvider.notifier);
-    await notifier.startFork(
-      sourceSessionId: 's1',
-      professorId: _firstProfId(),
-    );
-    await Future<void>.delayed(Duration.zero);
-    await notifier.send('换一批导师');
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    final state = container.read(_chatProvider);
+    await notifier.resume(sessionId: 'fork-s1-p001');
 
-    final reroute = state.messages
+    final pending = notifier.send('换一批导师');
+    await _flush();
+    repo
+      ..emit(acknowledged(sessionId: 'fork-s1-p001', revision: 1))
+      ..emit(
+        routed(
+          sessionId: 'fork-s1-p001',
+          revision: 1,
+          route: ConversationRoute.forkReroute,
+        ),
+      );
+    await _flush();
+
+    final user = fakeUserMessage(id: 'u2', content: '换一批导师');
+    final assistant = fakeAssistantMessage(
+      id: 'a2',
+      content: '请回到首页重新描述需求，我会为你重做推荐。',
+      kind: ChatMessageKind.forkReroute,
+    );
+    repo.setAggregate(
+      fakeAggregate(
+        session: fakeSession(
+          id: 'fork-s1-p001',
+          kind: ConversationSessionKind.fork,
+          rootSessionId: 's1',
+          sourceSessionId: 's1',
+          sourceTurnId: 'turn-rec',
+          professorId: _professorId,
+          revision: 2,
+        ),
+        turns: [
+          ..._forkAggregate().turns,
+          fakeTurn(
+            id: 'turn-2',
+            sessionId: 'fork-s1-p001',
+            status: ConversationTurnStatus.completed,
+            route: ConversationRoute.forkReroute,
+            userMessage: user,
+          ),
+        ],
+        messages: [..._forkAggregate().messages, user, assistant],
+      ),
+    );
+    repo.emit(
+      completed(
+        sessionId: 'fork-s1-p001',
+        revision: 2,
+        message: assistant,
+        session: repo.aggregates['fork-s1-p001']!.session,
+      ),
+    );
+    await repo.closeActiveEvents();
+    await pending;
+
+    final reroute = container
+        .read(_chatProvider)
+        .messages
         .where((m) => m.kind == ChatMessageKind.forkReroute)
         .toList();
-    expect(reroute, isNotEmpty);
+    expect(reroute, hasLength(1));
     expect(reroute.single.relatedRecommendations, isEmpty);
     expect(reroute.single.status, ChatMessageStatus.done);
   });
 
-  test('resume(fork) 通过 mainSessionId 重建 forkAnchor', () async {
-    final repo = _repo();
-    await _seedVisibleHistory(repo, 's1');
-    final profId = _firstProfId();
-    final forkRes = await repo.forkSession(
-      sourceSessionId: 's1',
-      professorId: profId,
+  test('resume(fork) 根据 fork session aggregate 重建 forkAnchor', () async {
+    final repo = ControllableConversationRepository(
+      initialAggregate: _forkAggregate(),
     );
-    final forkId = (forkRes as Success<String>).data;
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-    );
+    final container = _containerWith(repo);
+    addTearDown(repo.dispose);
     addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
 
-    final notifier = container.read(_chatProvider.notifier);
-    await notifier.resume(sessionId: forkId, isFork: true, mainSessionId: 's1');
-    await Future<void>.delayed(Duration.zero);
+    await container.read(_chatProvider.notifier).resume(
+      sessionId: 'fork-s1-p001',
+      isFork: true,
+      mainSessionId: 's1',
+    );
     final state = container.read(_chatProvider);
 
     expect(state.forkAnchor, isNotNull);
-    expect(state.forkAnchor!.forkId, forkId);
-    expect(state.sessionId, forkId);
-    expect(state.messages, isNotEmpty);
-  });
-
-  test('resume(fork) mainSessionId 缺省 → anchor 降级为 null 不崩溃', () async {
-    final repo = _repo();
-    await _seedVisibleHistory(repo, 's1');
-    final forkRes = await repo.forkSession(
-      sourceSessionId: 's1',
-      professorId: _firstProfId(),
-    );
-    final forkId = (forkRes as Success<String>).data;
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-    );
-    addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
-
-    final notifier = container.read(_chatProvider.notifier);
-    await notifier.resume(sessionId: forkId, isFork: true);
-    await Future<void>.delayed(Duration.zero);
-    final state = container.read(_chatProvider);
-
-    expect(state.forkAnchor, isNull); // 降级，非崩溃
-    expect(state.sessionId, forkId);
-    expect(state.messages, isNotEmpty);
+    expect(state.forkAnchor!.forkId, 'fork-s1-p001');
+    expect(state.forkAnchor!.mainSessionId, 's1');
+    expect(state.sessionId, 'fork-s1-p001');
   });
 
   test('copyWith 显式置 forkAnchor=null 可清空', () {
@@ -242,9 +206,9 @@ void main() {
       professorName: '张三',
       university: '清华',
       college: '计算机系',
-      createdAt: DateTime(2026, 6, 27),
+      createdAt: fakeNow,
     );
-    final s = ChatState(
+    final state = ChatState(
       sessionId: 's1',
       professorId: 'p1',
       messages: const [],
@@ -252,178 +216,56 @@ void main() {
       followUpQuestions: const [],
       forkAnchor: anchor,
     );
-    expect(s.forkAnchor, isNotNull);
-    final cleared = s.copyWith(forkAnchor: null);
-    expect(cleared.forkAnchor, isNull);
-    // 不传 forkAnchor 时保留原值
-    final kept = s.copyWith();
-    expect(kept.forkAnchor, anchor);
+
+    expect(state.copyWith(forkAnchor: null).forkAnchor, isNull);
+    expect(state.copyWith().forkAnchor, anchor);
   });
 
   test('startFork race guard discards stale state write', () async {
-    final repo = _ControllableChatRepository();
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    final repo = ControllableConversationRepository(
+      initialAggregate: _sourceAggregate(),
     );
+    repo.setAggregate(fakeAggregate(session: fakeSession(id: 'new-session')));
+    final parkedSourceLoad = repo.parkNextLoad();
+    final container = _containerWith(repo);
+    addTearDown(repo.dispose);
     addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
-
     final notifier = container.read(_chatProvider.notifier);
+
     final forkFuture = notifier.startFork(
       sourceSessionId: 's1',
-      professorId: 'p1',
+      professorId: _professorId,
     );
+    await _flush();
 
-    await repo.listForksReached;
-
-    // A newer operation bumps _operation while the first startFork is paused
-    // at the listForks await.
-    notifier.start(sessionId: 'new-session', professorId: 'p2');
-
-    repo.completeListForks(
-      Success([
-        ForkRef(
-          forkId: 'f_s1_p1',
-          mainSessionId: 's1',
-          professorId: 'p1',
-          professorName: 'Test Prof',
-          university: 'Test Univ',
-          college: 'Test College',
-          createdAt: DateTime(2026, 6, 27),
-        ),
-      ]),
-    );
+    await notifier.start(sessionId: 'new-session', professorId: 'p2');
+    parkedSourceLoad.complete(Success(_sourceAggregate()));
     await forkFuture;
-    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(_chatProvider);
+    expect(repo.forkCalls, 0);
     expect(state.sessionId, 'new-session');
-    expect(state.professorId, 'p2');
-  });
-
-  test('startFork failure clears stale professorId and forkAnchor', () async {
-    final repo = _AlwaysFailingForkRepository();
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-    );
-    addTearDown(container.dispose);
-    container.listen(_chatProvider, (_, _) {});
-
-    final notifier = container.read(_chatProvider.notifier);
-    await notifier.startFork(sourceSessionId: 's1', professorId: 'p1');
-    await Future<void>.delayed(Duration.zero);
-
-    final state = container.read(_chatProvider);
-    expect(state.sessionId, isNull);
     expect(state.professorId, isNull);
     expect(state.forkAnchor, isNull);
-    expect(state.activity, ChatActivity.idle);
   });
-}
 
-class _ControllableChatRepository extends ChatRepository {
-  final Completer<Result<String>> _forkSessionCompleter =
-      Completer<Result<String>>();
-  final Completer<Result<List<ChatMessage>>> _loadHistoryCompleter =
-      Completer<Result<List<ChatMessage>>>();
-  final Completer<void> _listForksReached = Completer<void>();
-  Completer<Result<List<ForkRef>>>? _listForksCompleter;
+  test('startFork 来源不可用时进入 loadFailed 且不创建 fork', () async {
+    final repo = ControllableConversationRepository(
+      initialAggregate: _sourceAggregate(),
+    )..loadResult = const Failure(NotFoundException());
+    final container = _containerWith(repo);
+    addTearDown(repo.dispose);
+    addTearDown(container.dispose);
 
-  _ControllableChatRepository() {
-    _forkSessionCompleter.complete(const Success('f_s1_p1'));
-    _loadHistoryCompleter.complete(const Success(<ChatMessage>[]));
-  }
+    await container
+        .read(_chatProvider.notifier)
+        .startFork(sourceSessionId: 's1', professorId: _professorId);
+    final state = container.read(_chatProvider);
 
-  Future<void> get listForksReached => _listForksReached.future;
-
-  void completeListForks(Result<List<ForkRef>> result) {
-    (_listForksCompleter ??= Completer<Result<List<ForkRef>>>()).complete(
-      result,
-    );
-  }
-
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) => _forkSessionCompleter.future;
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({required String sessionId}) =>
-      _loadHistoryCompleter.future;
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async {
-    _listForksReached.complete();
-    final c = _listForksCompleter ??= Completer<Result<List<ForkRef>>>();
-    return c.future;
-  }
-
-  @override
-  Future<Result<ChatResult>> sendMessage({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) async => Success(
-    ChatResult(
-      sessionId: sessionId,
-      answer: '',
-      relatedRecommendations: const [],
-    ),
-  );
-
-  @override
-  Stream<String> streamReply({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) => const Stream<String>.empty();
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async =>
-      const Success(null);
-}
-
-class _AlwaysFailingForkRepository extends ChatRepository {
-  @override
-  Future<Result<String>> forkSession({
-    required String sourceSessionId,
-    required String professorId,
-  }) async => const Failure<String>(UnknownException());
-
-  @override
-  Future<Result<List<ChatMessage>>> loadHistory({
-    required String sessionId,
-  }) async => const Success(<ChatMessage>[]);
-
-  @override
-  Future<Result<List<ForkRef>>> listForks({
-    required String mainSessionId,
-  }) async => const Failure<List<ForkRef>>(UnknownException());
-
-  @override
-  Future<Result<ChatResult>> sendMessage({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) async => Success(
-    ChatResult(
-      sessionId: sessionId,
-      answer: '',
-      relatedRecommendations: const [],
-    ),
-  );
-
-  @override
-  Stream<String> streamReply({
-    required String sessionId,
-    required String message,
-    String? professorId,
-  }) => const Stream<String>.empty();
-
-  @override
-  Future<Result<void>> deleteFork({required String forkId}) async =>
-      const Success(null);
+    expect(repo.forkCalls, 0);
+    expect(state.sessionId, isNull);
+    expect(state.forkAnchor, isNull);
+    expect(state.activity, ChatActivity.loadFailed);
+    expect(state.error, isA<NotFoundException>());
+  });
 }
