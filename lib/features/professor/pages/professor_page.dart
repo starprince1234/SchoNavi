@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/error/app_exception.dart';
+import '../../../core/error/api_error_reporter.dart';
 import '../../../core/result/result.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
@@ -61,8 +62,8 @@ class ProfessorPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const LoadingView(),
-        error: (e, _) => ErrorView(
-          message: e is AppException ? e.message : '出错了，请稍后重试',
+        error: (error, stackTrace) => ErrorView(
+          error: normalizeAppException(error, stackTrace),
           onRetry: () => ref.invalidate(professorProvider(professorId)),
         ),
         data: (p) => _Detail(professor: p),
@@ -94,9 +95,7 @@ class ProfessorPage extends ConsumerWidget {
       case Success<ConversationSession>(:final data):
         context.push('/chat?sid=${Uri.encodeComponent(data.id)}');
       case Failure<ConversationSession>(:final error):
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ref.read(apiErrorReporterProvider.notifier).report('创建导师会话失败', error);
     }
   }
 }

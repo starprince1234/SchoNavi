@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/api_error_reporter.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/result/result.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../../domain/entities/conversation_session.dart';
 import '../../../domain/entities/search_history_item.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
+import '../../../shared/widgets/error_view.dart';
 
 final conversationHistoryProvider = FutureProvider<List<ConversationSession>>((
   ref,
@@ -72,7 +75,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       ),
       body: conversations.when(
         loading: () => const _LoadingList(),
-        error: (_, _) => const EmptyView(message: '会话历史读取失败，可稍后重试'),
+        error: (error, stackTrace) => ErrorView(
+          error: normalizeAppException(error, stackTrace),
+          onRetry: () => ref.invalidate(conversationHistoryProvider),
+        ),
         data: (sessions) {
           final query = _search.text.trim().toLowerCase();
           final filteredSessions = sessions.where((session) {
@@ -172,9 +178,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           .read(conversationRepositoryProvider)
           .deleteSession(session.id);
       if (result is Failure<void> && mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(result.error.message)));
+        ref
+            .read(apiErrorReporterProvider.notifier)
+            .report('清空会话历史失败', result.error);
         return;
       }
     }
@@ -182,11 +188,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       await ref.read(historyRepositoryProvider).clear();
       ref.invalidate(conversationHistoryProvider);
       ref.invalidate(searchHistoryProvider);
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ref
+          .read(apiErrorReporterProvider.notifier)
+          .report('清空竞赛历史失败', error, stackTrace);
     }
   }
 }
@@ -231,9 +237,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
         });
       case Failure<List<ConversationSession>>(:final error):
         setState(() => _loading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ref.read(apiErrorReporterProvider.notifier).report('分支历史加载失败', error);
     }
   }
 
@@ -313,9 +317,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
         }
         return true;
       case Failure<void>(:final error):
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ref.read(apiErrorReporterProvider.notifier).report('删除会话历史失败', error);
         return false;
     }
   }
@@ -340,11 +342,11 @@ class _CompetitionTile extends ConsumerWidget {
         await ref.read(historyRepositoryProvider).remove(item.sessionId);
         onDeleted();
         return true;
-      } catch (error) {
+      } catch (error, stackTrace) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(error.toString())));
+          ref
+              .read(apiErrorReporterProvider.notifier)
+              .report('删除竞赛历史失败', error, stackTrace);
         }
         return false;
       }

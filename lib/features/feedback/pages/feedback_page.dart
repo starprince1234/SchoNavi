@@ -6,6 +6,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/feedback.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../providers/feedback_provider.dart';
 
 class FeedbackPage extends ConsumerStatefulWidget {
@@ -64,7 +65,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       messenger.showSnackBar(const SnackBar(content: Text('感谢反馈,我们会尽快处理')));
       context.pop();
     } else {
-      messenger.showSnackBar(const SnackBar(content: Text('反馈提交失败,请稍后重试')));
+      return;
     }
   }
 
@@ -107,6 +108,10 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
               ),
               const SizedBox(height: 12),
               if (!ctx.isEmpty) _ContextSummary(context: ctx),
+              if (state.error != null) ...[
+                const SizedBox(height: 12),
+                ErrorView(error: state.error),
+              ],
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: (state.loading || !_canSubmit) ? null : _submit,

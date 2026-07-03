@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/error/api_error_reporter.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/haptics/haptics.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +12,7 @@ import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/field_chips.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
+import '../../../shared/widgets/error_view.dart';
 
 class FavoritePage extends ConsumerStatefulWidget {
   const FavoritePage({super.key});
@@ -82,7 +85,10 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
           itemCount: 3,
           itemBuilder: (_, _) => const ProfessorCardSkeleton(),
         ),
-        error: (_, _) => const EmptyView(message: '收藏读取失败，可稍后重试'),
+        error: (error, stackTrace) => ErrorView(
+          error: normalizeAppException(error, stackTrace),
+          onRetry: () => ref.invalidate(favoritesProvider),
+        ),
         data: (items) {
           if (items.isEmpty) {
             return const EmptyView(message: '还没有收藏导师');
@@ -117,19 +123,35 @@ class _FavoritePageState extends ConsumerState<FavoritePage> {
                       padding: const EdgeInsets.only(right: 20),
                       child: const Icon(Icons.delete, color: Colors.white),
                     ),
-                    onDismissed: (_) {
+                    onDismissed: (_) async {
                       Haptics.medium();
-                      ref
-                          .read(favoriteRepositoryProvider)
-                          .remove(item.professorId);
+                      try {
+                        await ref
+                            .read(favoriteRepositoryProvider)
+                            .remove(item.professorId);
+                      } catch (error, stackTrace) {
+                        ref
+                            .read(apiErrorReporterProvider.notifier)
+                            .report('取消收藏失败', error, stackTrace);
+                        return;
+                      }
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: const Text('已删除收藏'),
                           action: SnackBarAction(
                             label: '撤销',
-                            onPressed: () {
+                            onPressed: () async {
                               Haptics.success();
-                              ref.read(favoriteRepositoryProvider).add(item);
+                              try {
+                                await ref
+                                    .read(favoriteRepositoryProvider)
+                                    .add(item);
+                              } catch (error, stackTrace) {
+                                ref
+                                    .read(apiErrorReporterProvider.notifier)
+                                    .report('恢复收藏失败', error, stackTrace);
+                              }
                             },
                           ),
                         ),
@@ -208,9 +230,17 @@ class _FavoriteTile extends ConsumerWidget {
                     IconButton(
                       tooltip: '取消收藏',
                       icon: const Icon(Icons.bookmark_remove_outlined),
-                      onPressed: () => ref
-                          .read(favoriteRepositoryProvider)
-                          .remove(item.professorId),
+                      onPressed: () async {
+                        try {
+                          await ref
+                              .read(favoriteRepositoryProvider)
+                              .remove(item.professorId);
+                        } catch (error, stackTrace) {
+                          ref
+                              .read(apiErrorReporterProvider.notifier)
+                              .report('取消收藏失败', error, stackTrace);
+                        }
+                      },
                     ),
                 ],
               ),
@@ -275,11 +305,17 @@ class _FavoriteTile extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(context).pop();
-                        ref
-                            .read(favoriteRepositoryProvider)
-                            .remove(item.professorId);
+                        try {
+                          await ref
+                              .read(favoriteRepositoryProvider)
+                              .remove(item.professorId);
+                        } catch (error, stackTrace) {
+                          ref
+                              .read(apiErrorReporterProvider.notifier)
+                              .report('取消收藏失败', error, stackTrace);
+                        }
                       },
                       child: const Text('取消收藏'),
                     ),

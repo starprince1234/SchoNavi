@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../../../core/error/app_exception.dart';
 import '../../../domain/entities/comparison_report.dart';
 import '../../../domain/entities/professor.dart';
 import '../../../shared/widgets/error_view.dart';
@@ -38,7 +39,7 @@ class _ComparePageState extends ConsumerState<ComparePage> {
       body: switch (state.status) {
         CompareStatus.loading => const LoadingView(label: '正在生成对比...'),
         CompareStatus.error => ErrorView(
-          message: state.message ?? '生成对比失败，请重试',
+          error: state.error ?? const UnknownException(message: '生成对比失败，请重试'),
           onRetry: () => ref.read(compareProvider.notifier).load(widget.ids),
         ),
         CompareStatus.ready => _ReportView(

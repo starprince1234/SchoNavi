@@ -23,6 +23,7 @@ import '../../competition_recommendation/providers/competition_home_notifier.dar
 import '../../competition_recommendation/widgets/competition_home_result_view.dart';
 import '../../../shared/widgets/animated_entrance.dart';
 import '../../../shared/widgets/app_menu_drawer.dart';
+import '../../../shared/widgets/api_error_notice.dart';
 import '../../../shared/widgets/bento_grid.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/cool_scaffold_background.dart';
@@ -34,6 +35,7 @@ import '../../../shared/widgets/rotating_subtitle.dart';
 import '../../../shared/widgets/scho_navi_logo.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../../shared/widgets/sliding_pill_switch.dart';
+import '../../../shared/widgets/error_view.dart';
 
 /// 首页双 tab：导师推荐 / 竞赛推荐。公开以供路由层按 `?tab=` 预选。
 enum HomeTab { mentor, competition }
@@ -529,9 +531,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: RotatingSubtitle(
                         phrases: tabConfig.taglines,
                         strategy: _kSubtitleStrategy,
-	                        style: textTheme.bodyMedium?.copyWith(
-	                          color: scheme.onSurfaceVariant,
-	                        ),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ),
@@ -556,7 +558,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                 );
               },
               loading: () => _buildPromptGridSkeleton(),
-              error: (e, st) => _buildPromptGridSkeleton(),
+              error: (error, stackTrace) => ErrorView(
+                error: normalizeAppException(error, stackTrace),
+                onRetry: () =>
+                    ref.invalidate(homeConfigProvider(_currentTab.name)),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -619,41 +625,30 @@ class _HomePageState extends ConsumerState<HomePage> {
         if (state.activity == ChatActivity.loadFailed ||
             state.activity == ChatActivity.turnFailed ||
             state.activity == ChatActivity.interrupted)
-          Material(
-            color: scheme.surfaceContainerHighest,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 12, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      state.errorMessage ??
-                          (state.activity == ChatActivity.interrupted
-                              ? '上次生成已中断，部分内容已保存。'
-                              : '会话处理失败，请重试。'),
-                    ),
-                  ),
-                  if (state.canRegenerate)
-                    TextButton(
-                      onPressed: () =>
-                          ref.read(_chatProvider.notifier).regenerate(),
-                      child: const Text('重试本轮'),
-                    ),
-                  TextButton(
-                    onPressed: state.activity == ChatActivity.loadFailed
-                        ? _startNewConversation
-                        : () => ref
-                              .read(_chatProvider.notifier)
-                              .abandonInterruptedTurn(),
-                    child: Text(
-                      state.activity == ChatActivity.loadFailed
-                          ? '新建会话'
-                          : '放弃本轮',
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          ApiErrorNotice(
+            message:
+                state.errorMessage ??
+                (state.activity == ChatActivity.interrupted
+                    ? '上次生成已中断，部分内容已保存。'
+                    : '会话处理失败，请重试。'),
+            error: state.error,
+            primaryLabel: state.canRegenerate
+                ? '重试本轮'
+                : state.activity == ChatActivity.loadFailed
+                ? '新建会话'
+                : null,
+            onPrimary: state.canRegenerate
+                ? () => ref.read(_chatProvider.notifier).regenerate()
+                : state.activity == ChatActivity.loadFailed
+                ? _startNewConversation
+                : null,
+            secondaryLabel: state.activity == ChatActivity.loadFailed
+                ? null
+                : '放弃本轮',
+            onSecondary: state.activity == ChatActivity.loadFailed
+                ? null
+                : () =>
+                      ref.read(_chatProvider.notifier).abandonInterruptedTurn(),
           ),
         Expanded(
           child: ListView.builder(
@@ -669,6 +664,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: ChatMessageBubble(
                   key: ValueKey(message.id),
                   message: message,
+                  error: message.status == ChatMessageStatus.error
+                      ? state.error
+                      : null,
                   onTapRecommendation: (id) {
                     final mainSid = ref.read(_chatProvider).sessionId;
                     final turnId = _turnIdForMessageIndex(state, index);
@@ -853,11 +851,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           child: SizedBox(
             width: 40,
             height: 40,
-	            child: Icon(
-	              Icons.arrow_upward,
-	              color: _canSubmit ? Colors.white : scheme.onSurfaceVariant,
-	              size: 20,
-	            ),
+            child: Icon(
+              Icons.arrow_upward,
+              color: _canSubmit ? Colors.white : scheme.onSurfaceVariant,
+              size: 20,
+            ),
           ),
         ),
       ),
@@ -893,23 +891,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     final type = (i >= 0 && messages[i].kind == ChatMessageKind.recommendation)
         ? FeedbackType.recommendation
         : FeedbackType.other;
-    final ctx = FeedbackContext(
-      messageId: messageId,
-      sessionId: state.sessionId,
-      prompt: _userPromptForMessageIndex(state, messageIndex),
-    ).copyWith(
-      appVersion: ref.read(appConfigProvider).appVersion,
-      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
-    );
-    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
-      type: type,
-      content: content.isEmpty ? '点踩反馈（无文字）' : content,
-      context: ctx,
-    );
+    final ctx =
+        FeedbackContext(
+          messageId: messageId,
+          sessionId: state.sessionId,
+          prompt: _userPromptForMessageIndex(state, messageIndex),
+        ).copyWith(
+          appVersion: ref.read(appConfigProvider).appVersion,
+          dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+        );
+    final ok = await ref
+        .read(feedbackSubmitProvider.notifier)
+        .submit(
+          type: type,
+          content: content.isEmpty ? '点踩反馈（无文字）' : content,
+          context: ctx,
+        );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')));
   }
 
   Future<void> _submitRecommendationFeedback(
@@ -919,23 +920,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     int messageIndex,
   ) async {
     final state = ref.read(_chatProvider);
-    final ctx = FeedbackContext(
-      professorId: r.professorId,
-      sessionId: state.sessionId,
-      prompt: _userPromptForMessageIndex(state, messageIndex),
-    ).copyWith(
-      appVersion: ref.read(appConfigProvider).appVersion,
-      dataSourceMode: ref.read(appConfigProvider).dataSource.name,
-    );
+    final ctx =
+        FeedbackContext(
+          professorId: r.professorId,
+          sessionId: state.sessionId,
+          prompt: _userPromptForMessageIndex(state, messageIndex),
+        ).copyWith(
+          appVersion: ref.read(appConfigProvider).appVersion,
+          dataSourceMode: ref.read(appConfigProvider).dataSource.name,
+        );
     final content = note == null || note.isEmpty ? reason : '$reason：$note';
-    final ok = await ref.read(feedbackSubmitProvider.notifier).submit(
-      type: FeedbackType.recommendation,
-      content: content,
-      context: ctx,
-    );
+    final ok = await ref
+        .read(feedbackSubmitProvider.notifier)
+        .submit(
+          type: FeedbackType.recommendation,
+          content: content,
+          context: ctx,
+        );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(ok ? '感谢反馈' : '反馈提交失败,请稍后重试')));
   }
 }

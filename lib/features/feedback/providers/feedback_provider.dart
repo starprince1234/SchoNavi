@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
+import '../../../core/error/api_error_reporter.dart';
 import '../../../core/ids/uuid_v7.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/feedback.dart';
@@ -9,22 +11,23 @@ class FeedbackSubmitState {
   const FeedbackSubmitState({
     this.loading = false,
     this.success = false,
-    this.errorMessage,
+    this.error,
   });
 
   final bool loading;
   final bool success;
-  final String? errorMessage;
+  final AppException? error;
+  String? get errorMessage => error?.message;
 
   FeedbackSubmitState copyWith({
     bool? loading,
     bool? success,
-    String? errorMessage,
+    AppException? error,
     bool clearError = false,
   }) => FeedbackSubmitState(
     loading: loading ?? this.loading,
     success: success ?? this.success,
-    errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+    error: clearError ? null : error ?? this.error,
   );
 }
 
@@ -58,9 +61,14 @@ class FeedbackSubmitNotifier extends Notifier<FeedbackSubmitState> {
       ),
       Failure<void>(:final error) => state.copyWith(
         loading: false,
-        errorMessage: error.message,
+        error: error,
       ),
     };
+    if (state.error != null) {
+      ref
+          .read(apiErrorReporterProvider.notifier)
+          .report('反馈提交失败', state.error!);
+    }
     return state.success;
   }
 }

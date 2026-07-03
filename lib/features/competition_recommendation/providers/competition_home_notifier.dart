@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/api_error_reporter.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/competition_recommendation_result.dart';
 import '../../profile/providers/profile_provider.dart';
@@ -30,8 +32,12 @@ class CompetitionHomeEmpty extends CompetitionHomeState {
 }
 
 class CompetitionHomeError extends CompetitionHomeState {
-  final String message;
-  const CompetitionHomeError(this.message);
+  final Object _error;
+  const CompetitionHomeError(this._error);
+
+  AppException get error =>
+      _error is AppException ? _error : ValidationException(_error.toString());
+  String get message => error.message;
 }
 
 class CompetitionHomeNotifier extends Notifier<CompetitionHomeState> {
@@ -60,11 +66,16 @@ class CompetitionHomeNotifier extends Notifier<CompetitionHomeState> {
                 unawaited(
                   ref
                       .read(historyRepositoryProvider)
-                      .addFromCompetitionResult(prompt: prompt, result: data),
+                      .addFromCompetitionResult(prompt: prompt, result: data)
+                      .catchError((Object error, StackTrace stackTrace) {
+                        ref
+                            .read(apiErrorReporterProvider.notifier)
+                            .report('竞赛推荐历史同步失败', error, stackTrace);
+                      }),
                 );
                 return CompetitionHomeResult(data);
               }(),
-      Failure(:final error) => CompetitionHomeError(error.toString()),
+      Failure(:final error) => CompetitionHomeError(error),
     };
   }
 

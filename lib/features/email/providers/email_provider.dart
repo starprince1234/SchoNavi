@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/email_draft.dart';
 import '../../../domain/entities/professor.dart';
@@ -14,19 +15,20 @@ class EmailState {
     required this.professorId,
     required this.status,
     this.draft,
-    this.message,
+    this.error,
   });
 
   const EmailState.initial()
     : professorId = null,
       status = EmailStatus.idle,
       draft = null,
-      message = null;
+      error = null;
 
   final String? professorId;
   final EmailStatus status;
   final EmailDraft? draft;
-  final String? message;
+  final AppException? error;
+  String? get message => error?.message;
 }
 
 class EmailNotifier extends Notifier<EmailState> {
@@ -61,7 +63,7 @@ class EmailNotifier extends Notifier<EmailState> {
       Failure(:final error) => EmailState(
         professorId: professorId,
         status: EmailStatus.error,
-        message: error.message,
+        error: error,
       ),
     };
   }

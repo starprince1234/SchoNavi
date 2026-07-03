@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../domain/entities/competition_recommendation_result.dart';
 import '../../../shared/widgets/recommendation_card_data.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/swipe_card_carousel.dart';
 import '../../../shared/widgets/swipe_recommendation_card.dart';
 import '../mappers/competition_card_mapper.dart';
@@ -51,7 +53,7 @@ class CompetitionHomeResultView extends StatelessWidget {
       CompetitionHomeLoading(:final prompt) => _buildLoading(context, prompt),
       CompetitionHomeResult(:final data) => _buildResult(context, data),
       CompetitionHomeEmpty() => _buildEmpty(context),
-      CompetitionHomeError(:final message) => _buildError(context, message),
+      CompetitionHomeError(:final error) => _buildError(context, error),
     };
   }
 
@@ -67,12 +69,12 @@ class CompetitionHomeResultView extends StatelessWidget {
             children: [
               Icon(Icons.auto_awesome, size: 18, color: AppColors.indigo),
               const SizedBox(width: 8),
-	              Text(
-	                '正在为你匹配竞赛…',
-	                style: Theme.of(
-	                  context,
-	                ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-	              ),
+              Text(
+                '正在为你匹配竞赛…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(width: 12),
               SizedBox(
                 width: 14,
@@ -161,12 +163,12 @@ class CompetitionHomeResultView extends StatelessWidget {
         children: [
           _UserMessageBubble(text: prompt),
           const SizedBox(height: 16),
-	          Text(
-	            '暂无匹配竞赛，试试调整条件',
-	            style: Theme.of(
-	              context,
-	            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-	          ),
+          Text(
+            '暂无匹配竞赛，试试调整条件',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
           const SizedBox(height: 16),
           OutlinedButton(onPressed: onAdjust, child: const Text('调整条件')),
         ],
@@ -174,24 +176,19 @@ class CompetitionHomeResultView extends StatelessWidget {
     );
   }
 
-  Widget _buildError(BuildContext context, String message) {
+  Widget _buildError(BuildContext context, AppException error) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _UserMessageBubble(text: prompt),
           const SizedBox(height: 16),
-          Text(
-            message,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: prompt == null ? null : () async => onRetry(prompt!),
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('重试'),
+          ErrorView(
+            error: error,
+            onRetry: () {
+              final retryPrompt = prompt;
+              if (retryPrompt != null) onRetry(retryPrompt);
+            },
           ),
         ],
       ),
@@ -220,10 +217,10 @@ class _UserMessageBubble extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: width),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-	          decoration: BoxDecoration(
-	            color: AppColors.indigoSoftOf(isDark),
-	            borderRadius: BorderRadius.circular(14),
-	          ),
+          decoration: BoxDecoration(
+            color: AppColors.indigoSoftOf(isDark),
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Text(content, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ),

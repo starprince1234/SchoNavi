@@ -98,8 +98,8 @@ class _EmailPageState extends ConsumerState<EmailPage> {
       appBar: AppBar(title: const Text('套磁邮件')),
       body: professorAsync.when(
         loading: () => const LoadingView(),
-        error: (error, _) => ErrorView(
-          message: error is AppException ? error.message : '出错了，请稍后重试',
+        error: (error, stackTrace) => ErrorView(
+          error: normalizeAppException(error, stackTrace),
           onRetry: () => ref.invalidate(professorProvider(widget.professorId)),
         ),
         data: (professor) => _buildBody(professor, email),
@@ -115,7 +115,7 @@ class _EmailPageState extends ConsumerState<EmailPage> {
       ),
       EmailStatus.generating => const LoadingView(),
       EmailStatus.error => ErrorView(
-        message: email.message ?? '生成失败，请重试',
+        error: email.error ?? const UnknownException(message: '生成失败，请重试'),
         onRetry: () => _generate(professor),
       ),
       EmailStatus.ready => _DraftForm(

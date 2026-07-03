@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/launcher/link_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/match_level.dart';
 import '../../../domain/entities/recommended_competition.dart';
 import '../../../shared/widgets/bento_tile.dart';
 import '../../../shared/widgets/match_level_chip.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../../preparation/providers/preparation_providers.dart';
 import '../widgets/competition_ai_tips_block.dart';
 import '../widgets/competition_fact_block.dart';
@@ -49,13 +51,11 @@ class CompetitionDetailPage extends ConsumerWidget {
         appBar: AppBar(title: const Text('竞赛详情')),
         body: const Center(child: CircularProgressIndicator()),
       ),
-      error: (_, _) => Scaffold(
+      error: (error, stackTrace) => Scaffold(
         appBar: AppBar(title: const Text('竞赛详情')),
-        body: Center(
-          child: Text(
-            '竞赛信息加载失败，请稍后重试',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
+        body: ErrorView(
+          error: normalizeAppException(error, stackTrace),
+          onRetry: () => ref.invalidate(competitionByIdProvider(competitionId)),
         ),
       ),
     );
@@ -115,12 +115,12 @@ class _CompetitionDetailBody extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 6),
-	                          Text(
-	                            '${merged.category} / ${merged.level}',
-	                            style: theme.textTheme.bodySmall?.copyWith(
-	                              color: scheme.onSurfaceVariant,
-	                            ),
-	                          ),
+                          Text(
+                            '${merged.category} / ${merged.level}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
                     ),

@@ -64,8 +64,8 @@ class _MatchPageState extends ConsumerState<MatchPage> {
       appBar: AppBar(title: const Text('匹配分析')),
       body: professorAsync.when(
         loading: () => const LoadingView(),
-        error: (error, _) => ErrorView(
-          message: error is AppException ? error.message : '出错了，请稍后重试',
+        error: (error, stackTrace) => ErrorView(
+          error: normalizeAppException(error, stackTrace),
           onRetry: () => ref.invalidate(professorProvider(widget.professorId)),
         ),
         data: (professor) => _buildBody(professor, match),
@@ -81,7 +81,7 @@ class _MatchPageState extends ConsumerState<MatchPage> {
       ),
       MatchStatus.analyzing => const LoadingView(label: '正在分析匹配情况...'),
       MatchStatus.error => ErrorView(
-        message: match.message ?? '分析失败，请重试',
+        error: match.error ?? const UnknownException(message: '分析失败，请重试'),
         onRetry: () => _analyze(professor),
       ),
       MatchStatus.ready => _AnalysisView(

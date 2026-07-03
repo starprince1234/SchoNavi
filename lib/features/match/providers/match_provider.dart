@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/match_analysis.dart';
 import '../../../domain/entities/professor.dart';
@@ -14,19 +15,20 @@ class MatchState {
     required this.professorId,
     required this.status,
     this.analysis,
-    this.message,
+    this.error,
   });
 
   const MatchState.initial()
     : professorId = null,
       status = MatchStatus.idle,
       analysis = null,
-      message = null;
+      error = null;
 
   final String? professorId;
   final MatchStatus status;
   final MatchAnalysis? analysis;
-  final String? message;
+  final AppException? error;
+  String? get message => error?.message;
 }
 
 class MatchNotifier extends Notifier<MatchState> {
@@ -58,7 +60,7 @@ class MatchNotifier extends Notifier<MatchState> {
       Failure(:final error) => MatchState(
         professorId: professorId,
         status: MatchStatus.error,
-        message: error.message,
+        error: error,
       ),
     };
   }

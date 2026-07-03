@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/error/app_exception.dart';
 import '../../../core/result/result.dart';
 import '../../../domain/entities/comparison_report.dart';
 import '../../../domain/entities/professor.dart';
@@ -12,19 +13,20 @@ class CompareState {
     required this.status,
     this.professors = const [],
     this.report,
-    this.message,
+    this.error,
   });
 
   const CompareState.loading()
     : status = CompareStatus.loading,
       professors = const [],
       report = null,
-      message = null;
+      error = null;
 
   final CompareStatus status;
   final List<Professor> professors;
   final ComparisonReport? report;
-  final String? message;
+  final AppException? error;
+  String? get message => error?.message;
 }
 
 /// 对比页状态。单屏一次一份对比，故用全局 Notifier + load(ids) 驱动。
@@ -46,7 +48,7 @@ class CompareNotifier extends Notifier<CompareState> {
       ),
       Failure(:final error) => CompareState(
         status: CompareStatus.error,
-        message: error.message,
+        error: error,
       ),
     };
   }
