@@ -73,8 +73,12 @@ class ConversationFailed extends ConversationEvent {
     required super.revision,
     required this.message,
     this.code,
+    this.requestId,
+    this.path,
   });
 
   final String message;
   final String? code;
+  final String? requestId;
+  final String? path;
 }

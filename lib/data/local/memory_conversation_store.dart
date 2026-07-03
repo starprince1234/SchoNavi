@@ -192,11 +192,7 @@ class MemoryConversationStore implements ConversationStore {
     );
     _turns[turnId] = turn;
     _attempts[attemptId] = attempt;
-    _insertMessage(
-      sessionId: session.id,
-      turnId: turnId,
-      message: userMessage,
-    );
+    _insertMessage(sessionId: session.id, turnId: turnId, message: userMessage);
     if (session.title == null || session.title!.trim().isEmpty) {
       _sessions[session.id] = _copySession(
         session,
@@ -291,10 +287,7 @@ class MemoryConversationStore implements ConversationStore {
         attemptId: attempt.id,
         message: message,
       );
-      _attempts[attempt.id] = _copyAttempt(
-        attempt,
-        assistantMessage: message,
-      );
+      _attempts[attempt.id] = _copyAttempt(attempt, assistantMessage: message);
     }
     await failAttempt(
       turnId: attempt.turnId,
@@ -376,22 +369,28 @@ class MemoryConversationStore implements ConversationStore {
   }
 
   @override
-  Future<List<ConversationSession>> listSessions({bool rootsOnly = true}) async {
-    final result = _sessions.values.where((session) {
-      return !session.isDeleted &&
-          (!rootsOnly || session.kind != ConversationSessionKind.fork);
-    }).toList(growable: false);
+  Future<List<ConversationSession>> listSessions({
+    bool rootsOnly = true,
+  }) async {
+    final result = _sessions.values
+        .where((session) {
+          return !session.isDeleted &&
+              (!rootsOnly || session.kind != ConversationSessionKind.fork);
+        })
+        .toList(growable: false);
     result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return result;
   }
 
   @override
   Future<List<ConversationSession>> listForks(String rootSessionId) async {
-    final result = _sessions.values.where((session) {
-      return !session.isDeleted &&
-          session.rootSessionId == rootSessionId &&
-          session.kind == ConversationSessionKind.fork;
-    }).toList(growable: false);
+    final result = _sessions.values
+        .where((session) {
+          return !session.isDeleted &&
+              session.rootSessionId == rootSessionId &&
+              session.kind == ConversationSessionKind.fork;
+        })
+        .toList(growable: false);
     result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return result;
   }
@@ -476,11 +475,7 @@ class MemoryConversationStore implements ConversationStore {
           createdAt: legacy.createdAt,
           updatedAt: legacy.createdAt,
         );
-        _insertMessage(
-          sessionId: sessionId,
-          turnId: turnId,
-          message: message,
-        );
+        _insertMessage(sessionId: sessionId, turnId: turnId, message: message);
         continue;
       }
       if (turnId == null) continue;
@@ -561,14 +556,16 @@ class MemoryConversationStore implements ConversationStore {
     final activeAttempts = {
       for (final turn in turns) turn.id: turn.activeAttemptId,
     };
-    final entries = _messageIndex.entries.where((entry) {
-      final index = entry.value;
-      if (!turnIds.contains(index.turnId)) return false;
-      final message = _messages[entry.key];
-      if (message == null) return false;
-      return message.role == ChatRole.user ||
-          index.attemptId == activeAttempts[index.turnId];
-    }).toList(growable: false);
+    final entries = _messageIndex.entries
+        .where((entry) {
+          final index = entry.value;
+          if (!turnIds.contains(index.turnId)) return false;
+          final message = _messages[entry.key];
+          if (message == null) return false;
+          return message.role == ChatRole.user ||
+              index.attemptId == activeAttempts[index.turnId];
+        })
+        .toList(growable: false);
     entries.sort((a, b) => a.value.position.compareTo(b.value.position));
     return entries
         .map((entry) => _messages[entry.key])
@@ -582,7 +579,8 @@ class MemoryConversationStore implements ConversationStore {
     required ChatMessage message,
     String? attemptId,
   }) {
-    final position = _messageIndex.values
+    final position =
+        _messageIndex.values
             .where((index) => index.sessionId == sessionId)
             .fold<int>(
               -1,
