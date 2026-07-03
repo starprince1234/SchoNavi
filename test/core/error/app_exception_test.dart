@@ -23,6 +23,7 @@ void main() {
     expect(AppException.fromStatusCode(401), isA<UnauthorizedException>());
     expect(AppException.fromStatusCode(403), isA<ForbiddenException>());
     expect(AppException.fromStatusCode(404), isA<NotFoundException>());
+    expect(AppException.fromStatusCode(409), isA<ConflictException>());
     expect(AppException.fromStatusCode(429), isA<RateLimitException>());
     expect(AppException.fromStatusCode(500), isA<ServerException>());
     expect(AppException.fromStatusCode(418), isA<UnknownException>());
