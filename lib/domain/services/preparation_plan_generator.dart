@@ -3,6 +3,7 @@ import '../entities/preparation_plan.dart';
 import '../entities/preparation_template.dart';
 import '../entities/user_profile.dart';
 import '../repositories/preparation_template_provider.dart';
+import '../../core/ids/uuid_v7.dart';
 import '../../core/result/result.dart';
 import '../../data/ai/ai_preparation_personalizer.dart';
 import 'preparation_scheduler.dart';
@@ -15,10 +16,12 @@ class PreparationPlanGenerator {
   PreparationPlanGenerator({
     required this.templateProvider,
     required this.personalizer,
-  });
+    UuidV7? ids,
+  }) : _ids = ids ?? UuidV7();
 
   final PreparationTemplateProvider templateProvider;
   final PreparationPersonalizer personalizer;
+  final UuidV7 _ids;
 
   /// beginner 在组队/选题阶段追加的额外必做任务（spec §7.1 经验补基础）。
   static const _beginnerExtraTasks = <String, List<PreparationTemplateTask>>{
@@ -251,7 +254,7 @@ class PreparationPlanGenerator {
 
     // 8. 组装计划。
     return PreparationPlan(
-      id: 'pp_${calendarToday.millisecondsSinceEpoch}',
+      id: 'pp_${_ids.generate()}',
       competition: competition,
       targetDate: targetDate,
       timelineType: timelineType,

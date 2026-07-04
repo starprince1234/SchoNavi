@@ -115,13 +115,14 @@ class _PreparationDatePickerSheetState
           }
           break;
         case PreparationDatePickerMode.multiAnchor:
-          if (_deadline == null || (_defense != null && day == _defense)) {
-            if (_defense != null && day == _defense) {
-              _defense = null;
-            } else {
-              _deadline = day;
-            }
-          } else if (_defense == null && day.isAfter(_deadline!)) {
+          if (_deadline != null && day == _deadline) {
+            _deadline = null;
+            _defense = null;
+          } else if (_defense != null && day == _defense) {
+            _defense = null;
+          } else if (_deadline == null) {
+            _deadline = day;
+          } else if (day.isAfter(_deadline!)) {
             _defense = day;
           } else {
             _deadline = day;

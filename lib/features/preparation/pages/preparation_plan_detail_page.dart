@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/calendar_date.dart';
 import '../../../core/haptics/haptics.dart';
@@ -189,6 +190,21 @@ class _PreparationPlanDetailPageState
     return DateTime(now.year, now.month, now.day);
   }
 
+  Widget _backButton() => IconButton(
+    tooltip: '返回',
+    icon: const Icon(Icons.arrow_back),
+    onPressed: _handleBack,
+  );
+
+  void _handleBack() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.maybePop();
+      return;
+    }
+    context.go('/preparation-plans');
+  }
+
   // 阶段允许的截止日期区间（spec §4.5 双段模型）：
   // - defense_prep 阶段：[targetDate+1, defenseDate]（答辩准备在提交后）。
   // - 其它阶段：[today, targetDate]。
@@ -216,7 +232,7 @@ class _PreparationPlanDetailPageState
     final plan = _plan;
     if (plan == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('计划详情')),
+        appBar: AppBar(leading: _backButton(), title: const Text('计划详情')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -229,7 +245,7 @@ class _PreparationPlanDetailPageState
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: () => Navigator.of(context).maybePop(),
+                onPressed: _handleBack,
                 child: const Text('返回'),
               ),
             ],
@@ -239,6 +255,7 @@ class _PreparationPlanDetailPageState
     }
     return Scaffold(
       appBar: AppBar(
+        leading: _backButton(),
         title: Text(plan.competition.name),
         actions: [
           IconButton(
