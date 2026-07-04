@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_surface">#172033</color>
-    <color name="widget_border">#334155</color>
-    <color name="widget_primary">#A5B4FC</color>
-    <color name="widget_secondary">#22D3EE</color>
-    <color name="widget_accent">#FDBA74</color>
-    <color name="widget_text_primary">#F8FAFC</color>
-    <color name="widget_text_secondary">#CBD5E1</color>
-    <color name="widget_chip">#312E81</color>
-    <color name="widget_progress_track">#334155</color>
+    <color name="widget_surface">#0B1224</color>
+    <color name="widget_surface_elevated">#15213B</color>
+    <color name="widget_task_surface">#182640</color>
+    <color name="widget_border">#536884</color>
+    <color name="widget_divider">#34445F</color>
+    <color name="widget_primary">#AAB5FF</color>
+    <color name="widget_countdown">#9FACFF</color>
+    <color name="widget_secondary">#7DD3FC</color>
+    <color name="widget_accent">#FFB35C</color>
+    <color name="widget_text_primary">#F4F7FF</color>
+    <color name="widget_text_secondary">#A9B7CE</color>
+    <color name="widget_chip">#37358E</color>
+    <color name="widget_progress_track">#3C4B67</color>
+    <color name="widget_icon_surface_start">#253B70</color>
+    <color name="widget_icon_surface_end">#172648</color>
+    <color name="widget_icon_border">#4967B7</color>
 </resources>

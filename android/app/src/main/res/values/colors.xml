@@ -4,14 +4,20 @@
     <color name="launch_paper">#FBF8F1</color>
     <!-- 冷调底色（= AppColors.paper #F8FAFC），与应用内 splash 动画底色一致 -->
     <color name="splash_paper">#F8FAFC</color>
-    <!-- Widget 日间调色板（对齐 AppColors 冷调玻璃拟态） -->
-    <color name="widget_surface">#FFFFFF</color>
-    <color name="widget_border">#E2E8F0</color>
-    <color name="widget_primary">#4F46E5</color>
-    <color name="widget_secondary">#0891B2</color>
-    <color name="widget_accent">#C2410C</color>
-    <color name="widget_text_primary">#0F172A</color>
-    <color name="widget_text_secondary">#475569</color>
-    <color name="widget_chip">#E0E7FF</color>
-    <color name="widget_progress_track">#E2E8F0</color>
+    <color name="widget_surface">#0B1224</color>
+    <color name="widget_surface_elevated">#15213B</color>
+    <color name="widget_task_surface">#182640</color>
+    <color name="widget_border">#536884</color>
+    <color name="widget_divider">#34445F</color>
+    <color name="widget_primary">#AAB5FF</color>
+    <color name="widget_countdown">#9FACFF</color>
+    <color name="widget_secondary">#7DD3FC</color>
+    <color name="widget_accent">#FFB35C</color>
+    <color name="widget_text_primary">#F4F7FF</color>
+    <color name="widget_text_secondary">#A9B7CE</color>
+    <color name="widget_chip">#37358E</color>
+    <color name="widget_progress_track">#3C4B67</color>
+    <color name="widget_icon_surface_start">#253B70</color>
+    <color name="widget_icon_surface_end">#172648</color>
+    <color name="widget_icon_border">#4967B7</color>
 </resources>

@@ -6,11 +6,47 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.view.View
 import android.widget.RemoteViews
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+
+internal enum class PreparationWidgetSize {
+    COMPACT_HORIZONTAL,
+    COMPACT_VERTICAL,
+    TALL,
+    WIDE,
+    HERO,
+}
+
+internal fun preparationWidgetSizeFor(minWidth: Int, minHeight: Int): PreparationWidgetSize = when {
+    minWidth <= 0 || minHeight <= 0 -> PreparationWidgetSize.COMPACT_HORIZONTAL
+    minWidth < 100 && minHeight >= minWidth -> PreparationWidgetSize.COMPACT_VERTICAL
+    minHeight < 100 -> PreparationWidgetSize.COMPACT_HORIZONTAL
+    minWidth < 100 -> PreparationWidgetSize.COMPACT_VERTICAL
+    minWidth < 180 && minHeight <= minWidth + 32 -> PreparationWidgetSize.COMPACT_HORIZONTAL
+    minWidth < 180 && minHeight < 250 -> PreparationWidgetSize.COMPACT_VERTICAL
+    minWidth < 180 -> PreparationWidgetSize.TALL
+    minHeight < 180 -> PreparationWidgetSize.WIDE
+    minWidth < 250 -> PreparationWidgetSize.TALL
+    else -> PreparationWidgetSize.HERO
+}
+
+internal fun countdownNumberRange(text: String): IntRange? {
+    val start = text.indexOfFirst(Char::isDigit)
+    if (start < 0) return null
+    var end = start
+    while (end + 1 < text.length && text[end + 1].isDigit()) end++
+    return start..end
+}
 
 class PreparationWidgetProvider : AppWidgetProvider() {
     companion object {
@@ -74,44 +110,61 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         val hasPhaseText: Boolean,
         val hasStreak: Boolean,
         val hasTaskDetails: Boolean,
-        val hasPhaseRow: Boolean,
+        val compact: Boolean,
     )
 
-    private fun layoutFor(options: Bundle): WidgetLayout {
+    private fun layoutFor(context: Context, options: Bundle): WidgetLayout {
         val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        val maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0)
         val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        return when {
-            minWidth < 180 || minHeight < 110 -> WidgetLayout(
+        val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        // The launcher reports MIN/MAX as the range across orientations: portrait is
+        // the narrow+tall pair (MIN_WIDTH × MAX_HEIGHT), landscape the wide+short pair.
+        // Reading MIN_HEIGHT alone makes a tall portrait widget look short and pick a
+        // horizontal layout, so use the current orientation's actual footprint instead.
+        val landscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val width = ((if (landscape) maxWidth else minWidth)).takeIf { it > 0 } ?: maxOf(minWidth, maxWidth)
+        val height = ((if (landscape) minHeight else maxHeight)).takeIf { it > 0 } ?: maxOf(minHeight, maxHeight)
+        return when (preparationWidgetSizeFor(width, height)) {
+            PreparationWidgetSize.COMPACT_HORIZONTAL -> WidgetLayout(
                 resourceId = R.layout.preparation_widget_micro,
                 hasPosition = false,
-                hasPhaseText = false,
+                hasPhaseText = true,
                 hasStreak = false,
                 hasTaskDetails = false,
-                hasPhaseRow = false,
+                compact = true,
             )
-            minWidth < 250 -> WidgetLayout(
+            PreparationWidgetSize.COMPACT_VERTICAL -> WidgetLayout(
+                resourceId = R.layout.preparation_widget_micro_vertical,
+                hasPosition = false,
+                hasPhaseText = true,
+                hasStreak = false,
+                hasTaskDetails = false,
+                compact = true,
+            )
+            PreparationWidgetSize.TALL -> WidgetLayout(
                 resourceId = R.layout.preparation_widget_small,
                 hasPosition = true,
                 hasPhaseText = true,
                 hasStreak = true,
                 hasTaskDetails = true,
-                hasPhaseRow = false,
+                compact = false,
             )
-            minHeight < 180 -> WidgetLayout(
+            PreparationWidgetSize.WIDE -> WidgetLayout(
                 resourceId = R.layout.preparation_widget_wide,
                 hasPosition = true,
                 hasPhaseText = true,
                 hasStreak = true,
                 hasTaskDetails = true,
-                hasPhaseRow = false,
+                compact = false,
             )
-            else -> WidgetLayout(
+            PreparationWidgetSize.HERO -> WidgetLayout(
                 resourceId = R.layout.preparation_widget_hero,
                 hasPosition = true,
-                hasPhaseText = false,
+                hasPhaseText = true,
                 hasStreak = true,
                 hasTaskDetails = true,
-                hasPhaseRow = true,
+                compact = false,
             )
         }
     }
@@ -124,10 +177,10 @@ class PreparationWidgetProvider : AppWidgetProvider() {
     ) {
         val snapshot = ReminderStorage.loadSnapshot(context)
         val options = manager.getAppWidgetOptions(appWidgetId)
-        val layout = layoutFor(options)
+        val layout = layoutFor(context, options)
         val views = RemoteViews(context.packageName, layout.resourceId)
         if (snapshot.plans.isEmpty()) {
-            renderEmpty(context, views, appWidgetId)
+            renderEmpty(context, views, appWidgetId, layout.compact)
             manager.updateAppWidget(appWidgetId, views)
             return
         }
@@ -152,23 +205,22 @@ class PreparationWidgetProvider : AppWidgetProvider() {
 
         views.setViewVisibility(R.id.widget_empty_group, View.GONE)
         views.setViewVisibility(R.id.widget_content_group, View.VISIBLE)
-        views.setTextViewText(R.id.widget_competition, plan.competitionName)
+        views.setTextViewText(
+            R.id.widget_competition,
+            if (layout.compact) compactCompetitionName(plan.competitionName) else plan.competitionName,
+        )
         if (layout.hasPosition) {
             views.setTextViewText(
                 R.id.widget_position,
                 if (snapshot.plans.size > 1) "${index + 1}/${snapshot.plans.size}" else "备赛中",
             )
         }
-        views.setTextViewText(
-            R.id.widget_countdown,
-            when {
-                days > 0 -> "D-$days"
-                days == 0 -> "今天比赛"
-                else -> "已过 ${-days} 天"
-            },
-        )
+        views.setTextViewText(R.id.widget_countdown, buildCountdown(context, days))
         if (layout.hasPhaseText) {
-            views.setTextViewText(R.id.widget_phase, "当前阶段 · ${plan.currentPhase}")
+            views.setTextViewText(
+                R.id.widget_phase,
+                if (layout.compact) compactPhaseLabel(plan.currentPhase) else "当前阶段 · ${plan.currentPhase}",
+            )
         }
         if (layout.hasStreak) {
             views.setTextViewText(
@@ -193,7 +245,7 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         views.setProgressBar(R.id.widget_progress, 100, progress, false)
         views.setTextViewText(
             R.id.widget_progress_text,
-            "${plan.completedTasks}/${plan.totalTasks} · $progress%",
+            if (layout.compact) "$progress%" else "${plan.completedTasks}/${plan.totalTasks} · $progress%",
         )
         val openPlan = routePendingIntent(context, appWidgetId, "/preparation-plans/${plan.planId}")
         views.setOnClickPendingIntent(R.id.widget_root, openPlan)
@@ -201,60 +253,39 @@ class PreparationWidgetProvider : AppWidgetProvider() {
             R.id.widget_root,
             "${plan.competitionName}，${viewsCountdown(days)}，下一项${plan.nextTaskTitle ?: "任务已完成"}",
         )
-        if (layout.hasPhaseRow) {
-            bindPhaseRow(context, views, plan)
-        }
         manager.updateAppWidget(appWidgetId, views)
     }
 
-    private fun bindPhaseRow(context: Context, views: RemoteViews, plan: ReminderPlan) {
-        val phases = plan.phases
-        val phaseViewIds = intArrayOf(
-            R.id.widget_phase_0, R.id.widget_phase_1, R.id.widget_phase_2,
-            R.id.widget_phase_3, R.id.widget_phase_4,
-        )
-        val labelViewIds = intArrayOf(
-            R.id.widget_phase_label_0, R.id.widget_phase_label_1, R.id.widget_phase_label_2,
-            R.id.widget_phase_label_3, R.id.widget_phase_label_4,
-        )
-        for (i in phaseViewIds.indices) {
-            if (i < phases.size) {
-                val phase = phases[i]
-                views.setViewVisibility(phaseViewIds[i], View.VISIBLE)
-                views.setViewVisibility(labelViewIds[i], View.VISIBLE)
-                val drawable = when (phase.status) {
-                    "completed" -> R.drawable.preparation_widget_phase_done
-                    "active" -> R.drawable.preparation_widget_phase_active
-                    else -> R.drawable.preparation_widget_phase_upcoming
-                }
-                views.setInt(phaseViewIds[i], "setBackgroundResource", drawable)
-                views.setTextViewText(labelViewIds[i], phase.title)
-                views.setTextColor(
-                    labelViewIds[i],
-                    if (phase.status == "active") {
-                        context.getColor(R.color.widget_primary)
-                    } else {
-                        context.getColor(R.color.widget_text_secondary)
-                    },
-                )
-            } else {
-                views.setViewVisibility(phaseViewIds[i], View.INVISIBLE)
-                views.setViewVisibility(labelViewIds[i], View.INVISIBLE)
-            }
-        }
-    }
-
-    private fun renderEmpty(context: Context, views: RemoteViews, appWidgetId: Int) {
+    private fun renderEmpty(
+        context: Context,
+        views: RemoteViews,
+        appWidgetId: Int,
+        compact: Boolean,
+    ) {
         views.setViewVisibility(R.id.widget_content_group, View.GONE)
         views.setViewVisibility(R.id.widget_empty_group, View.VISIBLE)
-        views.setTextViewText(R.id.widget_empty_title, "还没有进行中的备赛计划")
-        views.setTextViewText(R.id.widget_empty_action, "打开 SchoNavi 创建计划")
+        views.setTextViewText(
+            R.id.widget_empty_title,
+            if (compact) "暂无计划" else "还没有进行中的备赛计划",
+        )
+        views.setTextViewText(
+            R.id.widget_empty_action,
+            if (compact) "打开创建" else "打开 SchoNavi 创建计划",
+        )
         views.setOnClickPendingIntent(
             R.id.widget_root,
             routePendingIntent(context, appWidgetId, "/preparation-plans"),
         )
         views.setContentDescription(R.id.widget_root, "还没有进行中的备赛计划，点击打开 SchoNavi")
     }
+
+    private fun compactCompetitionName(name: String): String {
+        val compact = name.removePrefix("全国大学生").removeSuffix("竞赛").trim()
+        return compact.ifBlank { name }.take(6)
+    }
+
+    private fun compactPhaseLabel(phase: String): String =
+        if (phase.endsWith("中")) phase else "${phase}中"
 
     private fun routePendingIntent(
         context: Context,
@@ -289,6 +320,30 @@ class PreparationWidgetProvider : AppWidgetProvider() {
         days > 0 -> "距离目标还有$days 天"
         days == 0 -> "今天比赛"
         else -> "目标日期已过${-days}天"
+    }
+
+    private fun buildCountdown(context: Context, days: Int): CharSequence {
+        val text = when {
+            days > 0 -> "D-$days"
+            days == 0 -> "今天比赛"
+            else -> "已过 ${-days} 天"
+        }
+        val spannable = SpannableString(text)
+        val range = countdownNumberRange(text)
+        if (range == null) {
+            spannable.setSpan(StyleSpan(Typeface.BOLD), 0, text.length, Spannable.SPAN_INCLUSIVE_EXCLUSIVE)
+            return spannable
+        }
+        spannable.setSpan(StyleSpan(Typeface.BOLD), range.first, range.last + 1, Spannable.SPAN_INCLUSIVE_EXCLUSIVE)
+        val affixColor = context.getColor(R.color.widget_text_secondary)
+        fun dimAffix(start: Int, end: Int) {
+            if (start >= end) return
+            spannable.setSpan(RelativeSizeSpan(0.46f), start, end, Spannable.SPAN_INCLUSIVE_EXCLUSIVE)
+            spannable.setSpan(ForegroundColorSpan(affixColor), start, end, Spannable.SPAN_INCLUSIVE_EXCLUSIVE)
+        }
+        dimAffix(0, range.first)
+        dimAffix(range.last + 1, text.length)
+        return spannable
     }
 
     private fun parseDay(value: String): LocalDate? = try {
