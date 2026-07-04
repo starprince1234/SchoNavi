@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scho_navi/core/di/providers.dart';
 import 'package:scho_navi/core/platform/preparation_reminder_platform.dart';
@@ -111,6 +112,46 @@ void main() {
     expect(find.textContaining('剩余'), findsOneWidget);
     expect(find.text('组队'), findsOneWidget);
     expect(find.text('组建队伍'), findsOneWidget);
+  });
+
+  testWidgets('小组件直达详情页时 AppBar 返回到我的备赛列表', (t) async {
+    final container = await bootstrap();
+    await container.read(preparationPlanRepositoryProvider).save(_plan());
+    final router = GoRouter(
+      initialLocation: '/preparation-plans/p1',
+      routes: [
+        GoRoute(
+          path: '/preparation-plans',
+          builder: (_, _) => const Scaffold(body: Text('我的备赛列表')),
+        ),
+        GoRoute(
+          path: '/preparation-plans/:id',
+          builder: (_, state) => PreparationPlanDetailPage(
+            planId: state.pathParameters['id']!,
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await t.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    final backButton = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byTooltip('返回'),
+    );
+    expect(backButton, findsOneWidget);
+
+    await t.tap(backButton);
+    await t.pumpAndSettle();
+
+    expect(find.text('我的备赛列表'), findsOneWidget);
   });
 
   testWidgets('勾选任务标记完成', (t) async {

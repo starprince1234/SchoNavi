@@ -7,6 +7,7 @@ Future<void> _openPicker(
   PreparationDatePickerMode mode, {
   required DateTime firstDate,
   required DateTime lastDate,
+  PreparationDateSelection? initial,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -19,6 +20,7 @@ Future<void> _openPicker(
                 mode: mode,
                 firstDate: firstDate,
                 lastDate: lastDate,
+                initial: initial,
               ),
               child: const Text('open'),
             ),
@@ -29,6 +31,12 @@ Future<void> _openPicker(
   );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
+}
+
+Future<void> _tapDay(WidgetTester tester, String day) async {
+  await tester.tap(
+    find.ancestor(of: find.text(day), matching: find.byType(GestureDetector)),
+  );
 }
 
 void main() {
@@ -73,6 +81,81 @@ void main() {
       find.widgetWithText(FilledButton, '确认'),
     );
     expect((confirm.onPressed == null), isFalse);
+  });
+
+  testWidgets('multiAnchor 点击已选 DDL 会清空并禁用确认', (tester) async {
+    await _openPicker(
+      tester,
+      PreparationDatePickerMode.multiAnchor,
+      firstDate: DateTime(2026, 5, 1),
+      lastDate: DateTime(2026, 7, 31),
+      initial: PreparationDateSelection(deadline: DateTime(2026, 5, 20)),
+    );
+    expect(find.text('提交 DDL：2026-05-20 · 答辩：无'), findsOneWidget);
+
+    await _tapDay(tester, '20');
+    await tester.pump();
+
+    expect(find.text('提交 DDL：未选 · 答辩：无'), findsOneWidget);
+    var confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认'),
+    );
+    expect(confirm.onPressed, isNull);
+
+    await _tapDay(tester, '21');
+    await tester.pump();
+
+    expect(find.text('提交 DDL：2026-05-21 · 答辩：无'), findsOneWidget);
+    confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认'),
+    );
+    expect(confirm.onPressed, isNotNull);
+  });
+
+  testWidgets('multiAnchor 点击已选答辩日只清空答辩并保留 DDL', (tester) async {
+    late PreparationDateSelection? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Center(
+              child: ElevatedButton(
+                onPressed: () async {
+                  result = await showPreparationDatePicker(
+                    context: context,
+                    mode: PreparationDatePickerMode.multiAnchor,
+                    firstDate: DateTime(2026, 5, 1),
+                    lastDate: DateTime(2026, 7, 31),
+                    initial: PreparationDateSelection(
+                      deadline: DateTime(2026, 5, 20),
+                      defense: DateTime(2026, 5, 21),
+                    ),
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await _tapDay(tester, '21');
+    await tester.pump();
+
+    expect(find.text('提交 DDL：2026-05-20 · 答辩：无'), findsOneWidget);
+    final confirm = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确认'),
+    );
+    expect(confirm.onPressed, isNotNull);
+
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+
+    expect(result?.deadline, DateTime(2026, 5, 20));
+    expect(result?.defense, isNull);
   });
 
   testWidgets('返回值经规范化为本地零点', (tester) async {

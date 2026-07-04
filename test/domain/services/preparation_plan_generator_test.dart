@@ -1,6 +1,7 @@
 // test/domain/services/preparation_plan_generator_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scho_navi/core/error/app_exception.dart';
+import 'package:scho_navi/core/ids/uuid_v7.dart';
 import 'package:scho_navi/core/result/result.dart';
 import 'package:scho_navi/data/ai/ai_preparation_personalizer.dart';
 import 'package:scho_navi/data/fixtures/preparation_templates.dart';
@@ -51,6 +52,13 @@ class _FailPersonalizer implements PreparationPersonalizer {
   }) async => const Failure(ServerException());
 }
 
+class _SequenceIds extends UuidV7 {
+  var _next = 0;
+
+  @override
+  String generate() => 'id_${_next++}';
+}
+
 CompetitionSnapshot _comp() => CompetitionSnapshot(
   id: 'comp_icpc',
   name: 'ACM-ICPC',
@@ -66,6 +74,34 @@ CompetitionSnapshot _comp() => CompetitionSnapshot(
 );
 
 void main() {
+  test('相同 calendarToday 连续生成不同计划 id 且 revision 为 0', () async {
+    final g = PreparationPlanGenerator(
+      templateProvider: _StaticProvider(),
+      personalizer: _FailPersonalizer(),
+      ids: _SequenceIds(),
+    );
+    Future<PreparationPlan> generate() => g.generate(
+      competition: _comp(),
+      timelineType: CompetitionTimelineType.submission,
+      targetDate: DateTime(2026, 9, 1),
+      eventEndDate: null,
+      defenseDate: null,
+      weeklyCommitment: WeeklyCommitment.hours6to10,
+      experienceLevel: ExperienceLevel.beginner,
+      calendarToday: DateTime(2026, 6, 28),
+      profile: null,
+    );
+
+    final first = await generate();
+    final second = await generate();
+
+    expect(first.id, startsWith('pp_'));
+    expect(second.id, startsWith('pp_'));
+    expect(first.id, isNot(second.id));
+    expect(first.revision, 0);
+    expect(second.revision, 0);
+  });
+
   test('生成含 5 阶段 + 必做任务 + 排期日期', () async {
     final g = PreparationPlanGenerator(
       templateProvider: _StaticProvider(),
